@@ -14,8 +14,10 @@ import {
   mockGroups as initialGroups,
   mockTeams as initialTeams,
   mockPlayers as initialPlayers,
+  mockMatchDays as initialMatchDays,
+  mockGames as initialGames,
 } from '@/mock/data'
-import type { Club, Season, Phase, Group, Team, Player } from '@/types'
+import type { Club, Season, Phase, Group, Team, Player, MatchDay, Game } from '@/types'
 
 interface MockDataState {
   divisions: Division[]
@@ -25,6 +27,8 @@ interface MockDataState {
   groups: Group[]
   teams: Team[]
   players: Player[]
+  matchDays: MatchDay[]
+  games: Game[]
 }
 
 function nextId(prefix: string): string {
@@ -48,6 +52,12 @@ interface MockDataContextValue extends MockDataState {
   moveDivisionDown: (divisionId: string) => void
   updatePlayer: (id: string, patch: Partial<Player>) => void
   addPlayer: (data: Omit<Player, 'id'>) => Player
+  matchDays: MatchDay[]
+  games: Game[]
+  updateMatchDay: (id: string, patch: Partial<MatchDay>) => void
+  addMatchDay: (data: Omit<MatchDay, 'id'>) => MatchDay
+  updateGame: (id: string, patch: Partial<Game>) => void
+  addGame: (data: Omit<Game, 'id'>) => Game
 }
 
 const MockDataContext = createContext<MockDataContextValue | null>(null)
@@ -60,6 +70,8 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<Group[]>(initialGroups)
   const [teams, setTeams] = useState<Team[]>(initialTeams)
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
+  const [matchDays, setMatchDays] = useState<MatchDay[]>(initialMatchDays)
+  const [games, setGames] = useState<Game[]>(initialGames)
 
   const updateDivision = useCallback((id: string, patch: Partial<Division>) => {
     setDivisions((prev) =>
@@ -180,6 +192,32 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
     return player
   }, [])
 
+  const updateMatchDay = useCallback((id: string, patch: Partial<MatchDay>) => {
+    setMatchDays((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    )
+  }, [])
+
+  const addMatchDay = useCallback((data: Omit<MatchDay, 'id'>) => {
+    const id = nextId('md')
+    const matchDay: MatchDay = { ...data, id }
+    setMatchDays((prev) => [...prev, matchDay])
+    return matchDay
+  }, [])
+
+  const updateGame = useCallback((id: string, patch: Partial<Game>) => {
+    setGames((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, ...patch } : g))
+    )
+  }, [])
+
+  const addGame = useCallback((data: Omit<Game, 'id'>) => {
+    const id = nextId('game')
+    const game: Game = { ...data, id }
+    setGames((prev) => [...prev, game])
+    return game
+  }, [])
+
   const value = useMemo<MockDataContextValue>(
     () => ({
       divisions,
@@ -189,6 +227,8 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       groups,
       teams,
       players,
+      matchDays,
+      games,
       updateDivision,
       updateClub,
       updateSeason,
@@ -205,6 +245,10 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       moveDivisionDown,
       updatePlayer,
       addPlayer,
+      updateMatchDay,
+      addMatchDay,
+      updateGame,
+      addGame,
     }),
     [
       divisions,
@@ -214,6 +258,8 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       groups,
       teams,
       players,
+      matchDays,
+      games,
       updateDivision,
       updateClub,
       updateSeason,
@@ -230,6 +276,10 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       moveDivisionDown,
       updatePlayer,
       addPlayer,
+      updateMatchDay,
+      addMatchDay,
+      updateGame,
+      addGame,
     ]
   )
 
