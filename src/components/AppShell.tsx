@@ -52,6 +52,9 @@ export function AppShell() {
                 <Link to="/equipes" className={navLinkClass(location.pathname === '/equipes')}>
                   Équipes
                 </Link>
+                <Link to="/journees" className={navLinkClass(location.pathname === '/journees')}>
+                  Journées
+                </Link>
               </>
             )}
             {isClubAdmin && !isGeneralAdmin && (

@@ -78,7 +78,7 @@ export interface Team {
 
 export interface MatchDay {
   id: string
-  phaseId: string
+  groupId: string
   number: number
   date: string
 }

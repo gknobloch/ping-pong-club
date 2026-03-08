@@ -76,8 +76,8 @@ export const mockTeams: Team[] = [
 ]
 
 export const mockMatchDays: MatchDay[] = [
-  { id: 'md-1', phaseId: 'phase-1', number: 1, date: '2025-10-02' },
-  { id: 'md-2', phaseId: 'phase-1', number: 2, date: '2025-10-09' },
+  { id: 'md-1', groupId: 'group-1', number: 1, date: '2025-10-02' },
+  { id: 'md-2', groupId: 'group-1', number: 2, date: '2025-10-09' },
 ]
 
 export const mockGames: Game[] = [
