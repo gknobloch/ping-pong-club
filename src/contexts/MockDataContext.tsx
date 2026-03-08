@@ -16,8 +16,21 @@ import {
   mockPlayers as initialPlayers,
   mockMatchDays as initialMatchDays,
   mockGames as initialGames,
+  mockGameAvailabilities as initialGameAvailabilities,
 } from '@/mock/data'
-import type { Club, Season, Phase, Group, Team, Player, MatchDay, Game } from '@/types'
+import type {
+  Club,
+  Season,
+  Phase,
+  Group,
+  Team,
+  Player,
+  MatchDay,
+  Game,
+  GameAvailability,
+  AvailabilityStatus,
+  AvailabilityOverriddenBy,
+} from '@/types'
 
 interface MockDataState {
   divisions: Division[]
@@ -29,6 +42,7 @@ interface MockDataState {
   players: Player[]
   matchDays: MatchDay[]
   games: Game[]
+  gameAvailabilities: GameAvailability[]
 }
 
 function nextId(prefix: string): string {
@@ -58,6 +72,14 @@ interface MockDataContextValue extends MockDataState {
   addMatchDay: (data: Omit<MatchDay, 'id'>) => MatchDay
   updateGame: (id: string, patch: Partial<Game>) => void
   addGame: (data: Omit<Game, 'id'>) => Game
+  gameAvailabilities: GameAvailability[]
+  setGameAvailability: (
+    gameId: string,
+    playerId: string,
+    status: AvailabilityStatus,
+    overriddenBy?: AvailabilityOverriddenBy
+  ) => void
+  clearGameAvailability: (gameId: string, playerId: string) => void
 }
 
 const MockDataContext = createContext<MockDataContextValue | null>(null)
@@ -72,6 +94,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
   const [matchDays, setMatchDays] = useState<MatchDay[]>(initialMatchDays)
   const [games, setGames] = useState<Game[]>(initialGames)
+  const [gameAvailabilities, setGameAvailabilities] = useState<GameAvailability[]>(
+    initialGameAvailabilities
+  )
 
   const updateDivision = useCallback((id: string, patch: Partial<Division>) => {
     setDivisions((prev) =>
@@ -218,6 +243,39 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
     return game
   }, [])
 
+  const setGameAvailability = useCallback(
+    (
+      gameId: string,
+      playerId: string,
+      status: AvailabilityStatus,
+      overriddenBy?: AvailabilityOverriddenBy
+    ) => {
+      setGameAvailabilities((prev) => {
+        const existing = prev.find(
+          (a) => a.gameId === gameId && a.playerId === playerId
+        )
+        if (existing) {
+          return prev.map((a) =>
+            a.id === existing.id
+              ? { ...a, status, overriddenBy }
+              : a
+          )
+        }
+        return [
+          ...prev,
+          { id: nextId('avail'), gameId, playerId, status, overriddenBy },
+        ]
+      })
+    },
+    []
+  )
+
+  const clearGameAvailability = useCallback((gameId: string, playerId: string) => {
+    setGameAvailabilities((prev) =>
+      prev.filter((a) => !(a.gameId === gameId && a.playerId === playerId))
+    )
+  }, [])
+
   const value = useMemo<MockDataContextValue>(
     () => ({
       divisions,
@@ -249,6 +307,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       addMatchDay,
       updateGame,
       addGame,
+      gameAvailabilities,
+      setGameAvailability,
+      clearGameAvailability,
     }),
     [
       divisions,
@@ -280,6 +341,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       addMatchDay,
       updateGame,
       addGame,
+      gameAvailabilities,
+      setGameAvailability,
+      clearGameAvailability,
     ]
   )
 

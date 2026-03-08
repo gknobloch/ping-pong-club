@@ -27,19 +27,24 @@ export function PlayersPage() {
   })
 
   const isClubAdmin = user?.role === 'club_admin'
+  const hasClubScope =
+    (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') &&
+    (user?.clubIds?.length ?? 0) > 0
   const adminClubIds = user?.clubIds ?? []
 
   const players = useMemo(() => {
-    if (isClubAdmin && adminClubIds.length) {
-      return allPlayers.filter((p) => adminClubIds.includes(p.clubId))
+    if (hasClubScope && adminClubIds.length) {
+      return allPlayers.filter((p) => p.clubId && adminClubIds.includes(p.clubId))
     }
     return allPlayers
-  }, [allPlayers, isClubAdmin, adminClubIds])
+  }, [allPlayers, hasClubScope, adminClubIds])
 
   const clubsForSelect =
-    isClubAdmin && adminClubIds.length
+    hasClubScope && adminClubIds.length
       ? clubs.filter((c) => adminClubIds.includes(c.id))
       : clubs
+
+  const canEditPlayers = user?.role === 'general_admin' || isClubAdmin
 
   const adminClubNames = adminClubIds
     .map((id) => clubs.find((c) => c.id === id)?.displayName)
@@ -122,17 +127,19 @@ export function PlayersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-800">Joueurs</h1>
-          {isClubAdmin && adminClubNames && (
+          {hasClubScope && adminClubNames && (
             <p className="mt-1 text-sm text-slate-600">Club : {adminClubNames}</p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Ajouter un joueur
-        </button>
+        {canEditPlayers && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Ajouter un joueur
+          </button>
+        )}
       </div>
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
@@ -150,7 +157,7 @@ export function PlayersPage() {
               <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
                 Téléphone
               </th>
-              {!isClubAdmin && (
+              {!hasClubScope && (
                 <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
                   Club
                 </th>
@@ -174,7 +181,7 @@ export function PlayersPage() {
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{player.email}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{player.phone || '—'}</td>
-                {!isClubAdmin && (
+                {!hasClubScope && (
                   <td className="px-4 py-3 text-sm text-slate-600">
                     {getClubName(player.clubId)}
                   </td>
@@ -193,13 +200,15 @@ export function PlayersPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(player)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                  {canEditPlayers && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(player)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
