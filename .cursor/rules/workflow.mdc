@@ -23,4 +23,10 @@ For any new feature or substantial change:
    - All changes that touch `main` must go through a Pull Request from a feature branch.
    - Do not commit to `main` for new features; do not force-push to `main`.
 
-Summary: **Issue first → branch from issue → implement on branch → open PR → merge to main.**
+5. **Clean obsolete branches when going back to main**
+   - After a PR is merged, switch to `main` and pull the latest.
+   - Delete the local feature branch (e.g. `git branch -d 2-initial-app`).
+   - Delete the remote branch if it still exists (e.g. `git push origin --delete 2-initial-app`), or rely on GitHub’s “Delete branch” after merge to keep the remote tidy.
+   - Avoid leaving merged feature branches around locally or on the remote.
+
+Summary: **Issue first → branch from issue → implement on branch → open PR → merge to main → switch to main, pull, delete obsolete branches.**
