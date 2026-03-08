@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
-import type { MatchDay, Game } from '@/types'
+import type { MatchDay, Game, AvailabilityStatus, Player } from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
 import { useMockData } from '@/contexts/MockDataContext'
 
 export function MatchDaysPage() {
+  const { user } = useAuth()
   const {
     phases,
     divisions,
@@ -11,6 +13,10 @@ export function MatchDaysPage() {
     games,
     teams,
     clubs,
+    players,
+    gameAvailabilities,
+    setGameAvailability,
+    clearGameAvailability,
     addMatchDay,
     updateMatchDay,
     addGame,
@@ -39,6 +45,7 @@ export function MatchDaysPage() {
   const [addingGameForMatchDayId, setAddingGameForMatchDayId] = useState<string | null>(null)
   const [editingGame, setEditingGame] = useState<Game | null>(null)
   const [gameForm, setGameForm] = useState({ homeTeamId: '', awayTeamId: '' })
+  const [availabilityModalGame, setAvailabilityModalGame] = useState<Game | null>(null)
 
   const getTeamLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
@@ -52,6 +59,52 @@ export function MatchDaysPage() {
     if (!g) return groupId
     const div = divisions.find((d) => d.id === g.divisionId)
     return div ? `${div.displayName} – Groupe ${g.number}` : `Groupe ${g.number}`
+  }
+
+  const getAvailability = (gameId: string, playerId: string): AvailabilityStatus | undefined => {
+    const a = gameAvailabilities.find((x) => x.gameId === gameId && x.playerId === playerId)
+    return a?.status
+  }
+
+  /** Can view availability for this game (member of home or away club). Edit is separate. */
+  const canViewGameAvailability = (game: Game): boolean => {
+    if (!user?.clubIds?.length) return false
+    const homeTeam = teams.find((t) => t.id === game.homeTeamId)
+    const awayTeam = teams.find((t) => t.id === game.awayTeamId)
+    if (!homeTeam || !awayTeam) return false
+    return user.clubIds.includes(homeTeam.clubId) || user.clubIds.includes(awayTeam.clubId)
+  }
+
+  /** Only player (self), captain (their team), or club_admin (their club). Global admin has no edit. */
+  const canEditAvailability = (playerId: string, teamId: string): boolean => {
+    if (!user) return false
+    const team = teams.find((t) => t.id === teamId)
+    if (!team) return false
+    const isOwn = user.playerId === playerId
+    const isCaptain = user.captainTeamIds.includes(teamId)
+    const isClubAdminForTeam = user.role === 'club_admin' && user.clubIds.includes(team.clubId)
+    return isOwn || isCaptain || isClubAdminForTeam
+  }
+
+  const isOverride = (playerId: string, teamId: string): 'captain' | 'club_admin' | undefined => {
+    if (!user) return undefined
+    const team = teams.find((t) => t.id === teamId)
+    if (!team) return undefined
+    if (user.playerId === playerId) return undefined
+    if (user.captainTeamIds.includes(teamId)) return 'captain'
+    if (user.role === 'club_admin' && user.clubIds.includes(team.clubId)) return 'club_admin'
+    return undefined
+  }
+
+  const availabilityLabel: Record<AvailabilityStatus, string> = {
+    available: 'Disponible',
+    maybe: 'Peut-être',
+    unavailable: 'Indisponible',
+  }
+
+  const getPlayerName = (playerId: string) => {
+    const p = players.find((x) => x.id === playerId)
+    return p ? `${p.firstName} ${p.lastName}` : playerId
   }
 
   const nextMatchDayNumber = () => {
@@ -300,13 +353,24 @@ export function MatchDaysPage() {
                         <span className="text-sm font-medium text-slate-900">
                           {getTeamLabel(game.awayTeamId)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => openEditGame(game)}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                        >
-                          Modifier
-                        </button>
+                        <div className="flex gap-2">
+                          {canViewGameAvailability(game) && (
+                            <button
+                              type="button"
+                              onClick={() => setAvailabilityModalGame(game)}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                            >
+                              Disponibilités
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openEditGame(game)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            Modifier
+                          </button>
+                        </div>
                       </li>
                     ))
                   )}
@@ -454,6 +518,124 @@ export function MatchDaysPage() {
               >
                 Enregistrer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Availability modal */}
+      {availabilityModalGame && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="availability-modal-title"
+        >
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 id="availability-modal-title" className="font-display text-lg font-semibold text-slate-800">
+                Disponibilités — {getTeamLabel(availabilityModalGame.homeTeamId)} vs{' '}
+                {getTeamLabel(availabilityModalGame.awayTeamId)}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAvailabilityModalGame(null)}
+                className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Fermer"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="mt-4 space-y-6">
+              {([availabilityModalGame.homeTeamId, availabilityModalGame.awayTeamId] as const)
+                .filter((teamId) => {
+                  const team = teams.find((t) => t.id === teamId)
+                  return team && user?.clubIds?.includes(team.clubId)
+                })
+                .map((teamId) => {
+                  const team = teams.find((t) => t.id === teamId)
+                  if (!team) return null
+                  const label =
+                    teamId === availabilityModalGame.homeTeamId
+                      ? 'Équipe à domicile'
+                      : 'Équipe extérieur'
+                  const roster: Player[] = (team.playerIds ?? [])
+                    .map((pid) => players.find((p) => p.id === pid))
+                    .filter((p): p is Player => p != null)
+                  return (
+                    <div key={teamId}>
+                      <h3 className="text-sm font-medium text-slate-700 mb-2">{label}</h3>
+                      <ul className="space-y-2">
+                        {roster.length === 0 ? (
+                          <li className="text-sm text-slate-500">Aucun joueur dans l&apos;équipe</li>
+                        ) : (
+                          roster.map((player) => {
+                            const status = getAvailability(availabilityModalGame.id, player.id)
+                            const canEdit = canEditAvailability(player.id, teamId)
+                            const override = isOverride(player.id, teamId)
+                            return (
+                              <li
+                                key={player.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2"
+                              >
+                                <span className="text-sm font-medium text-slate-900">
+                                  {getPlayerName(player.id)}
+                                </span>
+                                {canEdit ? (
+                                  <div className="flex gap-1">
+                                    {(['available', 'maybe', 'unavailable'] as const).map((s) => (
+                                      <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() =>
+                                          setGameAvailability(
+                                            availabilityModalGame.id,
+                                            player.id,
+                                            s,
+                                            override
+                                          )
+                                        }
+                                        className={`rounded px-2 py-1 text-xs font-medium ${
+                                          status === s
+                                            ? s === 'available'
+                                              ? 'bg-green-600 text-white'
+                                              : s === 'maybe'
+                                                ? 'bg-amber-500 text-white'
+                                                : 'bg-red-600 text-white'
+                                            : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        {availabilityLabel[s]}
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        status && clearGameAvailability(availabilityModalGame.id, player.id)
+                                      }
+                                      disabled={!status}
+                                      className="rounded px-2 py-1 text-xs font-medium bg-white text-slate-500 border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-default"
+                                      title="Effacer"
+                                    >
+                                      —
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-slate-600">
+                                    {status ? availabilityLabel[status] : '—'}
+                                  </span>
+                                )}
+                              </li>
+                            )
+                          })
+                        )}
+                      </ul>
+                    </div>
+                  )
+                }
+              )}
             </div>
           </div>
         </div>

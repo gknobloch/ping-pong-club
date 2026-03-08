@@ -73,7 +73,22 @@ export interface Team {
   defaultDay: string
   defaultTime: string
   captainId: string
+  /** Roster for this team (phase). Used for availability and game selection. */
+  playerIds: string[]
   whatsappLink?: string
+}
+
+export type AvailabilityStatus = 'available' | 'maybe' | 'unavailable'
+
+export type AvailabilityOverriddenBy = 'captain' | 'club_admin'
+
+export interface GameAvailability {
+  id: string
+  gameId: string
+  playerId: string
+  status: AvailabilityStatus
+  /** Set when captain or club admin overrides the player's choice */
+  overriddenBy?: AvailabilityOverriddenBy
 }
 
 export interface MatchDay {

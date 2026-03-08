@@ -1,4 +1,4 @@
-import type { User, Club, Season, Phase, Division, Group, Team, Player, Address, MatchDay, Game } from '@/types'
+import type { User, Club, Season, Phase, Division, Group, Team, Player, Address, MatchDay, Game, GameAvailability } from '@/types'
 
 const addresses: Address[] = [
   { id: 'addr-1', label: 'Gymnase principal', street: '12 rue du Sport', postalCode: '68170', city: 'Rixheim', isDefault: true },
@@ -40,7 +40,7 @@ export const mockPlayers: Player[] = [
   { id: 'player-2', firstName: 'Jean', lastName: 'Martin', licenseNumber: '6814427', email: 'jean.martin@example.com', phone: '06 23 45 67 89', status: 'active', clubId: 'club-1' },
   { id: 'player-3', firstName: 'Sophie', lastName: 'Bernard', licenseNumber: '6814428', email: 'sophie.bernard@example.com', phone: '06 34 56 78 90', status: 'active', clubId: 'club-1' },
   { id: 'player-4', firstName: 'Pierre', lastName: 'Leroy', licenseNumber: '6814429', email: 'pierre.leroy@example.com', phone: '06 45 67 89 01', status: 'active', clubId: 'club-1' },
-  { id: 'player-5', firstName: 'Admin', lastName: 'Global', licenseNumber: '0000001', email: 'admin@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-5', firstName: 'Admin', lastName: 'Global', licenseNumber: '0000001', email: 'admin@example.com', phone: '', status: 'active', clubId: '' },
   { id: 'player-6', firstName: 'Claire', lastName: 'Admin', licenseNumber: '0000002', email: 'club.admin@example.com', phone: '', status: 'active', clubId: 'club-1' },
 ]
 
@@ -60,6 +60,7 @@ export const mockTeams: Team[] = [
     defaultDay: 'Jeudi',
     defaultTime: '20h00',
     captainId: 'player-1',
+    playerIds: ['player-1', 'player-3', 'player-4'],
   },
   {
     id: 'team-2',
@@ -72,6 +73,7 @@ export const mockTeams: Team[] = [
     defaultDay: 'Mercredi',
     defaultTime: '19h30',
     captainId: 'player-2',
+    playerIds: ['player-2'],
   },
 ]
 
@@ -84,8 +86,10 @@ export const mockGames: Game[] = [
   { id: 'game-1', matchDayId: 'md-1', homeTeamId: 'team-1', awayTeamId: 'team-2' },
 ]
 
+export const mockGameAvailabilities: GameAvailability[] = []
+
 export const mockUsers: User[] = [
-  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', playerId: 'player-5', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', playerId: 'player-5', clubIds: [], captainTeamIds: [] },
   { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', playerId: 'player-6', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-3', email: 'marie.dupont@example.com', role: 'captain', playerId: 'player-1', clubIds: ['club-1'], captainTeamIds: ['team-1'] },
   { id: 'user-4', email: 'jean.martin@example.com', role: 'player', playerId: 'player-2', clubIds: ['club-1'], captainTeamIds: [] },

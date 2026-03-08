@@ -57,10 +57,13 @@ export function AppShell() {
                 </Link>
               </>
             )}
-            {isClubAdmin && !isGeneralAdmin && (
+            {(isClubAdmin || user?.role === 'captain' || user?.role === 'player') && !isGeneralAdmin && (
               <>
                 <Link to="/equipes" className={navLinkClass(location.pathname === '/equipes')}>
                   Équipes
+                </Link>
+                <Link to="/journees" className={navLinkClass(location.pathname === '/journees')}>
+                  Journées
                 </Link>
                 <Link to="/joueurs" className={navLinkClass(location.pathname === '/joueurs')}>
                   Joueurs
@@ -74,7 +77,7 @@ export function AppShell() {
             )}
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
               <div className="text-right hidden sm:block">
-                {isClubAdmin && !isGeneralAdmin && adminClubNames && (
+                {(isClubAdmin || user?.role === 'captain' || user?.role === 'player') && !isGeneralAdmin && adminClubNames && (
                   <p className="text-xs font-medium text-slate-600">Club : {adminClubNames}</p>
                 )}
                 <p className="text-sm font-medium text-slate-800">{displayName}</p>

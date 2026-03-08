@@ -17,15 +17,18 @@ export function TeamsPage() {
     updateGroup,
   } = useMockData()
 
+  const isClubAdmin = user?.role === 'club_admin'
+  const hasClubScope = (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') && (user?.clubIds?.length ?? 0) > 0
+
   const teams = useMemo(() => {
-    if (user?.role === 'club_admin' && user.clubIds?.length) {
+    if (hasClubScope && user?.clubIds?.length) {
       return allTeams.filter((t) => user.clubIds.includes(t.clubId))
     }
     return allTeams
-  }, [allTeams, user?.role, user?.clubIds])
+  }, [allTeams, hasClubScope, user?.clubIds])
 
   const clubsForSelect =
-    user?.role === 'club_admin' && user?.clubIds?.length
+    hasClubScope && user?.clubIds?.length
       ? clubs.filter((c) => user.clubIds.includes(c.id))
       : clubs
   const [editing, setEditing] = useState<Team | null>(null)
@@ -40,6 +43,7 @@ export function TeamsPage() {
     defaultDay: '',
     defaultTime: '',
     captainId: '',
+    playerIds: [] as string[],
   })
 
   const getClubName = (clubId: string) => clubs.find((c) => c.id === clubId)?.displayName ?? clubId
@@ -60,7 +64,9 @@ export function TeamsPage() {
   const selectedClub = form.clubId ? clubs.find((c) => c.id === form.clubId) : undefined
   const addressesForClub = selectedClub?.addresses ?? []
   const playersInClub = form.clubId
-    ? players.filter((p) => p.clubId === form.clubId && p.status === 'active')
+    ? players.filter(
+        (p) => p.clubId === form.clubId && p.status === 'active' && p.clubId !== ''
+      )
     : []
 
   const openEdit = (team: Team) => {
@@ -76,6 +82,7 @@ export function TeamsPage() {
       defaultDay: team.defaultDay,
       defaultTime: team.defaultTime,
       captainId: team.captainId,
+      playerIds: team.playerIds ?? [],
     })
   }
 
@@ -87,7 +94,6 @@ export function TeamsPage() {
     const firstDiv = divisions.find((d) => d.phaseId === firstPhase?.id)
     const firstGroup = firstDiv ? groups.find((g) => g.divisionId === firstDiv.id) : undefined
     const defaultAddr = firstClub?.addresses?.find((a) => a.isDefault) ?? firstClub?.addresses?.[0]
-    const firstCaptain = firstClub ? players.find((p) => p.clubId === firstClub.id) : undefined
     setForm({
       clubId: firstClub?.id ?? '',
       phaseId: firstPhase?.id ?? '',
@@ -97,7 +103,8 @@ export function TeamsPage() {
       gameLocationId: defaultAddr?.id ?? '',
       defaultDay: 'Jeudi',
       defaultTime: '20h00',
-      captainId: firstCaptain?.id ?? '',
+      captainId: '',
+      playerIds: [],
     })
   }
 
@@ -106,6 +113,16 @@ export function TeamsPage() {
     setCreating(false)
   }
 
+  const rosterPlayers = form.playerIds
+    .map((id) => players.find((p) => p.id === id))
+    .filter(Boolean) as typeof playersInClub
+  const captainForSave =
+    form.playerIds.length === 0
+      ? ''
+      : form.playerIds.includes(form.captainId)
+        ? form.captainId
+        : form.playerIds[0] ?? ''
+
   const handleSave = () => {
     if (editing) {
       updateTeam(editing.id, {
@@ -113,12 +130,23 @@ export function TeamsPage() {
         gameLocationId: form.gameLocationId,
         defaultDay: form.defaultDay,
         defaultTime: form.defaultTime,
-        captainId: form.captainId,
+        playerIds: form.playerIds,
+        captainId: captainForSave,
       })
       closeModal()
       return
     }
-    if (!creating || !form.clubId || !form.phaseId || !form.divisionId || !form.groupId || !form.gameLocationId || !form.captainId) return
+    if (
+      !creating ||
+      !form.clubId ||
+      !form.phaseId ||
+      !form.divisionId ||
+      !form.groupId ||
+      !form.gameLocationId ||
+      form.playerIds.length === 0 ||
+      !form.playerIds.includes(form.captainId)
+    )
+      return
     const newTeam = addTeam({
       clubId: form.clubId,
       phaseId: form.phaseId,
@@ -129,6 +157,7 @@ export function TeamsPage() {
       defaultDay: form.defaultDay,
       defaultTime: form.defaultTime,
       captainId: form.captainId,
+      playerIds: form.playerIds,
     })
     const group = groups.find((g) => g.id === form.groupId)
     if (group) {
@@ -141,13 +170,15 @@ export function TeamsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Équipes</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Ajouter une équipe
-        </button>
+        {(user?.role === 'general_admin' || isClubAdmin) && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Ajouter une équipe
+          </button>
+        )}
       </div>
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
@@ -188,13 +219,15 @@ export function TeamsPage() {
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getCaptainName(team.captainId)}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(team)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                  {(user?.role === 'general_admin' || isClubAdmin) && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(team)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -228,6 +261,7 @@ export function TeamsPage() {
                         clubId: e.target.value,
                         gameLocationId: '',
                         captainId: '',
+                        playerIds: [],
                       }))
                     }
                     disabled={!!editing}
@@ -354,16 +388,84 @@ export function TeamsPage() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Joueurs de l&apos;équipe
+                </label>
+                <p className="text-xs text-slate-500 mb-2">
+                  Joueurs du club dans cette équipe. Ajoutez ou retirez des joueurs.
+                </p>
+                <ul className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3 max-h-40 overflow-y-auto mb-2">
+                  {rosterPlayers.length === 0 ? (
+                    <li className="text-sm text-slate-500">Aucun joueur dans l&apos;équipe.</li>
+                  ) : (
+                    rosterPlayers.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between gap-2 rounded bg-white border border-slate-200 px-2 py-1.5"
+                      >
+                        <span className="text-sm font-medium text-slate-900">
+                          {p.firstName} {p.lastName}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm((f) => ({
+                              ...f,
+                              playerIds: f.playerIds.filter((id) => id !== p.id),
+                              captainId: form.captainId === p.id ? '' : form.captainId,
+                            }))
+                          }}
+                          className="text-slate-500 hover:text-red-600 text-sm font-medium"
+                          title="Retirer de l'équipe"
+                        >
+                          Retirer
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                {playersInClub.length === 0 ? (
+                  <p className="text-xs text-slate-500">Aucun joueur actif dans ce club.</p>
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const id = e.target.value
+                        if (id && !form.playerIds.includes(id)) {
+                          setForm((f) => ({ ...f, playerIds: [...f.playerIds, id] }))
+                        }
+                        e.target.value = ''
+                      }}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">— Ajouter un joueur —</option>
+                      {playersInClub
+                        .filter((p) => !form.playerIds.includes(p.id))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.firstName} {p.lastName}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div>
                 <label htmlFor="team-captainId" className="block text-sm font-medium text-slate-700">
                   Capitaine
                 </label>
+                <p className="text-xs text-slate-500 mb-1">
+                  Le capitaine doit faire partie des joueurs de l&apos;équipe ci-dessus.
+                </p>
                 <select
                   id="team-captainId"
-                  value={form.captainId}
+                  value={form.playerIds.includes(form.captainId) ? form.captainId : ''}
                   onChange={(e) => setForm((f) => ({ ...f, captainId: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
-                  {playersInClub.map((p) => (
+                  <option value="">— Choisir un capitaine —</option>
+                  {rosterPlayers.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.firstName} {p.lastName}
                     </option>
@@ -389,7 +491,8 @@ export function TeamsPage() {
                     !form.divisionId ||
                     !form.groupId ||
                     !form.gameLocationId ||
-                    !form.captainId)
+                    form.playerIds.length === 0 ||
+                    !form.playerIds.includes(form.captainId))
                 }
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
