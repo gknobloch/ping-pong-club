@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { MatchDay, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMockData } from '@/contexts/MockDataContext'
+import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
 function TeamSelect({
@@ -136,6 +137,7 @@ const TABLE_COL_WIDTHS = {
   points: 64,
   dispo: 64,
   joues: 64,
+  brulage: 80,
   matchDayDispo: 96,
   matchDayCompo: 96,
 } as const
@@ -148,6 +150,7 @@ function MatchDayColgroup({ matchDayCount }: { matchDayCount: number }) {
       <col style={{ width: TABLE_COL_WIDTHS.points }} />
       <col style={{ width: TABLE_COL_WIDTHS.dispo }} />
       <col style={{ width: TABLE_COL_WIDTHS.joues }} />
+      <col style={{ width: TABLE_COL_WIDTHS.brulage }} />
       {Array.from({ length: matchDayCount * 2 }, (_, i) => (
         <col
           key={i}
@@ -172,6 +175,7 @@ export function MatchDaysPage() {
     clubs,
     players,
     gameAvailabilities,
+    gameSelections,
     setGameAvailability,
     clearGameAvailability,
     getGameSelectionPlayerIds,
@@ -248,9 +252,16 @@ export function MatchDaysPage() {
   const getTeamColor = (teamId: string): string | undefined =>
     teams.find((t) => t.id === teamId)?.color
 
-  /** Team options for selection: player's team first (if any), then empty, then all other club teams. */
-  const orderedTeamOptionIds = (playerTeamId: string | null): (string | null)[] => {
-    const all = myClubTeamsInPhase.map((t) => t.id)
+  /** Team options for selection: player's team first (if any), then empty, then all other club teams.
+   *  Filters out teams the player is not eligible for (brûlage) on the given match-day. */
+  const orderedTeamOptionIds = (playerTeamId: string | null, playerId?: string, matchDayId?: string): (string | null)[] => {
+    let all = myClubTeamsInPhase.map((t) => t.id)
+    if (playerId && matchDayId) {
+      all = all.filter((tid) => {
+        const t = teams.find((x) => x.id === tid)
+        return t ? isPlayerEligibleForTeam(playerId, t, myClubTeamsInPhase, matchDays, games, gameSelections, groups, matchDayId) : false
+      })
+    }
     if (playerTeamId && all.includes(playerTeamId)) {
       const rest = all.filter((id) => id !== playerTeamId)
       return [playerTeamId, null, ...rest]
@@ -608,6 +619,7 @@ export function MatchDaysPage() {
                         TABLE_COL_WIDTHS.points +
                         TABLE_COL_WIDTHS.dispo +
                         TABLE_COL_WIDTHS.joues +
+                        TABLE_COL_WIDTHS.brulage +
                         visibleMatchDays.length *
                           (TABLE_COL_WIDTHS.matchDayDispo + TABLE_COL_WIDTHS.matchDayCompo),
                     }}
@@ -629,6 +641,9 @@ export function MatchDaysPage() {
                         </th>
                         <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
                           Joués
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                          Brûlage
                         </th>
                         {visibleMatchDays.map((md) => {
                           const game = games.find(
@@ -692,7 +707,7 @@ export function MatchDaysPage() {
                         })}
                       </tr>
                       <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
-                        <th colSpan={5} className="px-3 py-1"></th>
+                        <th colSpan={6} className="px-3 py-1"></th>
                         {visibleMatchDays.map((md) => (
                           <Fragment key={md.id}>
                             <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
@@ -725,6 +740,18 @@ export function MatchDaysPage() {
                           )
                           return game && getGameSelectionPlayerIds(game.id, team.id).includes(player.id)
                         }).length
+                        const brulage = computeBrulage(
+                          player.id,
+                          team.clubId,
+                          myClubTeamsInPhase,
+                          matchDays,
+                          games,
+                          gameSelections,
+                          groups,
+                        )
+                        const brulageLabel = brulage.burnedIntoTeamId
+                          ? getTeamLabel(brulage.burnedIntoTeamId)
+                          : '—'
                         return (
                           <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                             <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
@@ -743,6 +770,9 @@ export function MatchDaysPage() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600">
                               {selectedCount}/{teamGamesCount}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600 text-xs">
+                              {brulageLabel}
                             </td>
                             {visibleMatchDays.map((md) => {
                               const game = games.find(
@@ -779,7 +809,7 @@ export function MatchDaysPage() {
                                           onChange={(v) =>
                                             setPlayerSelectedForMatchDay(md.id, player.id, v)
                                           }
-                                          optionIds={orderedTeamOptionIds(team.id)}
+                                          optionIds={orderedTeamOptionIds(team.id, player.id, md.id)}
                                           getLabel={getTeamLabel}
                                           getColor={getTeamColor}
                                         />
@@ -829,7 +859,7 @@ export function MatchDaysPage() {
                                         onChange={(v) =>
                                           setPlayerSelectedForMatchDay(md.id, player.id, v)
                                         }
-                                        optionIds={orderedTeamOptionIds(team.id)}
+                                        optionIds={orderedTeamOptionIds(team.id, player.id, md.id)}
                                         getLabel={getTeamLabel}
                                         getColor={getTeamColor}
                                       />
@@ -848,7 +878,7 @@ export function MatchDaysPage() {
                     </tbody>
                     <tfoot>
                       <tr className="border-t border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-700">
-                        <td colSpan={5} className="px-3 py-2">
+                        <td colSpan={6} className="px-3 py-2">
                           Résumé
                         </td>
                         {visibleMatchDays.map((md) => {
@@ -985,6 +1015,9 @@ export function MatchDaysPage() {
                   <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
                     Joués
                   </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                    Brûlage
+                  </th>
                   {otherVisibleMatchDays.map((md) => (
                       <th
                         key={md.id}
@@ -1003,7 +1036,7 @@ export function MatchDaysPage() {
                     ))}
                 </tr>
                 <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
-                  <th colSpan={5} className="px-3 py-1"></th>
+                  <th colSpan={6} className="px-3 py-1"></th>
                   {otherVisibleMatchDays.map((md) => (
                     <Fragment key={md.id}>
                       <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
@@ -1030,6 +1063,12 @@ export function MatchDaysPage() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600 text-xs">
+                      {(() => {
+                        const b = computeBrulage(player.id, player.clubId, myClubTeamsInPhase, matchDays, games, gameSelections, groups)
+                        return b.burnedIntoTeamId ? getTeamLabel(b.burnedIntoTeamId) : '—'
+                      })()}
+                    </td>
                     {otherVisibleMatchDays.map((md) => {
                         const dayGames = games.filter((g) => g.matchDayId === md.id)
                         const ourClubTeamsThisDay = [
@@ -1059,7 +1098,7 @@ export function MatchDaysPage() {
                                   onChange={(v) =>
                                     setPlayerSelectedForMatchDay(md.id, player.id, v)
                                   }
-                                  optionIds={orderedTeamOptionIds(null)}
+                                  optionIds={orderedTeamOptionIds(null, player.id, md.id)}
                                   getLabel={getTeamLabel}
                                   getColor={getTeamColor}
                                 />
