@@ -16,6 +16,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+        env:
+          npm_config_registry: 'https://registry.npmjs.org/'
       - run: npm run build
       - run: npm run lint
 
@@ -28,6 +30,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+        env:
+          npm_config_registry: 'https://registry.npmjs.org/'
       - run: npm run test:run
 
   e2e:
@@ -39,6 +43,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+        env:
+          npm_config_registry: 'https://registry.npmjs.org/'
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
         env:
