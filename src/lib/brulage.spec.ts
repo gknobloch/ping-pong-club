@@ -34,9 +34,10 @@ const makeSel = (gameId: string, teamId: string, playerIds: string[]): GameSelec
   playerIds,
 })
 
+// Teams in DIFFERENT groups (for testing rule 1 in isolation)
 const team1 = makeTeam({ id: 'team-1', number: 1, clubId: 'club-1', groupId: 'group-a' })
-const team2 = makeTeam({ id: 'team-2', number: 2, clubId: 'club-1', groupId: 'group-a' })
-const team3 = makeTeam({ id: 'team-3', number: 3, clubId: 'club-1', groupId: 'group-b' })
+const team2 = makeTeam({ id: 'team-2', number: 2, clubId: 'club-1', groupId: 'group-b' })
+const team3 = makeTeam({ id: 'team-3', number: 3, clubId: 'club-1', groupId: 'group-c' })
 const clubTeams = [team1, team2, team3]
 
 const md1 = makeMatchDay('md-1', 1)
@@ -89,7 +90,6 @@ describe('computeBrulage', () => {
   })
 
   it('burns into highest team played when games span multiple teams', () => {
-    // 1 game in team 1, 1 game in team 2, 1 game in team 3
     const games = [
       makeGame('g-1', 'md-1', 'team-1', 'team-x'),
       makeGame('g-2', 'md-2', 'team-2', 'team-x'),
@@ -100,7 +100,6 @@ describe('computeBrulage', () => {
       makeSel('g-2', 'team-2', ['p1']),
       makeSel('g-3', 'team-3', ['p1']),
     ]
-    // Cumulative: team1=1 (≤1), team2=2 (>1 → burned). Highest played = team 3.
     expect(computeBrulage('p1', clubTeams, matchDays, games, sels))
       .toEqual({ burnedIntoTeamNumber: 3, burnedIntoTeamId: 'team-3' })
   })
@@ -112,11 +111,8 @@ describe('computeBrulage', () => {
     ]
     const sels = [makeSel('g-1', 'team-1', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
 
-    // As of md-2, only md-1 counts (1 game) → no burn
     expect(computeBrulage('p1', clubTeams, matchDays, games, sels, 'md-2'))
       .toEqual({ burnedIntoTeamNumber: null, burnedIntoTeamId: null })
-
-    // As of md-3, both count (2 games) → burned
     expect(computeBrulage('p1', clubTeams, matchDays, games, sels, 'md-3'))
       .toEqual({ burnedIntoTeamNumber: 1, burnedIntoTeamId: 'team-1' })
   })
@@ -143,67 +139,98 @@ describe('computeBrulage', () => {
 })
 
 describe('isPlayerEligibleForTeam', () => {
-  it('eligible everywhere when no games played', () => {
-    expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
+  describe('rule 1: brûlage (max 1 game in higher-ranked teams)', () => {
+    it('eligible everywhere when no games played', () => {
+      expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, [], [], 'md-1')).toBe(true)
+    })
+
+    it('eligible everywhere after 1 game in team 1 (max 1 allowed)', () => {
+      const game = makeGame('g-1', 'md-1', 'team-1', 'team-x')
+      const sel = makeSel('g-1', 'team-1', ['p1'])
+
+      expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
+    })
+
+    it('2 games in team 1 → only eligible for team 1', () => {
+      const games = [
+        makeGame('g-1', 'md-1', 'team-1', 'team-x'),
+        makeGame('g-2', 'md-2', 'team-1', 'team-x'),
+      ]
+      const sels = [makeSel('g-1', 'team-1', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
+
+      expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+      expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+    })
+
+    it('1 game in team 1 + 1 game in team 2 → eligible for team 1 and 2, not 3', () => {
+      const games = [
+        makeGame('g-1', 'md-1', 'team-2', 'team-x'),
+        makeGame('g-2', 'md-2', 'team-1', 'team-x'),
+      ]
+      const sels = [makeSel('g-1', 'team-2', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
+
+      expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+    })
+
+    it('2 games in team 2 → eligible for team 1 and 2, not 3', () => {
+      const games = [
+        makeGame('g-1', 'md-1', 'team-2', 'team-x'),
+        makeGame('g-2', 'md-2', 'team-2', 'team-x'),
+      ]
+      const sels = [makeSel('g-1', 'team-2', ['p1']), makeSel('g-2', 'team-2', ['p1'])]
+
+      expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+    })
+
+    it('respects cutoff — not burned until games are in prior match-days', () => {
+      const games = [
+        makeGame('g-1', 'md-1', 'team-1', 'team-x'),
+        makeGame('g-2', 'md-2', 'team-1', 'team-x'),
+      ]
+      const sels = [makeSel('g-1', 'team-1', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
+
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-2')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+    })
   })
 
-  it('eligible everywhere after 1 game in team 1 (max 1 allowed)', () => {
-    const game = makeGame('g-1', 'md-1', 'team-1', 'team-x')
-    const sel = makeSel('g-1', 'team-1', ['p1'])
+  describe('rule 2: same-group restriction', () => {
+    // teamS1 and teamS2 share a group; teamS3 is in a different group
+    const teamS1 = makeTeam({ id: 'team-s1', number: 1, clubId: 'club-1', groupId: 'group-shared' })
+    const teamS2 = makeTeam({ id: 'team-s2', number: 2, clubId: 'club-1', groupId: 'group-shared' })
+    const teamS3 = makeTeam({ id: 'team-s3', number: 3, clubId: 'club-1', groupId: 'group-other' })
+    const sgTeams = [teamS1, teamS2, teamS3]
 
-    expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, [game], [sel], 'md-2')).toBe(true)
-  })
+    const sgMd1 = makeMatchDay('sg-md-1', 1, 'group-shared')
+    const sgMd2 = makeMatchDay('sg-md-2', 2, 'group-shared')
+    const sgMatchDays = [sgMd1, sgMd2]
 
-  it('2 games in team 1 → only eligible for team 1', () => {
-    const games = [
-      makeGame('g-1', 'md-1', 'team-1', 'team-x'),
-      makeGame('g-2', 'md-2', 'team-1', 'team-x'),
-    ]
-    const sels = [makeSel('g-1', 'team-1', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
+    it('playing in one same-group team blocks the other on next match-day', () => {
+      const game = makeGame('g-1', 'sg-md-1', 'team-s1', 'team-x')
+      const sel = makeSel('g-1', 'team-s1', ['p1'])
 
-    expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
-    expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
-  })
+      // As of sg-md-2: played in team-s1 → can still play team-s1, NOT team-s2 (same group)
+      expect(isPlayerEligibleForTeam('p1', teamS1, sgTeams, sgMatchDays, [game], [sel], 'sg-md-2')).toBe(true)
+      expect(isPlayerEligibleForTeam('p1', teamS2, sgTeams, sgMatchDays, [game], [sel], 'sg-md-2')).toBe(false)
+      // team-s3 is in a different group → still eligible
+      expect(isPlayerEligibleForTeam('p1', teamS3, sgTeams, sgMatchDays, [game], [sel], 'sg-md-2')).toBe(true)
+    })
 
-  it('1 game in team 1 + 1 game in team 2 → eligible for team 1 and 2, not 3', () => {
-    const games = [
-      makeGame('g-1', 'md-1', 'team-2', 'team-x'),
-      makeGame('g-2', 'md-2', 'team-1', 'team-x'),
-    ]
-    const sels = [makeSel('g-1', 'team-2', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
+    it('same-group rule does not apply on the same match-day (only prior)', () => {
+      const game = makeGame('g-1', 'sg-md-1', 'team-s1', 'team-x')
+      const sel = makeSel('g-1', 'team-s1', ['p1'])
 
-    expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
-  })
-
-  it('2 games in team 2 → eligible for team 1 and 2, not 3', () => {
-    const games = [
-      makeGame('g-1', 'md-1', 'team-2', 'team-x'),
-      makeGame('g-2', 'md-2', 'team-2', 'team-x'),
-    ]
-    const sels = [makeSel('g-1', 'team-2', ['p1']), makeSel('g-2', 'team-2', ['p1'])]
-
-    expect(isPlayerEligibleForTeam('p1', team1, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(true)
-    expect(isPlayerEligibleForTeam('p1', team3, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
-  })
-
-  it('respects cutoff — not burned until games are in prior match-days', () => {
-    const games = [
-      makeGame('g-1', 'md-1', 'team-1', 'team-x'),
-      makeGame('g-2', 'md-2', 'team-1', 'team-x'),
-    ]
-    const sels = [makeSel('g-1', 'team-1', ['p1']), makeSel('g-2', 'team-1', ['p1'])]
-
-    // As of md-2: only 1 game counts → still eligible for team 2
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-2')).toBe(true)
-    // As of md-3: 2 games count → not eligible for team 2
-    expect(isPlayerEligibleForTeam('p1', team2, clubTeams, matchDays, games, sels, 'md-3')).toBe(false)
+      // As of sg-md-1 itself, nothing prior counts
+      expect(isPlayerEligibleForTeam('p1', teamS2, sgTeams, sgMatchDays, [game], [sel], 'sg-md-1')).toBe(true)
+    })
   })
 })

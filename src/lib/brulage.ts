@@ -65,8 +65,11 @@ export function computeBrulage(
 /**
  * Check if a player is eligible to be selected for a specific team on a specific match-day.
  *
- * Rule: count all games the player has played in teams with a LOWER number (higher rank)
- * than the target team. If that count > 1, the player is not eligible.
+ * Rule 1 (brûlage): count all games the player has played in teams with a LOWER number
+ * (higher rank) than the target team. If that count > 1, the player is not eligible.
+ *
+ * Rule 2 (same group): if another club team shares the target team's group and the player
+ * already played in that other team, they can no longer switch between same-group teams.
  */
 export function isPlayerEligibleForTeam(
   playerId: string,
@@ -79,14 +82,24 @@ export function isPlayerEligibleForTeam(
 ): boolean {
   const gamesPerTeam = countGamesPerTeam(playerId, clubTeams, matchDays, games, gameSelections, matchDayId)
 
+  // Rule 1: brûlage — max 1 game in higher-ranked teams
   let gamesInHigherRankedTeams = 0
   for (const team of clubTeams) {
     if (team.number < targetTeam.number) {
       gamesInHigherRankedTeams += gamesPerTeam.get(team.id) ?? 0
     }
   }
+  if (gamesInHigherRankedTeams > 1) return false
 
-  return gamesInHigherRankedTeams <= 1
+  // Rule 2: same-group — can't switch between club teams in the same group
+  const sameGroupClubTeams = clubTeams.filter(
+    (t) => t.groupId === targetTeam.groupId && t.id !== targetTeam.id
+  )
+  for (const otherTeam of sameGroupClubTeams) {
+    if ((gamesPerTeam.get(otherTeam.id) ?? 0) > 0) return false
+  }
+
+  return true
 }
 
 /** Count games played per team for a player, up to (exclusive) the given match-day. */
