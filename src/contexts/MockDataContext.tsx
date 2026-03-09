@@ -86,6 +86,10 @@ interface MockDataContextValue extends MockDataState {
   gameSelections: GameSelection[]
   getGameSelectionPlayerIds: (gameId: string, teamId: string) => string[]
   setGameSelection: (gameId: string, teamId: string, playerIds: string[]) => void
+  /** Apply multiple (gameId, teamId, playerIds) in one state update (avoids losing one when updating home + away). */
+  setGameSelectionBatch: (
+    updates: Array<{ gameId: string; teamId: string; playerIds: string[] }>
+  ) => void
 }
 
 const MockDataContext = createContext<MockDataContextValue | null>(null)
@@ -350,6 +354,28 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const setGameSelectionBatch = useCallback(
+    (updates: Array<{ gameId: string; teamId: string; playerIds: string[] }>) => {
+      setGameSelections((prev) => {
+        let next = prev
+        for (const { gameId, teamId, playerIds } of updates) {
+          next = next.filter((s) => !(s.gameId === gameId && s.teamId === teamId))
+          if (playerIds.length > 0) {
+            const existing = prev.find((s) => s.gameId === gameId && s.teamId === teamId)
+            next = [
+              ...next,
+              existing
+                ? { ...existing, playerIds }
+                : { id: nextId('gs'), gameId, teamId, playerIds },
+            ]
+          }
+        }
+        return next
+      })
+    },
+    []
+  )
+
   const value = useMemo<MockDataContextValue>(
     () => ({
       divisions,
@@ -387,6 +413,7 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       gameSelections,
       getGameSelectionPlayerIds,
       setGameSelection,
+      setGameSelectionBatch,
     }),
     [
       divisions,
@@ -424,6 +451,7 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       gameSelections,
       getGameSelectionPlayerIds,
       setGameSelection,
+      setGameSelectionBatch,
     ]
   )
 

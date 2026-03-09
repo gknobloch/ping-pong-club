@@ -172,7 +172,7 @@ export function MatchDaysPage() {
     setGameAvailability,
     clearGameAvailability,
     getGameSelectionPlayerIds,
-    setGameSelection,
+    setGameSelectionBatch,
     addMatchDay,
     updateMatchDay,
     addGame,
@@ -363,8 +363,10 @@ export function MatchDaysPage() {
     const awayIds = getGameSelectionPlayerIds(gameId, game.awayTeamId).filter((id) => id !== playerId)
     if (teamId === game.homeTeamId) homeIds.push(playerId)
     else if (teamId === game.awayTeamId) awayIds.push(playerId)
-    setGameSelection(gameId, game.homeTeamId, homeIds)
-    setGameSelection(gameId, game.awayTeamId, awayIds)
+    setGameSelectionBatch([
+      { gameId, teamId: game.homeTeamId, playerIds: homeIds },
+      { gameId, teamId: game.awayTeamId, playerIds: awayIds },
+    ])
   }
 
   const getPlayerName = (playerId: string) => {
