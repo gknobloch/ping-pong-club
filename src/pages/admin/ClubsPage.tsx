@@ -1,36 +1,32 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Club } from '@/types'
 import { useMockData } from '@/contexts/MockDataContext'
 
 export function ClubsPage() {
-  const { clubs, updateClub, addClub } = useMockData()
-  const [editing, setEditing] = useState<Club | null>(null)
+  const navigate = useNavigate()
+  const { clubs, addClub } = useMockData()
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
 
   const openEdit = (club: Club) => {
-    setEditing(club)
-    setCreating(false)
-    setForm({
-      affiliationNumber: club.affiliationNumber,
-      displayName: club.displayName,
-    })
+    navigate(`/clubs/${club.affiliationNumber}`)
   }
 
   const openCreate = () => {
-    setEditing(null)
     setCreating(true)
     setForm({ affiliationNumber: '', displayName: '' })
   }
 
   const handleSave = () => {
-    if (editing) {
-      updateClub(editing.id, form)
-      setEditing(null)
-    } else if (creating) {
+    if (creating) {
       addClub({ ...form, addresses: [] })
       setCreating(false)
     }
+  }
+
+  const closeCreateModal = () => {
+    setCreating(false)
   }
 
   return (
@@ -66,10 +62,12 @@ export function ClubsPage() {
           <tbody className="divide-y divide-slate-200 bg-white">
             {clubs.map((club) => (
               <tr key={club.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm text-slate-900 font-mono">{club.affiliationNumber}</td>
+                <td className="px-4 py-3 text-sm text-slate-900 font-mono">
+                  {club.affiliationNumber}
+                </td>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">{club.displayName}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">
-                  {club.addresses.map((a) => a.label).join(', ')}
+                  {(club.addresses ?? []).map((a) => a.label).join(', ') || '—'}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
@@ -86,24 +84,27 @@ export function ClubsPage() {
         </table>
       </div>
 
-      {(editing || creating) && (
+      {creating && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="edit-club-title"
+          aria-labelledby="create-club-title"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h2 id="edit-club-title" className="font-display text-lg font-semibold text-slate-800">
-              {creating ? 'Ajouter un club' : 'Modifier le club'}
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
+            <h2 id="create-club-title" className="font-display text-lg font-semibold text-slate-800">
+              Ajouter un club
             </h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label htmlFor="edit-affiliationNumber" className="block text-sm font-medium text-slate-700">
+                <label
+                  htmlFor="create-affiliationNumber"
+                  className="block text-sm font-medium text-slate-700"
+                >
                   N° affiliation
                 </label>
                 <input
-                  id="edit-affiliationNumber"
+                  id="create-affiliationNumber"
                   type="text"
                   value={form.affiliationNumber}
                   onChange={(e) => setForm((f) => ({ ...f, affiliationNumber: e.target.value }))}
@@ -111,11 +112,14 @@ export function ClubsPage() {
                 />
               </div>
               <div>
-                <label htmlFor="edit-displayName" className="block text-sm font-medium text-slate-700">
+                <label
+                  htmlFor="create-displayName"
+                  className="block text-sm font-medium text-slate-700"
+                >
                   Nom
                 </label>
                 <input
-                  id="edit-displayName"
+                  id="create-displayName"
                   type="text"
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
@@ -126,7 +130,7 @@ export function ClubsPage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => { setEditing(null); setCreating(false) }}
+                onClick={closeCreateModal}
                 className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
               >
                 Annuler

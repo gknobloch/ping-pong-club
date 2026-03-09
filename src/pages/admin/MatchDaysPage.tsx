@@ -1,6 +1,6 @@
 import { useState, useMemo, Fragment, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { MatchDay, Game, AvailabilityStatus, Player } from '@/types'
+import type { MatchDay, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMockData } from '@/contexts/MockDataContext'
 
@@ -183,13 +183,6 @@ export function MatchDaysPage() {
   } = useMockData()
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(phases[0]?.id ?? '')
 
-  const phaseGroups = useMemo(() => {
-    return groups.filter((g) => {
-      const div = divisions.find((d) => d.id === g.divisionId)
-      return div?.phaseId === selectedPhaseId
-    })
-  }, [groups, divisions, selectedPhaseId])
-
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
   const myClubTeamsInPhase = useMemo(() => {
     if (!selectedPhaseId || !user?.clubIds?.length) return []
@@ -277,15 +270,6 @@ export function MatchDaysPage() {
     return a?.status
   }
 
-  /** Can view availability for this game (member of home or away club). Edit is separate. */
-  const canViewGameAvailability = (game: Game): boolean => {
-    if (!user?.clubIds?.length) return false
-    const homeTeam = teams.find((t) => t.id === game.homeTeamId)
-    const awayTeam = teams.find((t) => t.id === game.awayTeamId)
-    if (!homeTeam || !awayTeam) return false
-    return user.clubIds.includes(homeTeam.clubId) || user.clubIds.includes(awayTeam.clubId)
-  }
-
   /** Only player (self), captain (their team), or club_admin (their club). Global admin has no edit. */
   const canEditAvailability = (playerId: string, teamId: string): boolean => {
     if (!user) return false
@@ -364,46 +348,6 @@ export function MatchDaysPage() {
       )
     }
     if (updates.length > 0) setGameSelectionBatch(updates)
-  }
-
-  /** Set which team this player is selected for in this game (null = remove from both). */
-  const setPlayerSelectedForGame = (gameId: string, playerId: string, teamId: string | null) => {
-    const game = games.find((g) => g.id === gameId)
-    if (!game) return
-    const homeIds = getGameSelectionPlayerIds(gameId, game.homeTeamId).filter((id) => id !== playerId)
-    const awayIds = getGameSelectionPlayerIds(gameId, game.awayTeamId).filter((id) => id !== playerId)
-    if (teamId === game.homeTeamId) homeIds.push(playerId)
-    else if (teamId === game.awayTeamId) awayIds.push(playerId)
-    setGameSelectionBatch([
-      { gameId, teamId: game.homeTeamId, playerIds: homeIds },
-      { gameId, teamId: game.awayTeamId, playerIds: awayIds },
-    ])
-  }
-
-  const getPlayerName = (playerId: string) => {
-    const p = players.find((x) => x.id === playerId)
-    return p ? `${p.firstName} ${p.lastName}` : playerId
-  }
-
-  const openCreateMatchDay = () => {
-    setCreatingMatchDay(true)
-    setEditingMatchDay(null)
-    const today = new Date().toISOString().slice(0, 10)
-    setMatchDayForm({
-      groupId: effectiveGroupIdForNewMatchDay,
-      number: nextMatchDayNumber(),
-      date: today,
-    })
-  }
-
-  const openEditMatchDay = (md: MatchDay) => {
-    setEditingMatchDay(md)
-    setCreatingMatchDay(false)
-    setMatchDayForm({
-      groupId: md.groupId,
-      number: md.number,
-      date: md.date,
-    })
   }
 
   const closeMatchDayModal = () => {
@@ -518,14 +462,6 @@ export function MatchDaysPage() {
       return g.teamIds.some((tid) => myClubTeamsInPhase.some((t) => t.id === tid))
     })
   }, [groups, divisions, selectedPhaseId, myClubTeamsInPhase])
-
-  const effectiveGroupIdForNewMatchDay = groupOptionsInPhase[0]?.id ?? ''
-  const nextMatchDayNumber = () => {
-    if (!effectiveGroupIdForNewMatchDay) return 1
-    const inGroup = matchDays.filter((m) => m.groupId === effectiveGroupIdForNewMatchDay)
-    if (inGroup.length === 0) return 1
-    return Math.max(...inGroup.map((m) => m.number)) + 1
-  }
 
   return (
     <div className="space-y-6">
@@ -860,9 +796,6 @@ export function MatchDaysPage() {
                               const canEditAv = canEditAvailability(player.id, team.id)
                               const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
                               const canEditSel = canEditGameSelection(team.id)
-                              const ourTeamsInGame = [game.homeTeamId, game.awayTeamId].filter(
-                                (tid) => teams.find((t) => t.id === tid)?.clubId && user?.clubIds?.includes(teams.find((t) => t.id === tid)!.clubId)
-                              )
                               return (
                                 <Fragment key={md.id}>
                                   <td className="border-l border-slate-100 px-2 py-1.5">

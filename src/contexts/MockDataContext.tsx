@@ -20,6 +20,7 @@ import {
   mockGameSelections as initialGameSelections,
 } from '@/mock/data'
 import type {
+  Address,
   Club,
   Season,
   Phase,
@@ -55,6 +56,9 @@ function nextId(prefix: string): string {
 interface MockDataContextValue extends MockDataState {
   updateDivision: (id: string, patch: Partial<Division>) => void
   updateClub: (id: string, patch: Partial<Club>) => void
+  addClubAddress: (clubId: string, data: Omit<Address, 'id'>) => Address
+  updateClubAddress: (clubId: string, addressId: string, patch: Partial<Address>) => void
+  deleteClubAddress: (clubId: string, addressId: string) => void
   updateSeason: (id: string, patch: Partial<Season>) => void
   updatePhase: (id: string, patch: Partial<Phase>) => void
   updateGroup: (id: string, patch: Partial<Group>) => void
@@ -118,6 +122,53 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const updateClub = useCallback((id: string, patch: Partial<Club>) => {
     setClubs((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
+    )
+  }, [])
+
+  const addClubAddress = useCallback((clubId: string, data: Omit<Address, 'id'>) => {
+    const id = nextId('addr')
+    const address: Address = { ...data, id }
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c
+        const addresses = c.addresses ?? []
+        const newAddresses = data.isDefault
+          ? [...addresses.map((a) => ({ ...a, isDefault: false })), address]
+          : addresses.length === 0
+            ? [{ ...address, isDefault: true }]
+            : [...addresses, address]
+        return { ...c, addresses: newAddresses }
+      })
+    )
+    return address
+  }, [])
+
+  const updateClubAddress = useCallback(
+    (clubId: string, addressId: string, patch: Partial<Address>) => {
+      setClubs((prev) =>
+        prev.map((c) => {
+          if (c.id !== clubId) return c
+          const addresses = (c.addresses ?? []).map((a) =>
+            a.id === addressId ? { ...a, ...patch } : patch.isDefault === true ? { ...a, isDefault: false } : a
+          )
+          return { ...c, addresses }
+        })
+      )
+    },
+    []
+  )
+
+  const deleteClubAddress = useCallback((clubId: string, addressId: string) => {
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c
+        let addresses = (c.addresses ?? []).filter((a) => a.id !== addressId)
+        const deletedWasDefault = (c.addresses ?? []).find((a) => a.id === addressId)?.isDefault
+        if (deletedWasDefault && addresses.length > 0 && !addresses.some((a) => a.isDefault)) {
+          addresses = [{ ...addresses[0], isDefault: true }, ...addresses.slice(1)]
+        }
+        return { ...c, addresses }
+      })
     )
   }, [])
 
@@ -389,6 +440,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       games,
       updateDivision,
       updateClub,
+      addClubAddress,
+      updateClubAddress,
+      deleteClubAddress,
       updateSeason,
       updatePhase,
       updateGroup,
@@ -427,6 +481,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       games,
       updateDivision,
       updateClub,
+      addClubAddress,
+      updateClubAddress,
+      deleteClubAddress,
       updateSeason,
       updatePhase,
       updateGroup,
