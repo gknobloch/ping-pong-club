@@ -4,3 +4,9 @@ dist
 *.local
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Test
+coverage
+test-results
+playwright-report
+playwright/.cache

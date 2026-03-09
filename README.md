@@ -25,3 +25,10 @@ Ouvrir [http://localhost:5173](http://localhost:5173). Se connecter en choisissa
 | Admin club         | club.admin@example.com   |
 | Capitaine          | marie.dupont@example.com |
 | Joueurs            | jean.martin@example.com, etc. |
+
+### Tests
+
+- **Unit tests** (Vitest + React Testing Library) : `npm run test` (watch) ou `npm run test:run` (une fois). Couverture : `npm run test:coverage`.
+- **E2E / UI** (Playwright) : une fois, installer les navigateurs : `npx playwright install chromium`. Puis `npm run test:e2e` (lance le serveur de dev si besoin). Si vous lancez les e2e depuis l’IDE, assurez-vous que le serveur tourne (`npm run dev`) ou utilisez `npm run test:e2e` en ligne de commande. Pour l’UI Playwright : `npm run test:e2e:ui`.
+
+En CI, les tests unitaires et e2e s’exécutent sur chaque push/PR (voir `.github/workflows/test.yml`).
