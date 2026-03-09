@@ -44,6 +44,8 @@ export function TeamsPage() {
     defaultTime: '',
     captainId: '',
     playerIds: [] as string[],
+    /** Initial points per player for this phase (when in this team). */
+    initialPoints: {} as Record<string, string>,
   })
 
   const getClubName = (clubId: string) => clubs.find((c) => c.id === clubId)?.displayName ?? clubId
@@ -72,6 +74,11 @@ export function TeamsPage() {
   const openEdit = (team: Team) => {
     setEditing(team)
     setCreating(false)
+    const rosterIds = team.playerIds ?? []
+    const initialPoints: Record<string, string> = {}
+    rosterIds.forEach((pid) => {
+      initialPoints[pid] = team.rosterInitialPoints?.[pid] ?? players.find((p) => p.id === pid)?.points ?? ''
+    })
     setForm({
       clubId: team.clubId,
       phaseId: team.phaseId,
@@ -82,7 +89,8 @@ export function TeamsPage() {
       defaultDay: team.defaultDay,
       defaultTime: team.defaultTime,
       captainId: team.captainId,
-      playerIds: team.playerIds ?? [],
+      playerIds: rosterIds,
+      initialPoints,
     })
   }
 
@@ -105,6 +113,7 @@ export function TeamsPage() {
       defaultTime: '20h00',
       captainId: '',
       playerIds: [],
+      initialPoints: {},
     })
   }
 
@@ -123,6 +132,14 @@ export function TeamsPage() {
         ? form.captainId
         : form.playerIds[0] ?? ''
 
+  const buildRosterInitialPoints = (): Record<string, string> | undefined => {
+    const out: Record<string, string> = {}
+    form.playerIds.forEach((pid) => {
+      out[pid] = (form.initialPoints[pid] ?? '').trim()
+    })
+    return form.playerIds.length > 0 ? out : undefined
+  }
+
   const handleSave = () => {
     if (editing) {
       updateTeam(editing.id, {
@@ -132,6 +149,7 @@ export function TeamsPage() {
         defaultTime: form.defaultTime,
         playerIds: form.playerIds,
         captainId: captainForSave,
+        rosterInitialPoints: buildRosterInitialPoints(),
       })
       closeModal()
       return
@@ -158,6 +176,7 @@ export function TeamsPage() {
       defaultTime: form.defaultTime,
       captainId: form.captainId,
       playerIds: form.playerIds,
+      rosterInitialPoints: buildRosterInitialPoints(),
     })
     const group = groups.find((g) => g.id === form.groupId)
     if (group) {
@@ -394,7 +413,7 @@ export function TeamsPage() {
                 <p className="text-xs text-slate-500 mb-2">
                   Joueurs du club dans cette équipe. Ajoutez ou retirez des joueurs.
                 </p>
-                <ul className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3 max-h-40 overflow-y-auto mb-2">
+                <ul className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3 max-h-48 overflow-y-auto mb-2">
                   {rosterPlayers.length === 0 ? (
                     <li className="text-sm text-slate-500">Aucun joueur dans l&apos;équipe.</li>
                   ) : (
@@ -403,19 +422,39 @@ export function TeamsPage() {
                         key={p.id}
                         className="flex items-center justify-between gap-2 rounded bg-white border border-slate-200 px-2 py-1.5"
                       >
-                        <span className="text-sm font-medium text-slate-900">
+                        <span className="text-sm font-medium text-slate-900 shrink-0">
                           {p.firstName} {p.lastName}
                         </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <label className="text-xs text-slate-500 whitespace-nowrap">Points (phase)</label>
+                          <input
+                            type="text"
+                            value={form.initialPoints[p.id] ?? ''}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                initialPoints: { ...f.initialPoints, [p.id]: e.target.value },
+                              }))
+                            }
+                            placeholder="—"
+                            className="w-16 rounded border border-slate-300 px-1.5 py-0.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
-                            setForm((f) => ({
-                              ...f,
-                              playerIds: f.playerIds.filter((id) => id !== p.id),
-                              captainId: form.captainId === p.id ? '' : form.captainId,
-                            }))
+                            setForm((f) => {
+                              const next = { ...f.initialPoints }
+                              delete next[p.id]
+                              return {
+                                ...f,
+                                playerIds: f.playerIds.filter((id) => id !== p.id),
+                                captainId: form.captainId === p.id ? '' : form.captainId,
+                                initialPoints: next,
+                              }
+                            })
                           }}
-                          className="text-slate-500 hover:text-red-600 text-sm font-medium"
+                          className="text-slate-500 hover:text-red-600 text-sm font-medium shrink-0"
                           title="Retirer de l'équipe"
                         >
                           Retirer
@@ -433,7 +472,12 @@ export function TeamsPage() {
                       onChange={(e) => {
                         const id = e.target.value
                         if (id && !form.playerIds.includes(id)) {
-                          setForm((f) => ({ ...f, playerIds: [...f.playerIds, id] }))
+                          const p = players.find((x) => x.id === id)
+                          setForm((f) => ({
+                            ...f,
+                            playerIds: [...f.playerIds, id],
+                            initialPoints: { ...f.initialPoints, [id]: p?.points ?? '' },
+                          }))
                         }
                         e.target.value = ''
                       }}

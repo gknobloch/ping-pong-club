@@ -61,6 +61,7 @@ export const mockPlayers: Player[] = [
   { id: 'player-16', firstName: 'Julie', lastName: 'Bitschwiller', licenseNumber: '6814439', email: 'julie@bitschwiller.example.com', phone: '', status: 'active', clubId: 'club-7' },
   { id: 'player-17', firstName: 'Noah', lastName: 'Cernay', licenseNumber: '6814440', email: 'noah@cernay.example.com', phone: '', status: 'active', clubId: 'club-8' },
   { id: 'player-18', firstName: 'Jade', lastName: 'Cernay', licenseNumber: '6814441', email: 'jade@cernay.example.com', phone: '', status: 'active', clubId: 'club-8' },
+  { id: 'player-19', firstName: 'Inès', lastName: 'Rixheim', licenseNumber: '6814442', email: 'ines@rixheim.example.com', phone: '', status: 'active', clubId: 'club-1' },
 ]
 
 export const mockGroups: Group[] = [
@@ -80,6 +81,7 @@ export const mockTeams: Team[] = [
     defaultTime: '20h00',
     captainId: 'player-1',
     playerIds: ['player-1', 'player-3', 'player-4'],
+    rosterInitialPoints: { 'player-1': '850', 'player-3': '720', 'player-4': '680' },
     color: '#374151',
   },
   {
@@ -113,7 +115,8 @@ export const mockTeams: Team[] = [
     defaultDay: 'Jeudi',
     defaultTime: '20h00',
     captainId: 'player-6',
-    playerIds: ['player-6', 'player-3', 'player-4'],
+    playerIds: ['player-6', 'player-19'],
+    rosterInitialPoints: { 'player-6': '920', 'player-19': '650' },
     color: '#65a30d',
   },
 ]

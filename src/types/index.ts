@@ -77,6 +77,8 @@ export interface Team {
   captainId: string
   /** Roster for this team (phase). Used for availability and game selection. */
   playerIds: string[]
+  /** Initial points per player at the start of the phase (Club Admin sets when defining roster). */
+  rosterInitialPoints?: Record<string, string>
   /** Optional hex color for table/header display (e.g. #374151). */
   color?: string
   whatsappLink?: string

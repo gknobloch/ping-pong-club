@@ -136,9 +136,37 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateTeam = useCallback((id: string, patch: Partial<Team>) => {
-    setTeams((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
-    )
+    setTeams((prev) => {
+      const team = prev.find((t) => t.id === id)
+      if (!team) return prev
+      const nextPlayerIds = patch.playerIds ?? team.playerIds ?? []
+      const phaseId = patch.phaseId ?? team.phaseId
+      const rosterInitialPoints = patch.rosterInitialPoints ?? team.rosterInitialPoints
+      const otherTeamsInPhase = prev.filter(
+        (t) => t.phaseId === phaseId && t.id !== id
+      )
+      const updates: Array<{ id: string; playerIds: string[]; rosterInitialPoints?: Record<string, string> }> = []
+      for (const other of otherTeamsInPhase) {
+        const otherIds = other.playerIds ?? []
+        const removed = otherIds.filter((pid) => nextPlayerIds.includes(pid))
+        if (removed.length > 0) {
+          const nextIds = otherIds.filter((pid) => !nextPlayerIds.includes(pid))
+          const nextPoints = { ...other.rosterInitialPoints }
+          removed.forEach((pid) => delete nextPoints[pid])
+          updates.push({
+            id: other.id,
+            playerIds: nextIds,
+            rosterInitialPoints: Object.keys(nextPoints).length ? nextPoints : undefined,
+          })
+        }
+      }
+      return prev.map((t) => {
+        if (t.id === id) return { ...t, ...patch, rosterInitialPoints }
+        const u = updates.find((u) => u.id === t.id)
+        if (u) return { ...t, playerIds: u.playerIds, rosterInitialPoints: u.rosterInitialPoints }
+        return t
+      })
+    })
   }, [])
 
   const addClub = useCallback((data: Omit<Club, 'id'>) => {
@@ -179,7 +207,26 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const addTeam = useCallback((data: Omit<Team, 'id'>) => {
     const id = nextId('team')
     const team: Team = { ...data, id }
-    setTeams((prev) => [...prev, team])
+    setTeams((prev) => {
+      const phaseId = team.phaseId
+      const newPlayerIds = team.playerIds ?? []
+      const otherTeamsInPhase = prev.filter((t) => t.phaseId === phaseId)
+      const updated = prev.map((t) => {
+        if (!otherTeamsInPhase.includes(t)) return t
+        const otherIds = t.playerIds ?? []
+        const removed = otherIds.filter((pid) => newPlayerIds.includes(pid))
+        if (removed.length === 0) return t
+        const nextIds = otherIds.filter((pid) => !newPlayerIds.includes(pid))
+        const nextPoints = { ...t.rosterInitialPoints }
+        removed.forEach((pid) => delete nextPoints[pid])
+        return {
+          ...t,
+          playerIds: nextIds,
+          rosterInitialPoints: Object.keys(nextPoints).length ? nextPoints : undefined,
+        }
+      })
+      return [...updated, team]
+    })
     return team
   }, [])
 

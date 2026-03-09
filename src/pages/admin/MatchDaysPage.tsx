@@ -787,7 +787,7 @@ export function MatchDaysPage() {
                               {player.licenseNumber || '—'}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                              {player.points ?? '—'}
+                              {(team.rosterInitialPoints?.[player.id] ?? player.points) || '—'}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600">
                               {availCount}/{teamGamesCount}
