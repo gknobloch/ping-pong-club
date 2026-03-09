@@ -59,6 +59,11 @@ export function AppShell() {
             )}
             {(isClubAdmin || user?.role === 'captain' || user?.role === 'player') && !isGeneralAdmin && (
               <>
+                {user?.clubIds?.length ? (
+                  <Link to="/mon-club" className={navLinkClass(location.pathname === '/mon-club')}>
+                    Mon club
+                  </Link>
+                ) : null}
                 <Link to="/equipes" className={navLinkClass(location.pathname === '/equipes')}>
                   Équipes
                 </Link>
