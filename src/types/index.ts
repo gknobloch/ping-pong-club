@@ -60,6 +60,8 @@ export interface Player {
   birthPlace?: string
   status: PlayerStatus
   clubId: string
+  /** Display points (e.g. ranking); optional. */
+  points?: string
 }
 
 export interface Team {
@@ -75,6 +77,8 @@ export interface Team {
   captainId: string
   /** Roster for this team (phase). Used for availability and game selection. */
   playerIds: string[]
+  /** Optional hex color for table/header display (e.g. #374151). */
+  color?: string
   whatsappLink?: string
 }
 
@@ -103,6 +107,16 @@ export interface Game {
   matchDayId: string
   homeTeamId: string
   awayTeamId: string
+  /** Optional time (e.g. "20h00"). */
+  time?: string
+}
+
+/** Per game, per team: which players are selected to play (captain/club admin). */
+export interface GameSelection {
+  id: string
+  gameId: string
+  teamId: string
+  playerIds: string[]
 }
 
 export interface User {

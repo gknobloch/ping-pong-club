@@ -17,6 +17,7 @@ import {
   mockMatchDays as initialMatchDays,
   mockGames as initialGames,
   mockGameAvailabilities as initialGameAvailabilities,
+  mockGameSelections as initialGameSelections,
 } from '@/mock/data'
 import type {
   Club,
@@ -28,6 +29,7 @@ import type {
   MatchDay,
   Game,
   GameAvailability,
+  GameSelection,
   AvailabilityStatus,
   AvailabilityOverriddenBy,
 } from '@/types'
@@ -43,6 +45,7 @@ interface MockDataState {
   matchDays: MatchDay[]
   games: Game[]
   gameAvailabilities: GameAvailability[]
+  gameSelections: GameSelection[]
 }
 
 function nextId(prefix: string): string {
@@ -80,6 +83,9 @@ interface MockDataContextValue extends MockDataState {
     overriddenBy?: AvailabilityOverriddenBy
   ) => void
   clearGameAvailability: (gameId: string, playerId: string) => void
+  gameSelections: GameSelection[]
+  getGameSelectionPlayerIds: (gameId: string, teamId: string) => string[]
+  setGameSelection: (gameId: string, teamId: string, playerIds: string[]) => void
 }
 
 const MockDataContext = createContext<MockDataContextValue | null>(null)
@@ -97,6 +103,7 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const [gameAvailabilities, setGameAvailabilities] = useState<GameAvailability[]>(
     initialGameAvailabilities
   )
+  const [gameSelections, setGameSelections] = useState<GameSelection[]>(initialGameSelections)
 
   const updateDivision = useCallback((id: string, patch: Partial<Division>) => {
     setDivisions((prev) =>
@@ -276,6 +283,26 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
     )
   }, [])
 
+  const getGameSelectionPlayerIds = useCallback((gameId: string, teamId: string) => {
+    return (
+      gameSelections.find((s) => s.gameId === gameId && s.teamId === teamId)?.playerIds ?? []
+    )
+  }, [gameSelections])
+
+  const setGameSelection = useCallback((gameId: string, teamId: string, playerIds: string[]) => {
+    setGameSelections((prev) => {
+      const rest = prev.filter((s) => !(s.gameId === gameId && s.teamId === teamId))
+      if (playerIds.length === 0) return rest
+      const existing = prev.find((s) => s.gameId === gameId && s.teamId === teamId)
+      return [
+        ...rest,
+        existing
+          ? { ...existing, playerIds }
+          : { id: nextId('gs'), gameId, teamId, playerIds },
+      ]
+    })
+  }, [])
+
   const value = useMemo<MockDataContextValue>(
     () => ({
       divisions,
@@ -310,6 +337,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       gameAvailabilities,
       setGameAvailability,
       clearGameAvailability,
+      gameSelections,
+      getGameSelectionPlayerIds,
+      setGameSelection,
     }),
     [
       divisions,
@@ -344,6 +374,9 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       gameAvailabilities,
       setGameAvailability,
       clearGameAvailability,
+      gameSelections,
+      getGameSelectionPlayerIds,
+      setGameSelection,
     ]
   )
 
