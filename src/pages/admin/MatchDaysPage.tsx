@@ -32,8 +32,11 @@ function TeamSelect({
     const onOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', onOutside)
-    return () => document.removeEventListener('mousedown', onOutside)
+    // Use 'click' not 'mousedown': the list is in a portal (document.body), so ref only
+    // contains the button. On mousedown the option would be "outside" and we'd close
+    // before the option's click fired, so onChange would never run.
+    document.addEventListener('click', onOutside)
+    return () => document.removeEventListener('click', onOutside)
   }, [open])
 
   useLayoutEffect(() => {
@@ -338,21 +341,29 @@ export function MatchDaysPage() {
     return null
   }
 
-  /** Set which team this player is selected for on this match-day (finds the game for that team). */
+  /**
+   * Set which team this player is selected for on this match-day.
+   * Player can only be in one team's selection per match-day: we update all games that day
+   * in one batch (remove player from every team, then add to the selected team's game).
+   */
   const setPlayerSelectedForMatchDay = (
     matchDayId: string,
     playerId: string,
     teamId: string | null
   ) => {
     const dayGames = games.filter((g) => g.matchDayId === matchDayId)
-    if (teamId) {
-      const game = dayGames.find(
-        (g) => g.homeTeamId === teamId || g.awayTeamId === teamId
+    const updates: Array<{ gameId: string; teamId: string; playerIds: string[] }> = []
+    for (const game of dayGames) {
+      const homeIds = getGameSelectionPlayerIds(game.id, game.homeTeamId).filter((id) => id !== playerId)
+      const awayIds = getGameSelectionPlayerIds(game.id, game.awayTeamId).filter((id) => id !== playerId)
+      if (teamId === game.homeTeamId) homeIds.push(playerId)
+      else if (teamId === game.awayTeamId) awayIds.push(playerId)
+      updates.push(
+        { gameId: game.id, teamId: game.homeTeamId, playerIds: homeIds },
+        { gameId: game.id, teamId: game.awayTeamId, playerIds: awayIds }
       )
-      if (game) setPlayerSelectedForGame(game.id, playerId, teamId)
-    } else {
-      dayGames.forEach((g) => setPlayerSelectedForGame(g.id, playerId, null))
     }
+    if (updates.length > 0) setGameSelectionBatch(updates)
   }
 
   /** Set which team this player is selected for in this game (null = remove from both). */
@@ -847,7 +858,7 @@ export function MatchDaysPage() {
                               }
                               const status = getAvailability(game.id, player.id)
                               const canEditAv = canEditAvailability(player.id, team.id)
-                              const selectedTeamId = getSelectedTeamForGame(game.id, player.id)
+                              const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
                               const canEditSel = canEditGameSelection(team.id)
                               const ourTeamsInGame = [game.homeTeamId, game.awayTeamId].filter(
                                 (tid) => teams.find((t) => t.id === tid)?.clubId && user?.clubIds?.includes(teams.find((t) => t.id === tid)!.clubId)
@@ -883,7 +894,7 @@ export function MatchDaysPage() {
                                       <TeamSelect
                                         value={selectedTeamId}
                                         onChange={(v) =>
-                                          setPlayerSelectedForGame(game.id, player.id, v)
+                                          setPlayerSelectedForMatchDay(md.id, player.id, v)
                                         }
                                         optionIds={orderedTeamOptionIds(team.id)}
                                         getLabel={getTeamLabel}
