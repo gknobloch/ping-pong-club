@@ -1,7 +1,7 @@
 import type { Team, Game, MatchDay, GameSelection } from '@/types'
 
 export interface BrulageInfo {
-  /** The lowest team number the player can play for (burned into this team or above). null = no restriction. */
+  /** The highest team number the player can play for (burned into this level). null = no restriction. */
   burnedIntoTeamNumber: number | null
   /** Team ID of the burned-into team (for display). null = no restriction. */
   burnedIntoTeamId: string | null
@@ -11,10 +11,13 @@ export interface BrulageInfo {
  * For a given player and club, compute brûlage status based on game selections
  * up to (but not including) the given match-day.
  *
- * Rule 1 only: A player who played 2+ games in a higher-ranked team (lower team number)
- * is "burned" into that team — they can no longer play for teams with a higher number.
+ * Rule: a player can play at most 1 game in a team with a lower number (higher rank)
+ * than their "level". Once they've accumulated >1 games across higher-ranked teams,
+ * they're burned into the highest-numbered team they played in.
  *
- * Returns the lowest team number (most restrictive) the player is burned into.
+ * Example: played MD1 in team 2, MD2 in team 1 → burned into team 2 (can play 1 or 2, not 3+).
+ * Example: played MD1 in team 1 only → no burn (1 game ≤ threshold).
+ * Example: played MD1 and MD2 in team 1 → burned into team 1 (can only play team 1).
  */
 export function computeBrulage(
   playerId: string,
@@ -27,33 +30,43 @@ export function computeBrulage(
 ): BrulageInfo {
   if (clubTeams.length === 0) return { burnedIntoTeamNumber: null, burnedIntoTeamId: null }
 
-  const gamesPlayedPerTeam = countGamesPerTeam(playerId, clubTeams, matchDays, games, gameSelections, asOfMatchDayId)
-  const teamById = new Map(clubTeams.map((t) => [t.id, t]))
+  const gamesPerTeam = countGamesPerTeam(playerId, clubTeams, matchDays, games, gameSelections, asOfMatchDayId)
 
-  let burnedNumber: number | null = null
-  let burnedTeamId: string | null = null
+  // Sort club teams by number ascending
+  const sorted = [...clubTeams].sort((a, b) => a.number - b.number)
 
-  for (const [teamId, count] of gamesPlayedPerTeam) {
-    if (count >= 2) {
-      const team = teamById.get(teamId)
-      if (team && (burnedNumber === null || team.number < burnedNumber)) {
-        burnedNumber = team.number
-        burnedTeamId = teamId
+  // Walk teams from lowest number to highest, accumulating game count.
+  // Burned-into N means: cumulative games in teams ≤ N > 1, but cumulative in teams < N ≤ 1.
+  let cumulative = 0
+  let burned = false
+
+  for (const team of sorted) {
+    const count = gamesPerTeam.get(team.id) ?? 0
+    cumulative += count
+    if (cumulative > 1) {
+      burned = true
+      break
+    }
+  }
+
+  // If burned, the actual level is the highest-numbered team the player played in
+  // (they can still play up to that team, not beyond).
+  if (burned) {
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if ((gamesPerTeam.get(sorted[i].id) ?? 0) > 0) {
+        return { burnedIntoTeamNumber: sorted[i].number, burnedIntoTeamId: sorted[i].id }
       }
     }
   }
 
-  return { burnedIntoTeamNumber: burnedNumber, burnedIntoTeamId: burnedTeamId }
+  return { burnedIntoTeamNumber: null, burnedIntoTeamId: null }
 }
 
 /**
  * Check if a player is eligible to be selected for a specific team on a specific match-day.
  *
- * A player is NOT eligible if:
- * - Rule 1: They played 2+ games in a higher-ranked team (lower number), burning them
- *   into that team — they can't play for teams with a higher number.
- * - Rule 2: The target team shares a group with another club team, and the player already
- *   played in that other team — they can no longer switch between same-group teams.
+ * Rule: count all games the player has played in teams with a LOWER number (higher rank)
+ * than the target team. If that count > 1, the player is not eligible.
  */
 export function isPlayerEligibleForTeam(
   playerId: string,
@@ -64,36 +77,16 @@ export function isPlayerEligibleForTeam(
   gameSelections: GameSelection[],
   matchDayId: string,
 ): boolean {
-  // Rule 1: brûlage (2+ games)
-  const { burnedIntoTeamNumber } = computeBrulage(
-    playerId,
-    clubTeams,
-    matchDays,
-    games,
-    gameSelections,
-    matchDayId,
-  )
+  const gamesPerTeam = countGamesPerTeam(playerId, clubTeams, matchDays, games, gameSelections, matchDayId)
 
-  if (burnedIntoTeamNumber !== null && targetTeam.number > burnedIntoTeamNumber) {
-    return false
-  }
-
-  // Rule 2: same-group restriction
-  // If another club team shares the target team's group and the player played in that
-  // other team, they can't switch to the target team.
-  const sameGroupTeams = clubTeams.filter(
-    (t) => t.groupId === targetTeam.groupId && t.id !== targetTeam.id
-  )
-  if (sameGroupTeams.length > 0) {
-    const gamesPlayedPerTeam = countGamesPerTeam(playerId, clubTeams, matchDays, games, gameSelections, matchDayId)
-    for (const otherTeam of sameGroupTeams) {
-      if ((gamesPlayedPerTeam.get(otherTeam.id) ?? 0) > 0) {
-        return false
-      }
+  let gamesInHigherRankedTeams = 0
+  for (const team of clubTeams) {
+    if (team.number < targetTeam.number) {
+      gamesInHigherRankedTeams += gamesPerTeam.get(team.id) ?? 0
     }
   }
 
-  return true
+  return gamesInHigherRankedTeams <= 1
 }
 
 /** Count games played per team for a player, up to (exclusive) the given match-day. */
@@ -112,7 +105,7 @@ function countGamesPerTeam(
   }
 
   const clubTeamIds = new Set(clubTeams.map((t) => t.id))
-  const gamesPlayedPerTeam = new Map<string, number>()
+  const gamesPerTeam = new Map<string, number>()
 
   for (const sel of gameSelections) {
     if (!clubTeamIds.has(sel.teamId)) continue
@@ -124,8 +117,8 @@ function countGamesPerTeam(
     const mdNumber = mdNumberById.get(game.matchDayId)
     if (mdNumber === undefined || mdNumber >= cutoffNumber) continue
 
-    gamesPlayedPerTeam.set(sel.teamId, (gamesPlayedPerTeam.get(sel.teamId) ?? 0) + 1)
+    gamesPerTeam.set(sel.teamId, (gamesPerTeam.get(sel.teamId) ?? 0) + 1)
   }
 
-  return gamesPlayedPerTeam
+  return gamesPerTeam
 }
