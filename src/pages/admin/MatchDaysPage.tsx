@@ -1,7 +1,161 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { MatchDay, Game, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMockData } from '@/contexts/MockDataContext'
+
+/** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
+function TeamSelect({
+  value,
+  onChange,
+  optionIds,
+  getLabel,
+  getColor,
+  disabled,
+  className = '',
+}: {
+  value: string | null
+  onChange: (teamId: string | null) => void
+  optionIds: (string | null)[]
+  getLabel: (teamId: string) => string
+  getColor: (teamId: string) => string | undefined
+  disabled?: boolean
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [listRect, setListRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setListRect(null)
+      return
+    }
+    const updateRect = () => {
+      if (buttonRef.current) {
+        const r = buttonRef.current.getBoundingClientRect()
+        setListRect({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 140) })
+      }
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [open])
+
+  const displayLabel = value ? getLabel(value) : '—'
+  const displayColor = value ? getColor(value) : undefined
+
+  const dropdownList = open && listRect && (
+    <ul
+      className="fixed max-h-48 overflow-auto rounded border border-slate-200 bg-white py-1 shadow-lg text-xs z-[100]"
+      role="listbox"
+      style={{
+        top: listRect.top,
+        left: listRect.left,
+        width: listRect.width,
+      }}
+    >
+      {optionIds.map((id) => {
+        const label = id === null ? '—' : getLabel(id)
+        const color = id === null ? undefined : getColor(id)
+        const isSelected = value === id
+        return (
+          <li
+            key={id ?? '__empty__'}
+            role="option"
+            aria-selected={isSelected}
+            onClick={() => {
+              onChange(id)
+              setOpen(false)
+            }}
+            className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+          >
+            {color ? (
+              <span
+                className="shrink-0 w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: color }}
+                aria-hidden
+              />
+            ) : (
+              <span className="shrink-0 w-2.5 h-2.5" aria-hidden />
+            )}
+            <span className="truncate">{label}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-left text-xs flex items-center gap-1.5 min-h-[26px] hover:border-slate-400 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {displayColor && (
+          <span
+            className="shrink-0 w-2.5 h-2.5 rounded-full"
+            style={{ backgroundColor: displayColor }}
+            aria-hidden
+          />
+        )}
+        <span className="truncate">{displayLabel}</span>
+        <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {dropdownList && createPortal(dropdownList, document.body)}
+    </div>
+  )
+}
+
+/** Fixed column widths so team tables and Other players table stay aligned. */
+const TABLE_COL_WIDTHS = {
+  joueur: 160,
+  licence: 88,
+  points: 64,
+  dispo: 64,
+  joues: 64,
+  matchDayDispo: 96,
+  matchDayCompo: 96,
+} as const
+
+function MatchDayColgroup({ matchDayCount }: { matchDayCount: number }) {
+  return (
+    <colgroup>
+      <col style={{ width: TABLE_COL_WIDTHS.joueur }} />
+      <col style={{ width: TABLE_COL_WIDTHS.licence }} />
+      <col style={{ width: TABLE_COL_WIDTHS.points }} />
+      <col style={{ width: TABLE_COL_WIDTHS.dispo }} />
+      <col style={{ width: TABLE_COL_WIDTHS.joues }} />
+      {Array.from({ length: matchDayCount * 2 }, (_, i) => (
+        <col
+          key={i}
+          style={{
+            width: i % 2 === 0 ? TABLE_COL_WIDTHS.matchDayDispo : TABLE_COL_WIDTHS.matchDayCompo,
+          }}
+        />
+      ))}
+    </colgroup>
+  )
+}
 
 export function MatchDaysPage() {
   const { user } = useAuth()
@@ -17,13 +171,14 @@ export function MatchDaysPage() {
     gameAvailabilities,
     setGameAvailability,
     clearGameAvailability,
+    getGameSelectionPlayerIds,
+    setGameSelection,
     addMatchDay,
     updateMatchDay,
     addGame,
     updateGame,
   } = useMockData()
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(phases[0]?.id ?? '')
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('')
 
   const phaseGroups = useMemo(() => {
     return groups.filter((g) => {
@@ -32,26 +187,79 @@ export function MatchDaysPage() {
     })
   }, [groups, divisions, selectedPhaseId])
 
-  const effectiveGroupId = selectedGroupId || phaseGroups[0]?.id || ''
-  const groupMatchDays = matchDays
-    .filter((m) => m.groupId === effectiveGroupId)
-    .sort((a, b) => a.number - b.number)
-  const hasMatchDays = groupMatchDays.length > 0
+  /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
+  const myClubTeamsInPhase = useMemo(() => {
+    if (!selectedPhaseId || !user?.clubIds?.length) return []
+    return teams
+      .filter((t) => t.phaseId === selectedPhaseId && user!.clubIds!.includes(t.clubId))
+      .sort((a, b) => (a.groupId === b.groupId ? a.number - b.number : a.groupId.localeCompare(b.groupId)))
+  }, [teams, selectedPhaseId, user?.clubIds])
+
+  /** Match-days for a given team (its group). */
+  const getMatchDaysForTeam = (teamId: string) => {
+    const team = teams.find((t) => t.id === teamId)
+    if (!team) return []
+    return matchDays
+      .filter((m) => m.groupId === team.groupId)
+      .sort((a, b) => a.number - b.number)
+  }
+
+  /** For "Other players" we use the first team's group match-days. */
+  const otherGroupMatchDays = useMemo(() => {
+    const first = myClubTeamsInPhase[0]
+    if (!first) return []
+    return getMatchDaysForTeam(first.id)
+  }, [myClubTeamsInPhase, matchDays, teams])
+
+  /** Club players (active) not in any of the phase's team rosters; for "Other players" section. */
+  const otherPlayers = useMemo(() => {
+    if (!user?.clubIds?.length) return []
+    const inRoster = new Set(myClubTeamsInPhase.flatMap((t) => t.playerIds ?? []))
+    return players
+      .filter(
+        (p) =>
+          p.clubId &&
+          user!.clubIds!.includes(p.clubId) &&
+          p.status === 'active' &&
+          !inRoster.has(p.id)
+      )
+      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+  }, [players, user?.clubIds, myClubTeamsInPhase])
 
   const [editingMatchDay, setEditingMatchDay] = useState<MatchDay | null>(null)
   const [creatingMatchDay, setCreatingMatchDay] = useState(false)
   const [matchDayForm, setMatchDayForm] = useState({ groupId: '', number: 1, date: '' })
 
-  const [addingGameForMatchDayId, setAddingGameForMatchDayId] = useState<string | null>(null)
-  const [editingGame, setEditingGame] = useState<Game | null>(null)
-  const [gameForm, setGameForm] = useState({ homeTeamId: '', awayTeamId: '' })
-  const [availabilityModalGame, setAvailabilityModalGame] = useState<Game | null>(null)
+  /** Opened by clicking a match-day header (J1, J2, …): edit or create game for that team + match-day. */
+  const [gameEditModal, setGameEditModal] = useState<{ teamId: string; matchDayId: string } | null>(null)
+  const [gameEditForm, setGameEditForm] = useState({
+    date: '',
+    time: '',
+    isHome: true,
+    opponentTeamId: '',
+  })
+  /** Sliding window: which pair of match-days is visible per team (index into that team's group match-days). */
+  const [matchDayOffsetByTeamId, setMatchDayOffsetByTeamId] = useState<Record<string, number>>({})
+  const [otherMatchDayOffset, setOtherMatchDayOffset] = useState(0)
 
   const getTeamLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
     if (!team) return teamId
     const club = clubs.find((c) => c.id === team.clubId)
     return `${club?.displayName ?? team.clubId} ${team.number}`
+  }
+
+  const getTeamColor = (teamId: string): string | undefined =>
+    teams.find((t) => t.id === teamId)?.color
+
+  /** Team options for selection: player's team first (if any), then empty, then all other club teams. */
+  const orderedTeamOptionIds = (playerTeamId: string | null): (string | null)[] => {
+    const all = myClubTeamsInPhase.map((t) => t.id)
+    if (playerTeamId && all.includes(playerTeamId)) {
+      const rest = all.filter((id) => id !== playerTeamId)
+      return [playerTeamId, null, ...rest]
+    }
+    return [null, ...all]
   }
 
   const getGroupLabel = (groupId: string) => {
@@ -96,10 +304,67 @@ export function MatchDaysPage() {
     return undefined
   }
 
+  /** Captain (their team) or club admin (their club) can pick who plays. */
+  const canEditGameSelection = (teamId: string): boolean => {
+    if (!user) return false
+    const team = teams.find((t) => t.id === teamId)
+    if (!team) return false
+    const isCaptain = user.captainTeamIds.includes(teamId)
+    const isClubAdminForTeam = user.role === 'club_admin' && user.clubIds.includes(team.clubId)
+    return isCaptain || isClubAdminForTeam
+  }
+
   const availabilityLabel: Record<AvailabilityStatus, string> = {
     available: 'Disponible',
     maybe: 'Peut-être',
     unavailable: 'Indisponible',
+  }
+
+  /** Which team (home or away) this player is selected for in this game; null if none. */
+  const getSelectedTeamForGame = (gameId: string, playerId: string): string | null => {
+    const game = games.find((g) => g.id === gameId)
+    if (!game) return null
+    if (getGameSelectionPlayerIds(gameId, game.homeTeamId).includes(playerId)) return game.homeTeamId
+    if (getGameSelectionPlayerIds(gameId, game.awayTeamId).includes(playerId)) return game.awayTeamId
+    return null
+  }
+
+  /** Which team this player is selected for on this match-day (any game that day); null if none. */
+  const getSelectedTeamForMatchDay = (matchDayId: string, playerId: string): string | null => {
+    for (const g of games.filter((x) => x.matchDayId === matchDayId)) {
+      const t = getSelectedTeamForGame(g.id, playerId)
+      if (t) return t
+    }
+    return null
+  }
+
+  /** Set which team this player is selected for on this match-day (finds the game for that team). */
+  const setPlayerSelectedForMatchDay = (
+    matchDayId: string,
+    playerId: string,
+    teamId: string | null
+  ) => {
+    const dayGames = games.filter((g) => g.matchDayId === matchDayId)
+    if (teamId) {
+      const game = dayGames.find(
+        (g) => g.homeTeamId === teamId || g.awayTeamId === teamId
+      )
+      if (game) setPlayerSelectedForGame(game.id, playerId, teamId)
+    } else {
+      dayGames.forEach((g) => setPlayerSelectedForGame(g.id, playerId, null))
+    }
+  }
+
+  /** Set which team this player is selected for in this game (null = remove from both). */
+  const setPlayerSelectedForGame = (gameId: string, playerId: string, teamId: string | null) => {
+    const game = games.find((g) => g.id === gameId)
+    if (!game) return
+    const homeIds = getGameSelectionPlayerIds(gameId, game.homeTeamId).filter((id) => id !== playerId)
+    const awayIds = getGameSelectionPlayerIds(gameId, game.awayTeamId).filter((id) => id !== playerId)
+    if (teamId === game.homeTeamId) homeIds.push(playerId)
+    else if (teamId === game.awayTeamId) awayIds.push(playerId)
+    setGameSelection(gameId, game.homeTeamId, homeIds)
+    setGameSelection(gameId, game.awayTeamId, awayIds)
   }
 
   const getPlayerName = (playerId: string) => {
@@ -107,19 +372,12 @@ export function MatchDaysPage() {
     return p ? `${p.firstName} ${p.lastName}` : playerId
   }
 
-  const nextMatchDayNumber = () => {
-    if (!effectiveGroupId) return 1
-    const inGroup = matchDays.filter((m) => m.groupId === effectiveGroupId)
-    if (inGroup.length === 0) return 1
-    return Math.max(...inGroup.map((m) => m.number)) + 1
-  }
-
   const openCreateMatchDay = () => {
     setCreatingMatchDay(true)
     setEditingMatchDay(null)
     const today = new Date().toISOString().slice(0, 10)
     setMatchDayForm({
-      groupId: effectiveGroupId,
+      groupId: effectiveGroupIdForNewMatchDay,
       number: nextMatchDayNumber(),
       date: today,
     })
@@ -157,83 +415,103 @@ export function MatchDaysPage() {
     }
   }
 
-  const openAddGame = (matchDayId: string) => {
-    setAddingGameForMatchDayId(matchDayId)
-    setEditingGame(null)
-    setGameForm({ homeTeamId: '', awayTeamId: '' })
+  const openGameEditModal = (teamId: string, matchDayId: string) => {
+    const md = matchDays.find((m) => m.id === matchDayId)
+    const team = teams.find((t) => t.id === teamId)
+    const game = games.find(
+      (g) =>
+        g.matchDayId === matchDayId &&
+        (g.homeTeamId === teamId || g.awayTeamId === teamId)
+    )
+    if (!md || !team) return
+    setGameEditForm({
+      date: md.date,
+      time: game?.time ?? team.defaultTime ?? '',
+      isHome: game ? game.homeTeamId === teamId : true,
+      opponentTeamId: game
+        ? game.homeTeamId === teamId
+          ? game.awayTeamId
+          : game.homeTeamId
+        : '',
+    })
+    setGameEditModal({ teamId, matchDayId })
   }
 
-  const openEditGame = (game: Game) => {
-    setEditingGame(game)
-    setAddingGameForMatchDayId(null)
-    setGameForm({ homeTeamId: game.homeTeamId, awayTeamId: game.awayTeamId })
-  }
+  const closeGameEditModal = () => setGameEditModal(null)
 
-  const closeGameModal = () => {
-    setAddingGameForMatchDayId(null)
-    setEditingGame(null)
-  }
-
-  const handleSaveGame = () => {
-    if (addingGameForMatchDayId && gameForm.homeTeamId && gameForm.awayTeamId) {
-      addGame({
-        matchDayId: addingGameForMatchDayId,
-        homeTeamId: gameForm.homeTeamId,
-        awayTeamId: gameForm.awayTeamId,
-      })
-      closeGameModal()
-    } else if (editingGame) {
-      updateGame(editingGame.id, {
-        homeTeamId: gameForm.homeTeamId,
-        awayTeamId: gameForm.awayTeamId,
-      })
-      closeGameModal()
+  const handleSaveGameEdit = () => {
+    if (!gameEditModal) return
+    const { teamId, matchDayId } = gameEditModal
+    const team = teams.find((t) => t.id === teamId)
+    const matchDay = matchDays.find((m) => m.id === matchDayId)
+    const game = games.find(
+      (g) =>
+        g.matchDayId === matchDayId &&
+        (g.homeTeamId === teamId || g.awayTeamId === teamId)
+    )
+    if (!team || !matchDay) return
+    updateMatchDay(matchDayId, { date: gameEditForm.date })
+    const homeTeamId = gameEditForm.isHome ? teamId : gameEditForm.opponentTeamId
+    const awayTeamId = gameEditForm.isHome ? gameEditForm.opponentTeamId : teamId
+    if (!homeTeamId || !awayTeamId) {
+      closeGameEditModal()
+      return
     }
+    if (game) {
+      updateGame(game.id, {
+        homeTeamId,
+        awayTeamId,
+        time: gameEditForm.time || undefined,
+      })
+    } else {
+      addGame({
+        matchDayId,
+        homeTeamId,
+        awayTeamId,
+        time: gameEditForm.time || undefined,
+      })
+    }
+    closeGameEditModal()
   }
 
-  const gameModalMatchDayId = addingGameForMatchDayId ?? editingGame?.matchDayId ?? null
-  const gameModalMatchDay = gameModalMatchDayId
-    ? matchDays.find((m) => m.id === gameModalMatchDayId)
+  const gameEditModalTeam = gameEditModal
+    ? teams.find((t) => t.id === gameEditModal.teamId)
     : null
-  const gameModalGroup = gameModalMatchDay
-    ? groups.find((g) => g.id === gameModalMatchDay.groupId)
+  const gameEditModalMatchDay = gameEditModal
+    ? matchDays.find((m) => m.id === gameEditModal!.matchDayId)
     : null
-  const gameModalTeams = useMemo(() => {
-    if (!gameModalGroup) return []
-    return teams.filter((t) => gameModalGroup.teamIds.includes(t.id))
-  }, [teams, gameModalGroup])
-
-  const gameModalUsedTeamIds = useMemo(() => {
-    if (!gameModalMatchDayId) return new Set<string>()
-    const dayGames = games.filter((g) => g.matchDayId === gameModalMatchDayId)
-    const toExclude =
-      editingGame && dayGames.some((g) => g.id === editingGame.id)
-        ? dayGames.filter((g) => g.id !== editingGame.id)
-        : dayGames
-    return new Set(toExclude.flatMap((g) => [g.homeTeamId, g.awayTeamId]))
-  }, [games, gameModalMatchDayId, editingGame?.id])
-
-  const gameModalAvailableTeams = useMemo(
-    () => gameModalTeams.filter((t) => !gameModalUsedTeamIds.has(t.id)),
-    [gameModalTeams, gameModalUsedTeamIds]
-  )
-
-  const homeTeamOptions = useMemo(
-    () => gameModalAvailableTeams.filter((t) => t.id !== gameForm.awayTeamId),
-    [gameModalAvailableTeams, gameForm.awayTeamId]
-  )
-  const awayTeamOptions = useMemo(
-    () => gameModalAvailableTeams.filter((t) => t.id !== gameForm.homeTeamId),
-    [gameModalAvailableTeams, gameForm.homeTeamId]
-  )
+  const gameEditOpponentOptions = gameEditModalTeam
+    ? teams.filter(
+        (t) =>
+          t.groupId === gameEditModalTeam.groupId && t.id !== gameEditModalTeam.id
+      )
+    : []
 
   const handlePhaseChange = (phaseId: string) => {
     setSelectedPhaseId(phaseId)
-    const nextGroups = groups.filter((g) => {
+    setMatchDayOffsetByTeamId({})
+    setOtherMatchDayOffset(0)
+  }
+
+  const scrollToTeam = (teamId: string) => {
+    document.getElementById(`team-${teamId}`)?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  /** Groups in this phase where we have at least one team (for "add match day" modal). */
+  const groupOptionsInPhase = useMemo(() => {
+    return groups.filter((g) => {
       const div = divisions.find((d) => d.id === g.divisionId)
-      return div?.phaseId === phaseId
+      if (div?.phaseId !== selectedPhaseId) return false
+      return g.teamIds.some((tid) => myClubTeamsInPhase.some((t) => t.id === tid))
     })
-    setSelectedGroupId(nextGroups[0]?.id ?? '')
+  }, [groups, divisions, selectedPhaseId, myClubTeamsInPhase])
+
+  const effectiveGroupIdForNewMatchDay = groupOptionsInPhase[0]?.id ?? ''
+  const nextMatchDayNumber = () => {
+    if (!effectiveGroupIdForNewMatchDay) return 1
+    const inGroup = matchDays.filter((m) => m.groupId === effectiveGroupIdForNewMatchDay)
+    if (inGroup.length === 0) return 1
+    return Math.max(...inGroup.map((m) => m.number)) + 1
   }
 
   return (
@@ -241,10 +519,10 @@ export function MatchDaysPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-800">
-            Journées et matchs
+            Disponibilités et compositions
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Définir les journées et les matchs par groupe.
+            Par équipe : disponibilité et joueurs retenus par match.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -259,126 +537,603 @@ export function MatchDaysPage() {
               </option>
             ))}
           </select>
-          {phaseGroups.length > 0 && (
+          {myClubTeamsInPhase.length > 0 && (
             <select
-              value={effectiveGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
+              value=""
+              onChange={(e) => {
+                const id = e.target.value
+                if (id) scrollToTeam(id)
+                e.target.value = ''
+              }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              title="Aller à l'équipe"
             >
-              {phaseGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {getGroupLabel(g.id)}
+              <option value="">Aller à l&apos;équipe…</option>
+              {myClubTeamsInPhase.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {getTeamLabel(t.id)}
                 </option>
               ))}
             </select>
           )}
-          <button
-            type="button"
-            onClick={openCreateMatchDay}
-            disabled={!effectiveGroupId}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Ajouter une journée
-          </button>
         </div>
       </div>
 
-      {selectedPhaseId && phaseGroups.length === 0 && (
-        <p className="text-sm text-slate-600">Aucun groupe dans cette phase.</p>
+      {selectedPhaseId && myClubTeamsInPhase.length === 0 && (
+        <p className="text-sm text-slate-600">Aucune équipe de votre club dans cette phase.</p>
       )}
 
-      {selectedPhaseId && phaseGroups.length > 0 && !effectiveGroupId && (
-        <p className="text-sm text-slate-600">Sélectionnez un groupe.</p>
-      )}
+      {myClubTeamsInPhase.map((team) => {
+        const groupMatchDays = getMatchDaysForTeam(team.id)
+        const offset = matchDayOffsetByTeamId[team.id] ?? 0
+        const visibleMatchDays = groupMatchDays.slice(offset, offset + 2)
+        const maxOffset = Math.max(0, groupMatchDays.length - 2)
+        const roster = (team.playerIds ?? [])
+          .map((pid) => players.find((p) => p.id === pid))
+          .filter((p): p is Player => p != null)
 
-      {effectiveGroupId && !hasMatchDays && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-          <p className="text-slate-600">
-            Aucune journée pour ce groupe. Cliquez sur « Ajouter une journée » pour en créer une.
-          </p>
-        </div>
-      )}
+        const teamGamesCount = groupMatchDays.filter((md) =>
+          games.some(
+            (g) =>
+              g.matchDayId === md.id && (g.homeTeamId === team.id || g.awayTeamId === team.id)
+          )
+        ).length
 
-      {effectiveGroupId && hasMatchDays && (
-        <div className="space-y-6">
-          {groupMatchDays.map((md) => {
-            const dayGames = games.filter((g) => g.matchDayId === md.id)
-            return (
-              <section
-                key={md.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white"
-              >
-                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <h2 className="font-display text-lg font-medium text-slate-800">
-                    Journée {md.number}
-                    <span className="ml-2 text-sm font-normal text-slate-600">
-                      {new Date(md.date + 'Z').toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </h2>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditMatchDay(md)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openAddGame(md.id)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Ajouter un match
-                    </button>
-                  </div>
+        return (
+          <section
+            key={team.id}
+            id={`team-${team.id}`}
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-4"
+          >
+            <div
+              className="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-4"
+              style={
+                team.color
+                  ? { borderLeftWidth: '4px', borderLeftColor: team.color }
+                  : undefined
+              }
+            >
+              <h2 className="font-display text-lg font-medium text-slate-800 flex items-center gap-2">
+                {team.color && (
+                  <span
+                    className="inline-block w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: team.color }}
+                    aria-hidden
+                  />
+                )}
+                {getTeamLabel(team.id)}
+              </h2>
+              {groupMatchDays.length > 2 && (
+                <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMatchDayOffsetByTeamId((prev) => ({
+                        ...prev,
+                        [team.id]: Math.max(0, (prev[team.id] ?? 0) - 1),
+                      }))
+                    }
+                    disabled={offset <= 0}
+                    className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                    aria-label="Journées précédentes"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className="text-xs text-slate-600 tabular-nums">
+                    {offset + 1}–{Math.min(offset + 2, groupMatchDays.length)} / {groupMatchDays.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMatchDayOffsetByTeamId((prev) => ({
+                        ...prev,
+                        [team.id]: Math.min(maxOffset, (prev[team.id] ?? 0) + 1),
+                      }))
+                    }
+                    disabled={offset >= maxOffset}
+                    className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                    aria-label="Journées suivantes"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-                <ul className="divide-y divide-slate-200">
-                  {dayGames.length === 0 ? (
-                    <li className="px-4 py-3 text-sm text-slate-500">Aucun match</li>
-                  ) : (
-                    dayGames.map((game) => (
-                      <li
-                        key={game.id}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/50"
-                      >
-                        <span className="text-sm font-medium text-slate-900">
-                          {getTeamLabel(game.homeTeamId)}
-                        </span>
-                        <span className="text-sm text-slate-400">—</span>
-                        <span className="text-sm font-medium text-slate-900">
-                          {getTeamLabel(game.awayTeamId)}
-                        </span>
-                        <div className="flex gap-2">
-                          {canViewGameAvailability(game) && (
-                            <button
-                              type="button"
-                              onClick={() => setAvailabilityModalGame(game)}
-                              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+              )}
+            </div>
+            {groupMatchDays.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">
+                Aucune journée pour cette équipe. Ajoutez une journée au groupe concerné.
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table
+                    className="w-full border-collapse text-sm table-fixed"
+                    style={{
+                      minWidth:
+                        TABLE_COL_WIDTHS.joueur +
+                        TABLE_COL_WIDTHS.licence +
+                        TABLE_COL_WIDTHS.points +
+                        TABLE_COL_WIDTHS.dispo +
+                        TABLE_COL_WIDTHS.joues +
+                        visibleMatchDays.length *
+                          (TABLE_COL_WIDTHS.matchDayDispo + TABLE_COL_WIDTHS.matchDayCompo),
+                    }}
+                  >
+                    <MatchDayColgroup matchDayCount={visibleMatchDays.length} />
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80">
+                        <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                          Joueur
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                          Licence
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                          Points
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                          Dispo
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                          Joués
+                        </th>
+                        {visibleMatchDays.map((md) => {
+                          const game = games.find(
+                            (g) =>
+                              g.matchDayId === md.id &&
+                              (g.homeTeamId === team.id || g.awayTeamId === team.id)
+                          )
+                          const opponentId = game
+                            ? game.homeTeamId === team.id
+                              ? game.awayTeamId
+                              : game.homeTeamId
+                            : null
+                          const isHome = game ? game.homeTeamId === team.id : false
+                          return (
+                            <th
+                              key={md.id}
+                              colSpan={2}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => openGameEditModal(team.id, md.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  openGameEditModal(team.id, md.id)
+                                }
+                              }}
+                              className="whitespace-nowrap border-l border-slate-200 px-2 py-2 text-center font-medium text-slate-700 cursor-pointer hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
                             >
-                              Disponibilités
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openEditGame(game)}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Modifier
-                          </button>
-                        </div>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
+                              <span className="block">J{md.number}</span>
+                              <span className="block text-xs font-normal text-slate-500">
+                                {new Date(md.date + 'Z').toLocaleDateString('fr-FR', {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                })}
+                                {(game?.time ?? team.defaultTime) && (
+                                  <span className="ml-1">{game?.time ?? team.defaultTime}</span>
+                                )}
+                              </span>
+                              {opponentId && (
+                                <span className="mt-0.5 flex items-center justify-center gap-1 text-xs text-slate-600">
+                                  <span
+                                    className="shrink-0 text-slate-500"
+                                    title={isHome ? 'Domicile' : 'Extérieur'}
+                                  >
+                                    {isHome ? (
+                                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                      </svg>
+                                    )}
+                                  </span>
+                                  {getTeamLabel(opponentId)}
+                                </span>
+                              )}
+                            </th>
+                          )
+                        })}
+                      </tr>
+                      <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
+                        <th colSpan={5} className="px-3 py-1"></th>
+                        {visibleMatchDays.map((md) => (
+                          <Fragment key={md.id}>
+                            <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
+                              Dispo
+                            </th>
+                            <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
+                              Compo
+                            </th>
+                          </Fragment>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roster.map((player) => {
+                        const availCount = groupMatchDays.filter((md) => {
+                          const game = games.find(
+                            (g) =>
+                              g.matchDayId === md.id &&
+                              (g.homeTeamId === team.id || g.awayTeamId === team.id)
+                          )
+                          if (!game) return false
+                          const s = getAvailability(game.id, player.id)
+                          return s === 'available'
+                        }).length
+                        const selectedCount = groupMatchDays.filter((md) => {
+                          const game = games.find(
+                            (g) =>
+                              g.matchDayId === md.id &&
+                              (g.homeTeamId === team.id || g.awayTeamId === team.id)
+                          )
+                          return game && getGameSelectionPlayerIds(game.id, team.id).includes(player.id)
+                        }).length
+                        return (
+                          <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
+                              <span className={player.id === team.captainId ? 'font-bold' : ''}>
+                                {player.firstName} {player.lastName}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                              {player.licenseNumber || '—'}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                              {player.points ?? '—'}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600">
+                              {availCount}/{teamGamesCount}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600">
+                              {selectedCount}/{teamGamesCount}
+                            </td>
+                            {visibleMatchDays.map((md) => {
+                              const game = games.find(
+                                (g) =>
+                                  g.matchDayId === md.id &&
+                                  (g.homeTeamId === team.id || g.awayTeamId === team.id)
+                              )
+                              if (!game) {
+                                const dayGames = games.filter((g) => g.matchDayId === md.id)
+                                const ourClubTeamsThisDay = [
+                                  ...new Set(
+                                    dayGames.flatMap((g) =>
+                                      [g.homeTeamId, g.awayTeamId].filter((tid) =>
+                                        user?.clubIds?.includes(
+                                          teams.find((t) => t.id === tid)?.clubId ?? ''
+                                        )
+                                      )
+                                    )
+                                  ),
+                                ]
+                                const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
+                                const canEditSel = ourClubTeamsThisDay.some((tid) =>
+                                  canEditGameSelection(tid)
+                                )
+                                return (
+                                  <Fragment key={md.id}>
+                                    <td className="border-l border-slate-100 px-2 py-1.5 text-center text-slate-400">
+                                      —
+                                    </td>
+                                    <td className="border-l border-slate-100 px-2 py-1.5">
+                                      {canEditSel && myClubTeamsInPhase.length > 0 ? (
+                                        <TeamSelect
+                                          value={selectedTeamId}
+                                          onChange={(v) =>
+                                            setPlayerSelectedForMatchDay(md.id, player.id, v)
+                                          }
+                                          optionIds={orderedTeamOptionIds(team.id)}
+                                          getLabel={getTeamLabel}
+                                          getColor={getTeamColor}
+                                        />
+                                      ) : (
+                                        <span className="text-xs text-slate-600">
+                                          {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </Fragment>
+                                )
+                              }
+                              const status = getAvailability(game.id, player.id)
+                              const canEditAv = canEditAvailability(player.id, team.id)
+                              const selectedTeamId = getSelectedTeamForGame(game.id, player.id)
+                              const canEditSel = canEditGameSelection(team.id)
+                              const ourTeamsInGame = [game.homeTeamId, game.awayTeamId].filter(
+                                (tid) => teams.find((t) => t.id === tid)?.clubId && user?.clubIds?.includes(teams.find((t) => t.id === tid)!.clubId)
+                              )
+                              return (
+                                <Fragment key={md.id}>
+                                  <td className="border-l border-slate-100 px-2 py-1.5">
+                                    {canEditAv ? (
+                                      <select
+                                        value={status ?? ''}
+                                        onChange={(e) => {
+                                          const v = e.target.value as AvailabilityStatus | ''
+                                          if (v) setGameAvailability(game.id, player.id, v, isOverride(player.id, team.id))
+                                          else if (status) clearGameAvailability(game.id, player.id)
+                                        }}
+                                        className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs"
+                                      >
+                                        <option value="">—</option>
+                                        {(['available', 'maybe', 'unavailable'] as const).map((s) => (
+                                          <option key={s} value={s}>
+                                            {availabilityLabel[s]}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <span className="text-xs text-slate-600">
+                                        {status ? availabilityLabel[status] : '—'}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td key={`${md.id}-sel`} className="border-l border-slate-100 px-2 py-1.5">
+                                    {canEditSel && myClubTeamsInPhase.length > 0 ? (
+                                      <TeamSelect
+                                        value={selectedTeamId}
+                                        onChange={(v) =>
+                                          setPlayerSelectedForGame(game.id, player.id, v)
+                                        }
+                                        optionIds={orderedTeamOptionIds(team.id)}
+                                        getLabel={getTeamLabel}
+                                        getColor={getTeamColor}
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-slate-600">
+                                        {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                      </span>
+                                    )}
+                                  </td>
+                                </Fragment>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-700">
+                        <td colSpan={5} className="px-3 py-2">
+                          Résumé
+                        </td>
+                        {visibleMatchDays.map((md) => {
+                          const game = games.find(
+                            (g) =>
+                              g.matchDayId === md.id &&
+                              (g.homeTeamId === team.id || g.awayTeamId === team.id)
+                          )
+                          const required =
+                            divisions.find((d) => d.id === team.divisionId)?.playersPerGame ?? 4
+                          if (!game) {
+                            return (
+                              <Fragment key={md.id}>
+                                <td className="border-l border-slate-200 px-2 py-2 text-center">—</td>
+                                <td className="border-l border-slate-200 px-2 py-2 text-center">—</td>
+                              </Fragment>
+                            )
+                          }
+                          const availableCount = roster.filter(
+                            (p) => getAvailability(game.id, p.id) === 'available'
+                          ).length
+                          const selectedCount = getGameSelectionPlayerIds(game.id, team.id).length
+                          const availOk = availableCount >= required
+                          const compoOk = selectedCount === required
+                          return (
+                            <Fragment key={md.id}>
+                              <td
+                                className={`border-l border-slate-200 px-2 py-2 text-center font-medium ${
+                                  availOk ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {availableCount}/{required}
+                              </td>
+                              <td
+                                className={`border-l border-slate-200 px-2 py-2 text-center font-medium ${
+                                  compoOk ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {selectedCount}/{required}
+                              </td>
+                            </Fragment>
+                          )
+                        })}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
+        )
+      })}
+
+      {/* Other players (club, not in any team roster) */}
+      {otherPlayers.length > 0 && otherGroupMatchDays.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <h2 className="font-display text-lg font-medium text-slate-800">
+              Autres joueurs du club
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-600">
+              Joueurs non rattachés à une équipe ; uniquement la composition (équipe retenue) par match.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-b border-slate-100 px-4 py-2">
+            {otherGroupMatchDays.length > 2 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setOtherMatchDayOffset((o) => Math.max(0, o - 1))}
+                  disabled={otherMatchDayOffset <= 0}
+                  className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                  aria-label="Journées précédentes"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="text-xs text-slate-500">
+                  {otherMatchDayOffset + 1}–{Math.min(otherMatchDayOffset + 2, otherGroupMatchDays.length)} / {otherGroupMatchDays.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOtherMatchDayOffset((o) =>
+                      Math.min(Math.max(0, otherGroupMatchDays.length - 2), o + 1)
+                    )
+                  }
+                  disabled={otherMatchDayOffset >= Math.max(0, otherGroupMatchDays.length - 2)}
+                  className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                  aria-label="Journées suivantes"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            {(() => {
+              const otherVisibleMatchDays = otherGroupMatchDays.slice(
+                otherMatchDayOffset,
+                otherMatchDayOffset + 2
+              )
+              const otherMinWidth =
+                TABLE_COL_WIDTHS.joueur +
+                TABLE_COL_WIDTHS.licence +
+                TABLE_COL_WIDTHS.points +
+                TABLE_COL_WIDTHS.dispo +
+                TABLE_COL_WIDTHS.joues +
+                otherVisibleMatchDays.length *
+                  (TABLE_COL_WIDTHS.matchDayDispo + TABLE_COL_WIDTHS.matchDayCompo)
+              return (
+            <table
+              className="w-full border-collapse text-sm table-fixed"
+              style={{ minWidth: otherMinWidth }}
+            >
+              <MatchDayColgroup matchDayCount={otherVisibleMatchDays.length} />
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                    Joueur
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                    Licence
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
+                    Points
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                    Dispo
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
+                    Joués
+                  </th>
+                  {otherVisibleMatchDays.map((md) => (
+                      <th
+                        key={md.id}
+                        colSpan={2}
+                        className="whitespace-nowrap border-l border-slate-200 px-2 py-2 text-center font-medium text-slate-700"
+                      >
+                        J{md.number}
+                        <span className="block text-xs font-normal text-slate-500">
+                          {new Date(md.date + 'Z').toLocaleDateString('fr-FR', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </span>
+                      </th>
+                    ))}
+                </tr>
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
+                  <th colSpan={5} className="px-3 py-1"></th>
+                  {otherVisibleMatchDays.map((md) => (
+                    <Fragment key={md.id}>
+                      <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
+                        Dispo
+                      </th>
+                      <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
+                        Compo
+                      </th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {otherPlayers.map((player) => (
+                  <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                    <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
+                      {player.firstName} {player.lastName}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                      {player.licenseNumber || '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                      {player.points ?? '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
+                    {otherVisibleMatchDays.map((md) => {
+                        const dayGames = games.filter((g) => g.matchDayId === md.id)
+                        const ourClubTeamsThisDay = [
+                          ...new Set(
+                            dayGames.flatMap((g) =>
+                              [g.homeTeamId, g.awayTeamId].filter((tid) =>
+                                user?.clubIds?.includes(
+                                  teams.find((t) => t.id === tid)?.clubId ?? ''
+                                )
+                              )
+                            )
+                          ),
+                        ]
+                        const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
+                        const canEditSel = ourClubTeamsThisDay.some((tid) =>
+                          canEditGameSelection(tid)
+                        )
+                        return (
+                          <Fragment key={md.id}>
+                            <td className="border-l border-slate-100 px-2 py-1.5 text-center text-slate-400">
+                              —
+                            </td>
+                            <td className="border-l border-slate-100 px-2 py-1.5">
+                              {canEditSel && myClubTeamsInPhase.length > 0 ? (
+                                <TeamSelect
+                                  value={selectedTeamId}
+                                  onChange={(v) =>
+                                    setPlayerSelectedForMatchDay(md.id, player.id, v)
+                                  }
+                                  optionIds={orderedTeamOptionIds(null)}
+                                  getLabel={getTeamLabel}
+                                  getColor={getTeamColor}
+                                />
+                              ) : (
+                                <span className="text-xs text-slate-600">
+                                  {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                </span>
+                              )}
+                            </td>
+                          </Fragment>
+                        )
+                      })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+              );
+            })()}
+          </div>
+        </section>
       )}
 
       {/* Create / Edit match-day modal */}
@@ -394,10 +1149,34 @@ export function MatchDaysPage() {
               {creatingMatchDay ? 'Ajouter une journée' : 'Modifier la journée'}
             </h2>
             <div className="mt-4 space-y-4">
-              {creatingMatchDay && effectiveGroupId && (
+              {creatingMatchDay && (
+                <div>
+                  <label htmlFor="md-group" className="block text-sm font-medium text-slate-700">
+                    Groupe
+                  </label>
+                  <select
+                    id="md-group"
+                    value={matchDayForm.groupId}
+                    onChange={(e) =>
+                      setMatchDayForm((f) => ({ ...f, groupId: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">—</option>
+                    {groupOptionsInPhase.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {getGroupLabel(g.id)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {!creatingMatchDay && editingMatchDay && (
                 <div>
                   <span className="block text-sm font-medium text-slate-700">Groupe</span>
-                  <p className="mt-1 text-sm text-slate-900">{getGroupLabel(effectiveGroupId)}</p>
+                  <p className="mt-1 text-sm text-slate-900">
+                    {getGroupLabel(editingMatchDay.groupId)}
+                  </p>
                 </div>
               )}
               <div>
@@ -448,49 +1227,88 @@ export function MatchDaysPage() {
         </div>
       )}
 
-      {/* Add / Edit game modal — teams restricted to the match-day's group */}
-      {(addingGameForMatchDayId || editingGame) && (
+      {/* Game edit modal — opened by clicking J1, J2, … in a team table */}
+      {gameEditModal && gameEditModalTeam && gameEditModalMatchDay && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="game-modal-title"
+          aria-labelledby="game-edit-modal-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h2 id="game-modal-title" className="font-display text-lg font-semibold text-slate-800">
-              {editingGame ? 'Modifier le match' : 'Ajouter un match'}
+            <h2 id="game-edit-modal-title" className="font-display text-lg font-semibold text-slate-800">
+              {games.some(
+                (g) =>
+                  g.matchDayId === gameEditModal.matchDayId &&
+                  (g.homeTeamId === gameEditModal.teamId || g.awayTeamId === gameEditModal.teamId)
+              )
+                ? 'Modifier le match'
+                : 'Créer le match'
+              }
             </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {getTeamLabel(gameEditModal.teamId)} — J{gameEditModalMatchDay.number}
+            </p>
             <div className="mt-4 space-y-4">
               <div>
-                <label htmlFor="game-home" className="block text-sm font-medium text-slate-700">
-                  Équipe à domicile
+                <label htmlFor="game-edit-date" className="block text-sm font-medium text-slate-700">
+                  Date
                 </label>
-                <select
-                  id="game-home"
-                  value={gameForm.homeTeamId}
-                  onChange={(e) => setGameForm((f) => ({ ...f, homeTeamId: e.target.value }))}
+                <input
+                  id="game-edit-date"
+                  type="date"
+                  value={gameEditForm.date}
+                  onChange={(e) =>
+                    setGameEditForm((f) => ({ ...f, date: e.target.value }))
+                  }
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="">—</option>
-                  {homeTeamOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {getTeamLabel(t.id)}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
-                <label htmlFor="game-away" className="block text-sm font-medium text-slate-700">
-                  Équipe extérieur
+                <label htmlFor="game-edit-time" className="block text-sm font-medium text-slate-700">
+                  Heure
+                </label>
+                <input
+                  id="game-edit-time"
+                  type="text"
+                  placeholder="20h00"
+                  value={gameEditForm.time}
+                  onChange={(e) =>
+                    setGameEditForm((f) => ({ ...f, time: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-700">Domicile / Extérieur</span>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={gameEditForm.isHome}
+                    onChange={(e) =>
+                      setGameEditForm((f) => ({ ...f, isHome: e.target.checked }))
+                    }
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">
+                    {gameEditForm.isHome ? 'Domicile' : 'Extérieur'}
+                  </span>
+                </label>
+              </div>
+              <div>
+                <label htmlFor="game-edit-opponent" className="block text-sm font-medium text-slate-700">
+                  Adversaire
                 </label>
                 <select
-                  id="game-away"
-                  value={gameForm.awayTeamId}
-                  onChange={(e) => setGameForm((f) => ({ ...f, awayTeamId: e.target.value }))}
+                  id="game-edit-opponent"
+                  value={gameEditForm.opponentTeamId}
+                  onChange={(e) =>
+                    setGameEditForm((f) => ({ ...f, opponentTeamId: e.target.value }))
+                  }
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="">—</option>
-                  {awayTeamOptions.map((t) => (
+                  {gameEditOpponentOptions.map((t) => (
                     <option key={t.id} value={t.id}>
                       {getTeamLabel(t.id)}
                     </option>
@@ -501,141 +1319,19 @@ export function MatchDaysPage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={closeGameModal}
+                onClick={closeGameEditModal}
                 className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
               >
                 Annuler
               </button>
               <button
                 type="button"
-                onClick={handleSaveGame}
-                disabled={
-                  !gameForm.homeTeamId ||
-                  !gameForm.awayTeamId ||
-                  gameForm.homeTeamId === gameForm.awayTeamId
-                }
+                onClick={handleSaveGameEdit}
+                disabled={!gameEditForm.opponentTeamId}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Availability modal */}
-      {availabilityModalGame && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="availability-modal-title"
-        >
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 id="availability-modal-title" className="font-display text-lg font-semibold text-slate-800">
-                Disponibilités — {getTeamLabel(availabilityModalGame.homeTeamId)} vs{' '}
-                {getTeamLabel(availabilityModalGame.awayTeamId)}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setAvailabilityModalGame(null)}
-                className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Fermer"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="mt-4 space-y-6">
-              {([availabilityModalGame.homeTeamId, availabilityModalGame.awayTeamId] as const)
-                .filter((teamId) => {
-                  const team = teams.find((t) => t.id === teamId)
-                  return team && user?.clubIds?.includes(team.clubId)
-                })
-                .map((teamId) => {
-                  const team = teams.find((t) => t.id === teamId)
-                  if (!team) return null
-                  const label =
-                    teamId === availabilityModalGame.homeTeamId
-                      ? 'Équipe à domicile'
-                      : 'Équipe extérieur'
-                  const roster: Player[] = (team.playerIds ?? [])
-                    .map((pid) => players.find((p) => p.id === pid))
-                    .filter((p): p is Player => p != null)
-                  return (
-                    <div key={teamId}>
-                      <h3 className="text-sm font-medium text-slate-700 mb-2">{label}</h3>
-                      <ul className="space-y-2">
-                        {roster.length === 0 ? (
-                          <li className="text-sm text-slate-500">Aucun joueur dans l&apos;équipe</li>
-                        ) : (
-                          roster.map((player) => {
-                            const status = getAvailability(availabilityModalGame.id, player.id)
-                            const canEdit = canEditAvailability(player.id, teamId)
-                            const override = isOverride(player.id, teamId)
-                            return (
-                              <li
-                                key={player.id}
-                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2"
-                              >
-                                <span className="text-sm font-medium text-slate-900">
-                                  {getPlayerName(player.id)}
-                                </span>
-                                {canEdit ? (
-                                  <div className="flex gap-1">
-                                    {(['available', 'maybe', 'unavailable'] as const).map((s) => (
-                                      <button
-                                        key={s}
-                                        type="button"
-                                        onClick={() =>
-                                          setGameAvailability(
-                                            availabilityModalGame.id,
-                                            player.id,
-                                            s,
-                                            override
-                                          )
-                                        }
-                                        className={`rounded px-2 py-1 text-xs font-medium ${
-                                          status === s
-                                            ? s === 'available'
-                                              ? 'bg-green-600 text-white'
-                                              : s === 'maybe'
-                                                ? 'bg-amber-500 text-white'
-                                                : 'bg-red-600 text-white'
-                                            : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
-                                        }`}
-                                      >
-                                        {availabilityLabel[s]}
-                                      </button>
-                                    ))}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        status && clearGameAvailability(availabilityModalGame.id, player.id)
-                                      }
-                                      disabled={!status}
-                                      className="rounded px-2 py-1 text-xs font-medium bg-white text-slate-500 border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-default"
-                                      title="Effacer"
-                                    >
-                                      —
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span className="text-sm text-slate-600">
-                                    {status ? availabilityLabel[status] : '—'}
-                                  </span>
-                                )}
-                              </li>
-                            )
-                          })
-                        )}
-                      </ul>
-                    </div>
-                  )
-                }
-              )}
             </div>
           </div>
         </div>
