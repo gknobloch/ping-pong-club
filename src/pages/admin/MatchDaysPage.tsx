@@ -259,7 +259,7 @@ export function MatchDaysPage() {
     if (playerId && matchDayId) {
       all = all.filter((tid) => {
         const t = teams.find((x) => x.id === tid)
-        return t ? isPlayerEligibleForTeam(playerId, t, myClubTeamsInPhase, matchDays, games, gameSelections, groups, matchDayId) : false
+        return t ? isPlayerEligibleForTeam(playerId, t, myClubTeamsInPhase, matchDays, games, gameSelections, matchDayId) : false
       })
     }
     if (playerTeamId && all.includes(playerTeamId)) {
@@ -742,12 +742,10 @@ export function MatchDaysPage() {
                         }).length
                         const brulage = computeBrulage(
                           player.id,
-                          team.clubId,
                           myClubTeamsInPhase,
                           matchDays,
                           games,
                           gameSelections,
-                          groups,
                         )
                         const brulageLabel = brulage.burnedIntoTeamId
                           ? getTeamLabel(brulage.burnedIntoTeamId)
@@ -1065,7 +1063,7 @@ export function MatchDaysPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600 text-xs">
                       {(() => {
-                        const b = computeBrulage(player.id, player.clubId, myClubTeamsInPhase, matchDays, games, gameSelections, groups)
+                        const b = computeBrulage(player.id, myClubTeamsInPhase, matchDays, games, gameSelections)
                         return b.burnedIntoTeamId ? getTeamLabel(b.burnedIntoTeamId) : '—'
                       })()}
                     </td>
