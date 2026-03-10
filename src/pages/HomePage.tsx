@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function HomePage() {
   const { user, displayName, roleLabel } = useAuth()
-  const { clubs } = useMockData()
+  const { clubs } = useAppData()
   const adminClubNames =
     user?.clubIds
       ?.map((id) => clubs.find((c) => c.id === id)?.displayName)

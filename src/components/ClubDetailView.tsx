@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Address, Club } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 import { useClubAddressFormState } from '@/pages/useClubAddressForm'
 
 const emptyAddressForm = {
@@ -29,7 +29,7 @@ export function ClubDetailView({
   onClubSaved,
   idPrefix = 'club-detail',
 }: ClubDetailViewProps) {
-  const { updateClub, addClubAddress, updateClubAddress, deleteClubAddress } = useMockData()
+  const { updateClub, addClubAddress, updateClubAddress, deleteClubAddress } = useAppData()
   const [form, setForm] = useState({ affiliationNumber: club.affiliationNumber, displayName: club.displayName })
   const [addressForm, setAddressForm] = useClubAddressFormState()
   const [addressFields, setAddressFields] = useState(emptyAddressForm)

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { Phase } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function PhasesPage() {
-  const { phases, seasons, updatePhase, addPhase } = useMockData()
+  const { phases, seasons, updatePhase, addPhase } = useAppData()
   const [editing, setEditing] = useState<Phase | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({

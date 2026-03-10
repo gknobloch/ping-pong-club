@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { Group } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function GroupsPage() {
-  const { groups, divisions, phases, teams, clubs, updateGroup, addGroup } = useMockData()
+  const { groups, divisions, phases, teams, clubs, updateGroup, addGroup } = useAppData()
   const [editing, setEditing] = useState<Group | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ divisionId: '', number: 1 })

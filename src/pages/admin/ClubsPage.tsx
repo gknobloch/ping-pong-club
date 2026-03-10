@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Club } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function ClubsPage() {
   const navigate = useNavigate()
-  const { clubs, addClub } = useMockData()
+  const { clubs, addClub } = useAppData()
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
 

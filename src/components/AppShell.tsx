@@ -1,13 +1,13 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 const navLinkClass = (active: boolean) =>
   `text-sm font-medium ${active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
 
 export function AppShell() {
   const { user, displayName, roleLabel, logout } = useAuth()
-  const { clubs } = useMockData()
+  const { clubs } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
   const isGeneralAdmin = user?.role === 'general_admin'

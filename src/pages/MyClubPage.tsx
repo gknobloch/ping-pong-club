@@ -1,11 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 import { ClubDetailView } from '@/components/ClubDetailView'
 
 export function MyClubPage() {
   const { user } = useAuth()
-  const { clubs } = useMockData()
+  const { clubs } = useAppData()
 
   const clubId =
     user && user.clubIds && user.clubIds.length > 0 ? user.clubIds[0] : null

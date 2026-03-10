@@ -3,13 +3,42 @@ import { ReactElement, ReactNode } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { MockDataProvider } from '@/contexts/MockDataContext'
+import { DataProvider } from '@/contexts/DataContext'
+import {
+  mockDivisions,
+  mockClubs,
+  mockSeasons,
+  mockPhases,
+  mockGroups,
+  mockTeams,
+  mockPlayers,
+  mockMatchDays,
+  mockGames,
+  mockGameAvailabilities,
+  mockGameSelections,
+  mockUsers,
+} from '@/mock/data'
+
+const testData = {
+  divisions: mockDivisions,
+  clubs: mockClubs,
+  seasons: mockSeasons,
+  phases: mockPhases,
+  groups: mockGroups,
+  teams: mockTeams,
+  players: mockPlayers,
+  matchDays: mockMatchDays,
+  games: mockGames,
+  gameAvailabilities: mockGameAvailabilities,
+  gameSelections: mockGameSelections,
+  users: mockUsers,
+}
 
 function AllProviders({ children }: { children: ReactNode }) {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <MockDataProvider>{children}</MockDataProvider>
+        <DataProvider initialData={testData}>{children}</DataProvider>
       </AuthProvider>
     </BrowserRouter>
   )

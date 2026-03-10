@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Player as PlayerType } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
@@ -11,7 +11,7 @@ const STATUS_LABELS: Record<PlayerType['status'], string> = {
 
 export function PlayersPage() {
   const { user } = useAuth()
-  const { players: allPlayers, clubs, updatePlayer, addPlayer } = useMockData()
+  const { players: allPlayers, clubs, updatePlayer, addPlayer } = useAppData()
   const [editing, setEditing] = useState<PlayerType | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({

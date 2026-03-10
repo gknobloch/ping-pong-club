@@ -6,33 +6,48 @@ Mobile-friendly web app for managing table tennis club players, teams, availabil
 ## Tech stack
 - **Frontend:** React 18 + TypeScript 5.6 + Vite
 - **Styling:** Tailwind CSS 3.4
-- **State:** React Context (AuthContext, MockDataContext)
+- **State:** React Context (AuthContext, DataContext)
 - **Routing:** React Router 6
+- **Backend:** Cloudflare Pages Functions (Hono) + D1 (SQLite)
 - **Unit tests:** Vitest + React Testing Library (happy-dom)
 - **E2E tests:** Playwright (Chromium only)
 - **CI:** GitHub Actions (build, lint, unit tests, E2E on PR/push to main)
+- **Deploy:** Cloudflare Pages (auto-deploy on push to main)
 
 ## Key commands
-- `npm run dev` — Start dev server (http://localhost:5173)
+- `npm run dev` — Start frontend dev server only (http://localhost:5173)
+- `npm run dev:full` — Start full dev server with API + D1 (http://localhost:8788)
 - `npm run build` — TypeScript check + Vite build
 - `npm run lint` — ESLint
 - `npm run test:run` — Unit tests (single run)
 - `npm run test:e2e` — E2E tests (auto-starts dev server)
 - `npm run test:coverage` — Unit tests with coverage
+- `npm run db:migrate:local` — Run D1 migrations locally
+- `npm run db:seed:local` — Seed local D1 database with mock data
 
 ## Project structure
 - `src/pages/` — Page components
 - `src/components/` — Reusable components (AppShell, ClubDetailView)
-- `src/contexts/` — React contexts (Auth, MockData)
-- `src/mock/data.ts` — In-memory mock data store
+- `src/contexts/` — React contexts (Auth, Data)
+- `src/mock/data.ts` — Mock data for tests and auth (users)
 - `src/types/index.ts` — All TypeScript interfaces and enums
-- `src/lib/` — Utilities (round-robin algorithm)
+- `src/lib/` — Utilities (round-robin algorithm, brulage)
+- `functions/api/` — Cloudflare Pages Functions (Hono API)
+- `migrations/` — D1 SQL schema migrations
+- `seed.sql` — Database seed data
 - `e2e/` — Playwright E2E tests
 - `docs/SPEC.md` — Business specification
 - `docs/IMPLEMENTATION_PLAN.md` — Phased roadmap with GitHub issues
 
 ## Path alias
 `@` maps to `src/` (configured in both vite.config.ts and tsconfig.json)
+
+## Data architecture
+- **D1 (SQLite)** stores all persistent data (seasons, phases, clubs, teams, players, games, etc.)
+- **Hono API** in `functions/api/[[path]].ts` handles CRUD operations
+- **DataContext** fetches all data from `GET /api/data` on mount, updates state optimistically, and persists mutations via API calls in the background
+- **DataContext** accepts `initialData` prop for tests (skips API fetch)
+- JSON columns used for array fields (playerIds, teamIds, etc.) in D1
 
 ## Workflow rules
 For any new feature or substantial change:
