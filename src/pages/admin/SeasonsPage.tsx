@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { Season } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function SeasonsPage() {
-  const { seasons, updateSeason, addSeason } = useMockData()
+  const { seasons, updateSeason, addSeason } = useAppData()
   const [editing, setEditing] = useState<Season | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ displayName: '', isActive: false, isArchived: false })

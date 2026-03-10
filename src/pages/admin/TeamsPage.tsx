@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Team } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -15,7 +15,7 @@ export function TeamsPage() {
     updateTeam,
     addTeam,
     updateGroup,
-  } = useMockData()
+  } = useAppData()
 
   const isClubAdmin = user?.role === 'club_admin'
   const hasClubScope = (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') && (user?.clubIds?.length ?? 0) > 0

@@ -2,7 +2,7 @@ import { useState, useMemo, Fragment, useRef, useEffect, useLayoutEffect } from 
 import { createPortal } from 'react-dom'
 import type { MatchDay, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
@@ -184,7 +184,7 @@ export function MatchDaysPage() {
     updateMatchDay,
     addGame,
     updateGame,
-  } = useMockData()
+  } = useAppData()
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(phases[0]?.id ?? '')
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */

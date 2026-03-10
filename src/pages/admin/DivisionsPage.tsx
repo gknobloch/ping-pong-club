@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { Division } from '@/types'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 
 export function DivisionsPage() {
   const { divisions, phases, updateDivision, addDivision, moveDivisionUp, moveDivisionDown } =
-    useMockData()
+    useAppData()
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ phaseId: '', displayName: '', rank: 1, playersPerGame: 4 })

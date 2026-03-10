@@ -1,11 +1,11 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useMockData } from '@/contexts/MockDataContext'
+import { useAppData } from '@/contexts/DataContext'
 import { ClubDetailView } from '@/components/ClubDetailView'
 
 export function ClubDetailPage() {
   const { affiliationNumber } = useParams<{ affiliationNumber: string }>()
   const navigate = useNavigate()
-  const { clubs } = useMockData()
+  const { clubs } = useAppData()
   const club =
     affiliationNumber != null
       ? clubs.find((c) => c.affiliationNumber === affiliationNumber) ?? null
