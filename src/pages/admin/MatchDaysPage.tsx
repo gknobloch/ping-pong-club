@@ -327,28 +327,42 @@ export function MatchDaysPage() {
     return null
   }
 
-  /** Which team this player is selected for on this match-day (any game that day); null if none. */
+  /**
+   * Find all match-days with the same number across groups (same "round" in different groups).
+   * A player can only play in one team per round, even if teams are in different groups.
+   */
+  const getCorrespondingMatchDayIds = (matchDayId: string): string[] => {
+    const md = matchDays.find((m) => m.id === matchDayId)
+    if (!md) return [matchDayId]
+    return matchDays.filter((m) => m.number === md.number).map((m) => m.id)
+  }
+
+  /** Which team this player is selected for on this match-day round (across all groups); null if none. */
   const getSelectedTeamForMatchDay = (matchDayId: string, playerId: string): string | null => {
-    for (const g of games.filter((x) => x.matchDayId === matchDayId)) {
-      const t = getSelectedTeamForGame(g.id, playerId)
-      if (t) return t
+    const correspondingIds = getCorrespondingMatchDayIds(matchDayId)
+    for (const mdId of correspondingIds) {
+      for (const g of games.filter((x) => x.matchDayId === mdId)) {
+        const t = getSelectedTeamForGame(g.id, playerId)
+        if (t) return t
+      }
     }
     return null
   }
 
   /**
-   * Set which team this player is selected for on this match-day.
-   * Player can only be in one team's selection per match-day: we update all games that day
-   * in one batch (remove player from every team, then add to the selected team's game).
+   * Set which team this player is selected for on this match-day round.
+   * Player can only be in one team's selection per round: we update all games across
+   * corresponding match-days (same number, all groups) in one batch.
    */
   const setPlayerSelectedForMatchDay = (
     matchDayId: string,
     playerId: string,
     teamId: string | null
   ) => {
-    const dayGames = games.filter((g) => g.matchDayId === matchDayId)
+    const correspondingIds = getCorrespondingMatchDayIds(matchDayId)
+    const allDayGames = games.filter((g) => correspondingIds.includes(g.matchDayId))
     const updates: Array<{ gameId: string; teamId: string; playerIds: string[] }> = []
-    for (const game of dayGames) {
+    for (const game of allDayGames) {
       const homeIds = getGameSelectionPlayerIds(game.id, game.homeTeamId).filter((id) => id !== playerId)
       const awayIds = getGameSelectionPlayerIds(game.id, game.awayTeamId).filter((id) => id !== playerId)
       if (teamId === game.homeTeamId) homeIds.push(playerId)
