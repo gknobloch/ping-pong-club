@@ -39,6 +39,7 @@ export const mockPhases: Phase[] = [
 export const mockDivisions: Division[] = [
   { id: 'div-1', phaseId: 'phase-1', displayName: 'GE1', rank: 1, playersPerGame: 4 },
   { id: 'div-2', phaseId: 'phase-1', displayName: 'GE2', rank: 2, playersPerGame: 4 },
+  { id: 'div-3', phaseId: 'phase-1', displayName: 'GE3', rank: 3, playersPerGame: 4 },
 ]
 
 export const mockPlayers: Player[] = [
@@ -62,10 +63,19 @@ export const mockPlayers: Player[] = [
   { id: 'player-17', firstName: 'Noah', lastName: 'Cernay', licenseNumber: '6814440', email: 'noah@cernay.example.com', phone: '', status: 'active', clubId: 'club-8' },
   { id: 'player-18', firstName: 'Jade', lastName: 'Cernay', licenseNumber: '6814441', email: 'jade@cernay.example.com', phone: '', status: 'active', clubId: 'club-8' },
   { id: 'player-19', firstName: 'Inès', lastName: 'Rixheim', licenseNumber: '6814442', email: 'ines@rixheim.example.com', phone: '', status: 'active', clubId: 'club-1' },
+  // Extra PPA Rixheim players for teams 3 and 4
+  { id: 'player-20', firstName: 'Thomas', lastName: 'Weber', licenseNumber: '6814443', email: 'thomas.weber@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-21', firstName: 'Camille', lastName: 'Schmitt', licenseNumber: '6814444', email: 'camille.schmitt@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-22', firstName: 'Maxime', lastName: 'Keller', licenseNumber: '6814445', email: 'maxime.keller@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-23', firstName: 'Léonie', lastName: 'Muller', licenseNumber: '6814446', email: 'leonie.muller@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-24', firstName: 'Antoine', lastName: 'Fischer', licenseNumber: '6814447', email: 'antoine.fischer@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'player-25', firstName: 'Lucie', lastName: 'Meyer', licenseNumber: '6814448', email: 'lucie.meyer@example.com', phone: '', status: 'active', clubId: 'club-1' },
 ]
 
 export const mockGroups: Group[] = [
-  { id: 'group-1', divisionId: 'div-1', number: 1, teamIds: ['team-1', 'team-2', 'team-3', 'team-4', 'team-5', 'team-6', 'team-7', 'team-8', 'team-9'] },
+  { id: 'group-1', divisionId: 'div-1', number: 1, teamIds: ['team-1', 'team-2', 'team-3', 'team-4', 'team-5', 'team-6', 'team-7', 'team-8'] },
+  { id: 'group-2', divisionId: 'div-2', number: 1, teamIds: ['team-9', 'team-10', 'team-11', 'team-12'] },
+  { id: 'group-3', divisionId: 'div-3', number: 1, teamIds: ['team-13', 'team-14', 'team-15', 'team-16', 'team-17', 'team-18', 'team-19', 'team-20'] },
 ]
 
 export const mockTeams: Team[] = [
@@ -109,8 +119,8 @@ export const mockTeams: Team[] = [
     clubId: 'club-1',
     phaseId: 'phase-1',
     number: 2,
-    divisionId: 'div-1',
-    groupId: 'group-1',
+    divisionId: 'div-2',
+    groupId: 'group-2',
     gameLocationId: 'addr-1',
     defaultDay: 'Jeudi',
     defaultTime: '20h00',
@@ -119,9 +129,52 @@ export const mockTeams: Team[] = [
     rosterInitialPoints: { 'player-6': '920', 'player-19': '650' },
     color: '#65a30d',
   },
+  // GE2 group-2 opponents
+  { id: 'team-10', clubId: 'club-2', phaseId: 'phase-1', number: 2, divisionId: 'div-2', groupId: 'group-2', gameLocationId: 'addr-3', defaultDay: 'Mercredi', defaultTime: '19h30', captainId: 'player-2', playerIds: ['player-2'], color: '#dc2626' },
+  { id: 'team-11', clubId: 'club-3', phaseId: 'phase-1', number: 2, divisionId: 'div-2', groupId: 'group-2', gameLocationId: 'addr-4', defaultDay: 'Mardi', defaultTime: '20h00', captainId: 'player-8', playerIds: ['player-8'], color: '#059669' },
+  { id: 'team-12', clubId: 'club-4', phaseId: 'phase-1', number: 2, divisionId: 'div-2', groupId: 'group-2', gameLocationId: 'addr-5', defaultDay: 'Mercredi', defaultTime: '19h30', captainId: 'player-10', playerIds: ['player-10'], color: '#ea580c' },
+  // GE3 group-3: PPA Rixheim 3 + 3 opponents
+  {
+    id: 'team-13',
+    clubId: 'club-1',
+    phaseId: 'phase-1',
+    number: 3,
+    divisionId: 'div-3',
+    groupId: 'group-3',
+    gameLocationId: 'addr-1',
+    defaultDay: 'Vendredi',
+    defaultTime: '20h00',
+    captainId: 'player-20',
+    playerIds: ['player-20', 'player-21', 'player-22'],
+    rosterInitialPoints: { 'player-20': '580', 'player-21': '540', 'player-22': '510' },
+    color: '#0891b2',
+  },
+  { id: 'team-14', clubId: 'club-5', phaseId: 'phase-1', number: 2, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-6', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'player-12', playerIds: ['player-12'], color: '#2563eb' },
+  { id: 'team-15', clubId: 'club-6', phaseId: 'phase-1', number: 2, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-7', defaultDay: 'Vendredi', defaultTime: '19h00', captainId: 'player-14', playerIds: ['player-14'], color: '#92400e' },
+  { id: 'team-16', clubId: 'club-7', phaseId: 'phase-1', number: 2, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-8', defaultDay: 'Lundi', defaultTime: '20h00', captainId: 'player-16', playerIds: ['player-16'], color: '#6366f1' },
+  // GE3 group-3: PPA Rixheim 4 + 3 opponents (same group as PPA Rixheim 3)
+  {
+    id: 'team-17',
+    clubId: 'club-1',
+    phaseId: 'phase-1',
+    number: 4,
+    divisionId: 'div-3',
+    groupId: 'group-3',
+    gameLocationId: 'addr-2',
+    defaultDay: 'Lundi',
+    defaultTime: '20h00',
+    captainId: 'player-23',
+    playerIds: ['player-23', 'player-24', 'player-25'],
+    rosterInitialPoints: { 'player-23': '500', 'player-24': '480', 'player-25': '450' },
+    color: '#be185d',
+  },
+  { id: 'team-18', clubId: 'club-2', phaseId: 'phase-1', number: 3, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-3', defaultDay: 'Mercredi', defaultTime: '19h30', captainId: 'player-2', playerIds: ['player-2'], color: '#e11d48' },
+  { id: 'team-19', clubId: 'club-3', phaseId: 'phase-1', number: 3, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-4', defaultDay: 'Mardi', defaultTime: '20h00', captainId: 'player-7', playerIds: ['player-7'], color: '#16a34a' },
+  { id: 'team-20', clubId: 'club-8', phaseId: 'phase-1', number: 2, divisionId: 'div-3', groupId: 'group-3', gameLocationId: 'addr-9', defaultDay: 'Mercredi', defaultTime: '20h00', captainId: 'player-18', playerIds: ['player-18'], color: '#0f766e' },
 ]
 
 export const mockMatchDays: MatchDay[] = [
+  // GE1 group-1: 8-team round-robin, 7 match-days
   { id: 'md-1', groupId: 'group-1', number: 1, date: '2025-10-02' },
   { id: 'md-2', groupId: 'group-1', number: 2, date: '2025-10-09' },
   { id: 'md-3', groupId: 'group-1', number: 3, date: '2025-10-16' },
@@ -129,6 +182,18 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-5', groupId: 'group-1', number: 5, date: '2025-10-30' },
   { id: 'md-6', groupId: 'group-1', number: 6, date: '2025-11-06' },
   { id: 'md-7', groupId: 'group-1', number: 7, date: '2025-11-13' },
+  // GE2 group-2: 4-team round-robin, 3 match-days
+  { id: 'md-g2-1', groupId: 'group-2', number: 1, date: '2025-10-02' },
+  { id: 'md-g2-2', groupId: 'group-2', number: 2, date: '2025-10-09' },
+  { id: 'md-g2-3', groupId: 'group-2', number: 3, date: '2025-10-16' },
+  // GE3 group-3: 8-team round-robin, 7 match-days (PPA Rixheim 3 & 4 in same group)
+  { id: 'md-g3-1', groupId: 'group-3', number: 1, date: '2025-10-03' },
+  { id: 'md-g3-2', groupId: 'group-3', number: 2, date: '2025-10-10' },
+  { id: 'md-g3-3', groupId: 'group-3', number: 3, date: '2025-10-17' },
+  { id: 'md-g3-4', groupId: 'group-3', number: 4, date: '2025-10-24' },
+  { id: 'md-g3-5', groupId: 'group-3', number: 5, date: '2025-10-31' },
+  { id: 'md-g3-6', groupId: 'group-3', number: 6, date: '2025-11-07' },
+  { id: 'md-g3-7', groupId: 'group-3', number: 7, date: '2025-11-14' },
 ]
 
 // Round-robin 8 teams, 7 match-days, 4 games per day (each team plays once per day)
@@ -161,14 +226,42 @@ export const mockGames: Game[] = [
   { id: 'game-26', matchDayId: 'md-7', homeTeamId: 'team-2', awayTeamId: 'team-7', time: '19h30' },
   { id: 'game-27', matchDayId: 'md-7', homeTeamId: 'team-3', awayTeamId: 'team-6', time: '20h00' },
   { id: 'game-28', matchDayId: 'md-7', homeTeamId: 'team-4', awayTeamId: 'team-5', time: '19h30' },
-  // PPA Rixheim 2 (team-9) games
-  { id: 'game-29', matchDayId: 'md-1', homeTeamId: 'team-9', awayTeamId: 'team-2', time: '20h00' },
-  { id: 'game-30', matchDayId: 'md-2', homeTeamId: 'team-3', awayTeamId: 'team-9', time: '20h00' },
-  { id: 'game-31', matchDayId: 'md-3', homeTeamId: 'team-9', awayTeamId: 'team-4', time: '20h00' },
-  { id: 'game-32', matchDayId: 'md-4', homeTeamId: 'team-5', awayTeamId: 'team-9', time: '20h00' },
-  { id: 'game-33', matchDayId: 'md-5', homeTeamId: 'team-9', awayTeamId: 'team-6', time: '20h00' },
-  { id: 'game-34', matchDayId: 'md-6', homeTeamId: 'team-7', awayTeamId: 'team-9', time: '20h00' },
-  { id: 'game-35', matchDayId: 'md-7', homeTeamId: 'team-9', awayTeamId: 'team-8', time: '20h00' },
+  // GE2 group-2: 4-team round-robin (team-9, team-10, team-11, team-12)
+  { id: 'game-29', matchDayId: 'md-g2-1', homeTeamId: 'team-9', awayTeamId: 'team-10' },
+  { id: 'game-30', matchDayId: 'md-g2-1', homeTeamId: 'team-11', awayTeamId: 'team-12' },
+  { id: 'game-31', matchDayId: 'md-g2-2', homeTeamId: 'team-9', awayTeamId: 'team-11' },
+  { id: 'game-32', matchDayId: 'md-g2-2', homeTeamId: 'team-10', awayTeamId: 'team-12' },
+  { id: 'game-33', matchDayId: 'md-g2-3', homeTeamId: 'team-9', awayTeamId: 'team-12' },
+  { id: 'game-34', matchDayId: 'md-g2-3', homeTeamId: 'team-10', awayTeamId: 'team-11' },
+  // GE3 group-3: 8-team round-robin (team-13..20, PPA Rixheim 3=team-13 vs PPA Rixheim 4=team-17 on J1)
+  { id: 'game-35', matchDayId: 'md-g3-1', homeTeamId: 'team-13', awayTeamId: 'team-17' },
+  { id: 'game-36', matchDayId: 'md-g3-1', homeTeamId: 'team-14', awayTeamId: 'team-18' },
+  { id: 'game-37', matchDayId: 'md-g3-1', homeTeamId: 'team-15', awayTeamId: 'team-19' },
+  { id: 'game-38', matchDayId: 'md-g3-1', homeTeamId: 'team-16', awayTeamId: 'team-20' },
+  { id: 'game-39', matchDayId: 'md-g3-2', homeTeamId: 'team-13', awayTeamId: 'team-14' },
+  { id: 'game-40', matchDayId: 'md-g3-2', homeTeamId: 'team-15', awayTeamId: 'team-17' },
+  { id: 'game-41', matchDayId: 'md-g3-2', homeTeamId: 'team-16', awayTeamId: 'team-18' },
+  { id: 'game-42', matchDayId: 'md-g3-2', homeTeamId: 'team-19', awayTeamId: 'team-20' },
+  { id: 'game-43', matchDayId: 'md-g3-3', homeTeamId: 'team-13', awayTeamId: 'team-15' },
+  { id: 'game-44', matchDayId: 'md-g3-3', homeTeamId: 'team-14', awayTeamId: 'team-16' },
+  { id: 'game-45', matchDayId: 'md-g3-3', homeTeamId: 'team-17', awayTeamId: 'team-19' },
+  { id: 'game-46', matchDayId: 'md-g3-3', homeTeamId: 'team-18', awayTeamId: 'team-20' },
+  { id: 'game-47', matchDayId: 'md-g3-4', homeTeamId: 'team-13', awayTeamId: 'team-16' },
+  { id: 'game-48', matchDayId: 'md-g3-4', homeTeamId: 'team-14', awayTeamId: 'team-15' },
+  { id: 'game-49', matchDayId: 'md-g3-4', homeTeamId: 'team-17', awayTeamId: 'team-20' },
+  { id: 'game-50', matchDayId: 'md-g3-4', homeTeamId: 'team-18', awayTeamId: 'team-19' },
+  { id: 'game-51', matchDayId: 'md-g3-5', homeTeamId: 'team-13', awayTeamId: 'team-18' },
+  { id: 'game-52', matchDayId: 'md-g3-5', homeTeamId: 'team-14', awayTeamId: 'team-17' },
+  { id: 'game-53', matchDayId: 'md-g3-5', homeTeamId: 'team-15', awayTeamId: 'team-20' },
+  { id: 'game-54', matchDayId: 'md-g3-5', homeTeamId: 'team-16', awayTeamId: 'team-19' },
+  { id: 'game-55', matchDayId: 'md-g3-6', homeTeamId: 'team-13', awayTeamId: 'team-19' },
+  { id: 'game-56', matchDayId: 'md-g3-6', homeTeamId: 'team-14', awayTeamId: 'team-20' },
+  { id: 'game-57', matchDayId: 'md-g3-6', homeTeamId: 'team-15', awayTeamId: 'team-18' },
+  { id: 'game-58', matchDayId: 'md-g3-6', homeTeamId: 'team-16', awayTeamId: 'team-17' },
+  { id: 'game-59', matchDayId: 'md-g3-7', homeTeamId: 'team-13', awayTeamId: 'team-20' },
+  { id: 'game-60', matchDayId: 'md-g3-7', homeTeamId: 'team-14', awayTeamId: 'team-19' },
+  { id: 'game-61', matchDayId: 'md-g3-7', homeTeamId: 'team-15', awayTeamId: 'team-16' },
+  { id: 'game-62', matchDayId: 'md-g3-7', homeTeamId: 'team-17', awayTeamId: 'team-18' },
 ]
 
 export const mockGameAvailabilities: GameAvailability[] = []
