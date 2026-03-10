@@ -23,6 +23,20 @@ import type {
   AvailabilityOverriddenBy,
   User,
 } from '@/types'
+import {
+  mockDivisions,
+  mockClubs,
+  mockSeasons,
+  mockPhases,
+  mockGroups,
+  mockTeams,
+  mockPlayers,
+  mockMatchDays,
+  mockGames,
+  mockGameAvailabilities,
+  mockGameSelections,
+  mockUsers,
+} from '@/mock/data'
 
 interface DataState {
   divisions: Division[]
@@ -117,31 +131,45 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     initialData?.gameSelections ?? []
   )
   const [loading, setLoading] = useState(!initialData)
-
-  const persist = !initialData
+  const [persist, setPersist] = useState(!initialData)
 
   useEffect(() => {
     if (initialData) return
+
+    function applyData(data: DataState) {
+      setSeasons(data.seasons)
+      setPhases(data.phases)
+      setDivisions(data.divisions)
+      setClubs(data.clubs)
+      setGroups(data.groups)
+      setTeams(data.teams)
+      setPlayers(data.players)
+      setMatchDays(data.matchDays)
+      setGames(data.games)
+      setGameAvailabilities(data.gameAvailabilities)
+      setGameSelections(data.gameSelections)
+    }
+
+    function fallbackToMock() {
+      console.warn('API unavailable, falling back to mock data (no persistence)')
+      setPersist(false)
+      applyData({
+        seasons: mockSeasons, phases: mockPhases, divisions: mockDivisions,
+        clubs: mockClubs, groups: mockGroups, teams: mockTeams, players: mockPlayers,
+        matchDays: mockMatchDays, games: mockGames,
+        gameAvailabilities: mockGameAvailabilities,
+        gameSelections: mockGameSelections, users: mockUsers,
+      })
+    }
+
     fetch('/api/data')
-      .then((r) => r.json())
-      .then((data: DataState) => {
-        setSeasons(data.seasons)
-        setPhases(data.phases)
-        setDivisions(data.divisions)
-        setClubs(data.clubs)
-        setGroups(data.groups)
-        setTeams(data.teams)
-        setPlayers(data.players)
-        setMatchDays(data.matchDays)
-        setGames(data.games)
-        setGameAvailabilities(data.gameAvailabilities)
-        setGameSelections(data.gameSelections)
-        setLoading(false)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
       })
-      .catch((err) => {
-        console.error('Failed to load data:', err)
-        setLoading(false)
-      })
+      .then((data: DataState) => applyData(data))
+      .catch(() => fallbackToMock())
+      .finally(() => setLoading(false))
   }, [initialData])
 
   // --- Seasons ---
