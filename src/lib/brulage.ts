@@ -52,9 +52,10 @@ export function computeBrulage(
     }
   }
 
-  // If the player can't play ALL teams, they're burned into the highest eligible one
-  const lastTeam = sorted[sorted.length - 1]
-  if (highestEligible && lastTeam && highestEligible.id !== lastTeam.id) {
+  // The player is burned if they've played more than 1 game total across all teams
+  let totalGames = 0
+  for (const count of gamesPerTeam.values()) totalGames += count
+  if (totalGames > 1 && highestEligible) {
     return { burnedIntoTeamNumber: highestEligible.number, burnedIntoTeamId: highestEligible.id }
   }
 
