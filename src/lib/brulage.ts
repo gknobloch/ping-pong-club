@@ -35,28 +35,27 @@ export function computeBrulage(
   // Sort club teams by number ascending
   const sorted = [...clubTeams].sort((a, b) => a.number - b.number)
 
-  // Walk teams from lowest number to highest, accumulating game count.
-  // Burned-into N means: cumulative games in teams ≤ N > 1, but cumulative in teams < N ≤ 1.
-  let cumulative = 0
-  let burned = false
+  // The brûlage level is the highest team N the player can still play for.
+  // For team N, the player is eligible if games in teams with number < N is ≤ 1.
+  // Find the highest eligible team; if it's not the last team, the player is burned into it.
+  let highestEligible: Team | null = null
 
   for (const team of sorted) {
-    const count = gamesPerTeam.get(team.id) ?? 0
-    cumulative += count
-    if (cumulative > 1) {
-      burned = true
-      break
+    let gamesInHigherRanked = 0
+    for (const t of sorted) {
+      if (t.number < team.number) {
+        gamesInHigherRanked += gamesPerTeam.get(t.id) ?? 0
+      }
+    }
+    if (gamesInHigherRanked <= 1) {
+      highestEligible = team
     }
   }
 
-  // If burned, the actual level is the highest-numbered team the player played in
-  // (they can still play up to that team, not beyond).
-  if (burned) {
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if ((gamesPerTeam.get(sorted[i].id) ?? 0) > 0) {
-        return { burnedIntoTeamNumber: sorted[i].number, burnedIntoTeamId: sorted[i].id }
-      }
-    }
+  // If the player can't play ALL teams, they're burned into the highest eligible one
+  const lastTeam = sorted[sorted.length - 1]
+  if (highestEligible && lastTeam && highestEligible.id !== lastTeam.id) {
+    return { burnedIntoTeamNumber: highestEligible.number, burnedIntoTeamId: highestEligible.id }
   }
 
   return { burnedIntoTeamNumber: null, burnedIntoTeamId: null }

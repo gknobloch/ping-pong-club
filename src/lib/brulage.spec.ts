@@ -89,7 +89,8 @@ describe('computeBrulage', () => {
       .toEqual({ burnedIntoTeamNumber: 2, burnedIntoTeamId: 'team-2' })
   })
 
-  it('burns into highest team played when games span multiple teams', () => {
+  it('burns into team 2 when 1 game each in teams 1, 2, 3 (team 3 ineligible)', () => {
+    // games < team3 = 2 (team1+team2) > 1 → can't play team 3 → burned into team 2
     const games = [
       makeGame('g-1', 'md-1', 'team-1', 'team-x'),
       makeGame('g-2', 'md-2', 'team-2', 'team-x'),
@@ -101,7 +102,23 @@ describe('computeBrulage', () => {
       makeSel('g-3', 'team-3', ['p1']),
     ]
     expect(computeBrulage('p1', clubTeams, matchDays, games, sels))
-      .toEqual({ burnedIntoTeamNumber: 3, burnedIntoTeamId: 'team-3' })
+      .toEqual({ burnedIntoTeamNumber: 2, burnedIntoTeamId: 'team-2' })
+  })
+
+  it('2 games in team 1 + 1 game in team 3 → burned into team 1 (not team 3)', () => {
+    const games = [
+      makeGame('g-1', 'md-1', 'team-1', 'team-x'),
+      makeGame('g-2', 'md-2', 'team-3', 'team-x'),
+      makeGame('g-3', 'md-3', 'team-1', 'team-x'),
+    ]
+    const sels = [
+      makeSel('g-1', 'team-1', ['p1']),
+      makeSel('g-2', 'team-3', ['p1']),
+      makeSel('g-3', 'team-1', ['p1']),
+    ]
+    // games < team2 = 2 (team1) > 1 → can't play team 2 → burned into team 1
+    expect(computeBrulage('p1', clubTeams, matchDays, games, sels))
+      .toEqual({ burnedIntoTeamNumber: 1, burnedIntoTeamId: 'team-1' })
   })
 
   it('respects asOfMatchDayId cutoff', () => {
