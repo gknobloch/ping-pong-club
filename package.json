@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "npm run build && npx wrangler pages dev",
-    "db:migrate:local": "wrangler d1 execute ping-pong-club-db --local --file=migrations/0001_initial.sql && wrangler d1 execute ping-pong-club-db --local --file=migrations/0002_club_archived.sql",
+    "db:migrate:local": "wrangler d1 execute ping-pong-club-db --local --file=migrations/0001_initial.sql",
     "db:seed:local": "wrangler d1 execute ping-pong-club-db --local --file=seed.sql",
+    "db:seed-phase2:local": "wrangler d1 execute ping-pong-club-db --local --file=seed-phase2.sql",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
