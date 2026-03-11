@@ -15,15 +15,15 @@ INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game) VALUE
   ('div-3', 'phase-1', 'GE3', 3, 4);
 
 -- clubs
-INSERT INTO clubs (id, affiliation_number, display_name) VALUES
-  ('club-1', '06680011', 'PPA Rixheim'),
-  ('club-2', '06680022', 'TT Mulhouse'),
-  ('club-3', '06680033', 'TT Bergheim'),
-  ('club-4', '06680044', 'AS Wittelsheim'),
-  ('club-5', '06680055', 'TT Anould'),
-  ('club-6', '06680066', 'TT Staffelfelden'),
-  ('club-7', '06680077', 'TT Bitschwiller'),
-  ('club-8', '06680088', 'TT Cernay');
+INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES
+  ('club-1', '06680011', 'PPA Rixheim', 0),
+  ('club-2', '06680022', 'TT Mulhouse', 0),
+  ('club-3', '06680033', 'TT Bergheim', 0),
+  ('club-4', '06680044', 'AS Wittelsheim', 0),
+  ('club-5', '06680055', 'TT Anould', 0),
+  ('club-6', '06680066', 'TT Staffelfelden', 0),
+  ('club-7', '06680077', 'TT Bitschwiller', 0),
+  ('club-8', '06680088', 'TT Cernay', 0);
 
 -- club_addresses
 INSERT INTO club_addresses (id, club_id, label, street, postal_code, city, is_default) VALUES

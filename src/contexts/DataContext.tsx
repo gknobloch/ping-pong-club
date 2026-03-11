@@ -67,6 +67,7 @@ function api(path: string, options?: RequestInit) {
 interface DataContextValue extends Omit<DataState, 'users'> {
   updateDivision: (id: string, patch: Partial<Division>) => void
   updateClub: (id: string, patch: Partial<Club>) => void
+  archiveClub: (id: string) => void
   addClubAddress: (clubId: string, data: Omit<Address, 'id'>) => Address
   updateClubAddress: (clubId: string, addressId: string, patch: Partial<Address>) => void
   deleteClubAddress: (clubId: string, addressId: string) => void
@@ -266,6 +267,11 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     setClubs((prev) => [...prev, club])
     if (persist) api('/clubs', { method: 'POST', body: JSON.stringify(club) })
     return club
+  }, [persist])
+
+  const archiveClub = useCallback((id: string) => {
+    setClubs((prev) => prev.map((c) => (c.id === id ? { ...c, isArchived: true } : c)))
+    if (persist) api(`/clubs/${id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: true }) })
   }, [persist])
 
   const addClubAddress = useCallback((clubId: string, data: Omit<Address, 'id'>) => {
@@ -563,6 +569,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       games,
       updateDivision,
       updateClub,
+      archiveClub,
       addClubAddress,
       updateClubAddress,
       deleteClubAddress,
@@ -595,7 +602,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     [
       divisions, clubs, seasons, phases, groups, teams, players,
       matchDays, games,
-      updateDivision, updateClub, addClubAddress, updateClubAddress, deleteClubAddress,
+      updateDivision, updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
       updateSeason, updatePhase, updateGroup, updateTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,

@@ -15,6 +15,7 @@ export interface Club {
   id: string
   affiliationNumber: string
   displayName: string
+  isArchived: boolean
   addresses: Address[]
 }
 

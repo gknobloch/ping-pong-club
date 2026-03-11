@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS divisions (
 CREATE TABLE IF NOT EXISTS clubs (
   id TEXT PRIMARY KEY,
   affiliation_number TEXT NOT NULL,
-  display_name TEXT NOT NULL
+  display_name TEXT NOT NULL,
+  is_archived INTEGER NOT NULL DEFAULT 0
 );
 
 -- Club addresses (nested in Club on frontend, separate table in DB)
