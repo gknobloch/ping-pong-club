@@ -130,6 +130,127 @@ function TeamSelect({
   )
 }
 
+const AVAILABILITY_OPTIONS: (AvailabilityStatus | null)[] = [null, 'available', 'maybe', 'unavailable']
+const AVAILABILITY_LABELS: Record<AvailabilityStatus, string> = {
+  available: 'Oui',
+  maybe: 'Peut-être',
+  unavailable: 'Non',
+}
+const AVAILABILITY_COLORS: Record<AvailabilityStatus, string> = {
+  available: '#22c55e',
+  maybe: '#eab308',
+  unavailable: '#ef4444',
+}
+
+/** Custom availability dropdown with colored dots. */
+function AvailabilitySelect({
+  value,
+  onChange,
+  className = '',
+}: {
+  value: AvailabilityStatus | undefined
+  onChange: (status: AvailabilityStatus | null) => void
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [listRect, setListRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('click', onOutside)
+    return () => document.removeEventListener('click', onOutside)
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setListRect(null)
+      return
+    }
+    const updateRect = () => {
+      if (buttonRef.current) {
+        const r = buttonRef.current.getBoundingClientRect()
+        setListRect({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 100) })
+      }
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [open])
+
+  const displayLabel = value ? AVAILABILITY_LABELS[value] : '—'
+  const displayColor = value ? AVAILABILITY_COLORS[value] : undefined
+
+  const dropdownList = open && listRect && (
+    <ul
+      className="fixed max-h-48 overflow-auto rounded border border-slate-200 bg-white py-1 shadow-lg text-xs z-[100]"
+      role="listbox"
+      style={{ top: listRect.top, left: listRect.left, width: listRect.width }}
+    >
+      {AVAILABILITY_OPTIONS.map((s) => {
+        const label = s === null ? '—' : AVAILABILITY_LABELS[s]
+        const color = s === null ? undefined : AVAILABILITY_COLORS[s]
+        const isSelected = (value ?? null) === s
+        return (
+          <li
+            key={s ?? '__empty__'}
+            role="option"
+            aria-selected={isSelected}
+            onClick={() => {
+              onChange(s)
+              setOpen(false)
+            }}
+            className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+          >
+            {color ? (
+              <span
+                className="shrink-0 w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: color }}
+                aria-hidden
+              />
+            ) : (
+              <span className="shrink-0 w-2.5 h-2.5" aria-hidden />
+            )}
+            <span className="truncate">{label}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-left text-xs flex items-center gap-1.5 min-h-[26px] hover:border-slate-400"
+      >
+        {displayColor && (
+          <span
+            className="shrink-0 w-2.5 h-2.5 rounded-full"
+            style={{ backgroundColor: displayColor }}
+            aria-hidden
+          />
+        )}
+        <span className="truncate">{displayLabel}</span>
+        <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {dropdownList && createPortal(dropdownList, document.body)}
+    </div>
+  )
+}
+
 /** Fixed column widths so team tables and Other players table stay aligned. */
 const TABLE_COL_WIDTHS = {
   joueur: 160,
@@ -316,18 +437,6 @@ export function MatchDaysPage() {
     const isCaptain = user.captainTeamIds.includes(teamId)
     const isClubAdminForTeam = user.role === 'club_admin' && user.clubIds.includes(team.clubId)
     return isCaptain || isClubAdminForTeam
-  }
-
-  const availabilityLabel: Record<AvailabilityStatus, string> = {
-    available: 'Oui',
-    maybe: 'Peut-être',
-    unavailable: 'Non',
-  }
-
-  const availabilityColor: Record<AvailabilityStatus, string> = {
-    available: '#22c55e',
-    maybe: '#eab308',
-    unavailable: '#ef4444',
   }
 
   /** Which team (home or away) this player is selected for in this game; null if none. */
@@ -868,41 +977,23 @@ export function MatchDaysPage() {
                                 <Fragment key={md.id}>
                                   <td className="border-l border-slate-100 px-2 py-1.5">
                                     {canEditAv ? (
-                                      <div className="flex items-center gap-1">
-                                        {status && (
-                                          <span
-                                            className="shrink-0 w-2.5 h-2.5 rounded-full"
-                                            style={{ backgroundColor: availabilityColor[status] }}
-                                            aria-hidden
-                                          />
-                                        )}
-                                        <select
-                                          value={status ?? ''}
-                                          onChange={(e) => {
-                                            const v = e.target.value as AvailabilityStatus | ''
-                                            if (v) setGameAvailability(game.id, player.id, v, isOverride(player.id, team.id))
-                                            else if (status) clearGameAvailability(game.id, player.id)
-                                          }}
-                                          className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs"
-                                        >
-                                          <option value="">—</option>
-                                          {(['available', 'maybe', 'unavailable'] as const).map((s) => (
-                                            <option key={s} value={s}>
-                                              {availabilityLabel[s]}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
+                                      <AvailabilitySelect
+                                        value={status}
+                                        onChange={(v) => {
+                                          if (v) setGameAvailability(game.id, player.id, v, isOverride(player.id, team.id))
+                                          else if (status) clearGameAvailability(game.id, player.id)
+                                        }}
+                                      />
                                     ) : (
                                       <span className="inline-flex items-center gap-1 text-xs text-slate-600">
                                         {status ? (
                                           <>
                                             <span
                                               className="shrink-0 w-2.5 h-2.5 rounded-full"
-                                              style={{ backgroundColor: availabilityColor[status] }}
+                                              style={{ backgroundColor: AVAILABILITY_COLORS[status] }}
                                               aria-hidden
                                             />
-                                            {availabilityLabel[status]}
+                                            {AVAILABILITY_LABELS[status]}
                                           </>
                                         ) : '—'}
                                       </span>
