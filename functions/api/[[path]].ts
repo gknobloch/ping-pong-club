@@ -79,6 +79,7 @@ app.get('/data', async (c) => {
       id: r.id, clubId: r.club_id, phaseId: r.phase_id, number: r.number,
       divisionId: r.division_id, groupId: r.group_id, gameLocationId: r.game_location_id,
       defaultDay: r.default_day, defaultTime: r.default_time, captainId: r.captain_id,
+      isArchived: bool(r.is_archived),
       playerIds: jsonParse(r.player_ids),
       ...(r.roster_initial_points ? { rosterInitialPoints: jsonParse(r.roster_initial_points) } : {}),
       ...(r.color ? { color: r.color } : {}),
@@ -303,13 +304,13 @@ app.patch('/players/:id', async (c) => {
 app.post('/teams', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    `INSERT INTO teams (id, club_id, phase_id, number, division_id, group_id, game_location_id, default_day, default_time, captain_id, player_ids, roster_initial_points, color, whatsapp_link)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO teams (id, club_id, phase_id, number, division_id, group_id, game_location_id, default_day, default_time, captain_id, player_ids, roster_initial_points, color, whatsapp_link, is_archived)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     d.id, d.clubId, d.phaseId, d.number, d.divisionId, d.groupId,
     d.gameLocationId, d.defaultDay, d.defaultTime, d.captainId ?? '',
     jsonStr(d.playerIds ?? []), d.rosterInitialPoints ? jsonStr(d.rosterInitialPoints) : null,
-    d.color ?? null, d.whatsappLink ?? null,
+    d.color ?? null, d.whatsappLink ?? null, d.isArchived ? 1 : 0,
   ).run()
   return c.json({ ok: true })
 })
@@ -331,7 +332,35 @@ app.patch('/teams/:id', async (c) => {
   if ('rosterInitialPoints' in p) { s.push('roster_initial_points = ?'); v.push(p.rosterInitialPoints ? jsonStr(p.rosterInitialPoints) : null) }
   if ('color' in p) { s.push('color = ?'); v.push(p.color ?? null) }
   if ('whatsappLink' in p) { s.push('whatsapp_link = ?'); v.push(p.whatsappLink ?? null) }
+  if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
   if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE teams SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  return c.json({ ok: true })
+})
+
+// Delete team (archived only) — removes from group teamIds, cascades availabilities/selections
+app.delete('/teams/:id', async (c) => {
+  const db = c.env.DB
+  const id = c.req.param('id')
+  // Remove team from group's team_ids
+  const groupsR = await db.prepare('SELECT id, team_ids FROM groups_tbl').all()
+  for (const g of groupsR.results) {
+    const teamIds: string[] = jsonParse(g.team_ids) as string[]
+    if (teamIds.includes(id)) {
+      await db.prepare('UPDATE groups_tbl SET team_ids = ? WHERE id = ?')
+        .bind(jsonStr(teamIds.filter(t => t !== id)), g.id).run()
+    }
+  }
+  // Delete related game availabilities and selections for games involving this team
+  const gamesR = await db.prepare('SELECT id FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(id, id).all()
+  const gameIds = gamesR.results.map(r => r.id as string)
+  if (gameIds.length > 0) {
+    for (const gid of gameIds) {
+      await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(gid).run()
+      await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(gid).run()
+    }
+    await db.prepare('DELETE FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(id, id).run()
+  }
+  await db.prepare('DELETE FROM teams WHERE id = ?').bind(id).run()
   return c.json({ ok: true })
 })
 

@@ -75,6 +75,8 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   updatePhase: (id: string, patch: Partial<Phase>) => void
   updateGroup: (id: string, patch: Partial<Group>) => void
   updateTeam: (id: string, patch: Partial<Team>) => void
+  archiveTeam: (id: string) => void
+  deleteTeam: (id: string) => void
   addClub: (data: Omit<Club, 'id'>) => Club
   addSeason: (data: Omit<Season, 'id'>) => Season
   addPhase: (data: Omit<Phase, 'id'>) => Phase
@@ -417,6 +419,35 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     return team
   }, [persist])
 
+  const archiveTeam = useCallback((id: string) => {
+    setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, isArchived: true } : t)))
+    if (persist) api(`/teams/${id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: true }) })
+  }, [persist])
+
+  const deleteTeam = useCallback((id: string) => {
+    const team = teams.find((t) => t.id === id)
+    // Remove team from group teamIds
+    if (team) {
+      const group = groups.find((g) => g.id === team.groupId)
+      if (group) {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === group.id ? { ...g, teamIds: g.teamIds.filter((tid) => tid !== id) } : g
+          )
+        )
+      }
+    }
+    // Remove games involving this team + their availabilities/selections
+    const teamGameIds = games.filter((g) => g.homeTeamId === id || g.awayTeamId === id).map((g) => g.id)
+    if (teamGameIds.length > 0) {
+      setGames((prev) => prev.filter((g) => !teamGameIds.includes(g.id)))
+      setGameAvailabilities((prev) => prev.filter((a) => !teamGameIds.includes(a.gameId)))
+      setGameSelections((prev) => prev.filter((s) => !teamGameIds.includes(s.gameId)))
+    }
+    setTeams((prev) => prev.filter((t) => t.id !== id))
+    if (persist) api(`/teams/${id}`, { method: 'DELETE' })
+  }, [persist, teams, groups, games])
+
   // --- Players ---
   const updatePlayer = useCallback((id: string, patch: Partial<Player>) => {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
@@ -577,6 +608,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updatePhase,
       updateGroup,
       updateTeam,
+      archiveTeam,
+      deleteTeam,
       addClub,
       addSeason,
       addPhase,
@@ -603,7 +636,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       divisions, clubs, seasons, phases, groups, teams, players,
       matchDays, games,
       updateDivision, updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
-      updateSeason, updatePhase, updateGroup, updateTeam,
+      updateSeason, updatePhase, updateGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer,
