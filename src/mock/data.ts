@@ -72,6 +72,8 @@ export const mockPlayers: Player[] = [
   { id: 'player-23', firstName: 'Léonie', lastName: 'Muller', licenseNumber: '6814446', email: 'leonie.muller@example.com', phone: '', status: 'active', clubId: 'club-1' },
   { id: 'player-24', firstName: 'Antoine', lastName: 'Fischer', licenseNumber: '6814447', email: 'antoine.fischer@example.com', phone: '', status: 'active', clubId: 'club-1' },
   { id: 'player-25', firstName: 'Lucie', lastName: 'Meyer', licenseNumber: '6814448', email: 'lucie.meyer@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  // PPA Rixheim player not assigned to any team (shows in "Autres joueurs du club")
+  { id: 'player-26', firstName: 'Marc', lastName: 'Hoffmann', licenseNumber: '6814449', email: 'marc.hoffmann@example.com', phone: '06 56 78 90 12', status: 'active', clubId: 'club-1' },
 ]
 
 export const mockGroups: Group[] = [
