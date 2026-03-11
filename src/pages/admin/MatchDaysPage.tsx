@@ -249,6 +249,12 @@ export function MatchDaysPage() {
     return `${club?.displayName ?? team.clubId} ${team.number}`
   }
 
+  const getTeamSelectLabel = (teamId: string) => {
+    const team = teams.find((t) => t.id === teamId)
+    if (!team) return teamId
+    return `Eq. ${team.number}`
+  }
+
   const getTeamColor = (teamId: string): string | undefined =>
     teams.find((t) => t.id === teamId)?.color
 
@@ -761,9 +767,12 @@ export function MatchDaysPage() {
                           games,
                           gameSelections,
                         )
-                        const brulageLabel = brulage.burnedIntoTeamId
-                          ? getTeamLabel(brulage.burnedIntoTeamId)
-                          : '—'
+                        const brulageColor = brulage.burnedIntoTeamId
+                          ? getTeamColor(brulage.burnedIntoTeamId)
+                          : undefined
+                        const brulageTeam = brulage.burnedIntoTeamId
+                          ? teams.find((t) => t.id === brulage.burnedIntoTeamId)
+                          : null
                         return (
                           <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                             <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
@@ -784,7 +793,18 @@ export function MatchDaysPage() {
                               {selectedCount}/{teamGamesCount}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600 text-xs">
-                              {brulageLabel}
+                              {brulageTeam ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {brulageColor && (
+                                    <span
+                                      className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: brulageColor }}
+                                      aria-hidden
+                                    />
+                                  )}
+                                  Equipe {brulageTeam.number}
+                                </span>
+                              ) : '—'}
                             </td>
                             {visibleMatchDays.map((md) => {
                               const game = games.find(
@@ -822,12 +842,12 @@ export function MatchDaysPage() {
                                             setPlayerSelectedForMatchDay(md.id, player.id, v)
                                           }
                                           optionIds={orderedTeamOptionIds(team.id, player.id, md.id)}
-                                          getLabel={getTeamLabel}
+                                          getLabel={getTeamSelectLabel}
                                           getColor={getTeamColor}
                                         />
                                       ) : (
                                         <span className="text-xs text-slate-600">
-                                          {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                          {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
                                         </span>
                                       )}
                                     </td>
@@ -877,7 +897,7 @@ export function MatchDaysPage() {
                                       />
                                     ) : (
                                       <span className="text-xs text-slate-600">
-                                        {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                        {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
                                       </span>
                                     )}
                                   </td>
@@ -1078,7 +1098,21 @@ export function MatchDaysPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600 text-xs">
                       {(() => {
                         const b = computeBrulage(player.id, myClubTeamsInPhase, matchDays, games, gameSelections)
-                        return b.burnedIntoTeamId ? getTeamLabel(b.burnedIntoTeamId) : '—'
+                        if (!b.burnedIntoTeamId) return '—'
+                        const bTeam = teams.find((t) => t.id === b.burnedIntoTeamId)
+                        const bColor = getTeamColor(b.burnedIntoTeamId)
+                        return bTeam ? (
+                          <span className="inline-flex items-center gap-1">
+                            {bColor && (
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: bColor }}
+                                aria-hidden
+                              />
+                            )}
+                            Equipe {bTeam.number}
+                          </span>
+                        ) : '—'
                       })()}
                     </td>
                     {otherVisibleMatchDays.map((md) => {
@@ -1116,7 +1150,7 @@ export function MatchDaysPage() {
                                 />
                               ) : (
                                 <span className="text-xs text-slate-600">
-                                  {selectedTeamId ? getTeamLabel(selectedTeamId) : '—'}
+                                  {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
                                 </span>
                               )}
                             </td>
