@@ -892,7 +892,7 @@ export function MatchDaysPage() {
                                           setPlayerSelectedForMatchDay(md.id, player.id, v)
                                         }
                                         optionIds={orderedTeamOptionIds(team.id, player.id, md.id)}
-                                        getLabel={getTeamLabel}
+                                        getLabel={getTeamSelectLabel}
                                         getColor={getTeamColor}
                                       />
                                     ) : (
