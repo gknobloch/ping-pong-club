@@ -145,6 +145,23 @@ const AVAILABILITY_COLORS: Record<AvailabilityStatus, string> = {
   unavailable: '#ef4444',
 }
 
+/** Read-only team composition label with optional colored dot. */
+function ReadOnlyCompo({ teamId, getLabel, getColor }: {
+  teamId: string | null
+  getLabel: (id: string) => string
+  getColor: (id: string) => string | undefined
+}) {
+  const color = teamId ? getColor(teamId) : undefined
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+      {color && (
+        <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+      )}
+      {teamId ? getLabel(teamId) : '—'}
+    </span>
+  )
+}
+
 /** Custom availability dropdown with colored dots. */
 function AvailabilitySelect({
   value,
@@ -967,16 +984,7 @@ export function MatchDaysPage() {
                                           getColor={getTeamColor}
                                         />
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                                          {selectedTeamId && getTeamColor(selectedTeamId) && (
-                                            <span
-                                              className="shrink-0 w-2.5 h-2.5 rounded-full"
-                                              style={{ backgroundColor: getTeamColor(selectedTeamId) }}
-                                              aria-hidden
-                                            />
-                                          )}
-                                          {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
-                                        </span>
+                                        <ReadOnlyCompo teamId={selectedTeamId} getLabel={getTeamSelectLabel} getColor={getTeamColor} />
                                       )}
                                     </td>
                                   </Fragment>
@@ -1024,9 +1032,7 @@ export function MatchDaysPage() {
                                         getColor={getTeamColor}
                                       />
                                     ) : (
-                                      <span className="text-xs text-slate-600">
-                                        {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
-                                      </span>
+                                      <ReadOnlyCompo teamId={selectedTeamId} getLabel={getTeamSelectLabel} getColor={getTeamColor} />
                                     )}
                                   </td>
                                 </Fragment>
@@ -1277,16 +1283,7 @@ export function MatchDaysPage() {
                                   getColor={getTeamColor}
                                 />
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                                  {selectedTeamId && getTeamColor(selectedTeamId) && (
-                                    <span
-                                      className="shrink-0 w-2.5 h-2.5 rounded-full"
-                                      style={{ backgroundColor: getTeamColor(selectedTeamId) }}
-                                      aria-hidden
-                                    />
-                                  )}
-                                  {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
-                                </span>
+                                <ReadOnlyCompo teamId={selectedTeamId} getLabel={getTeamSelectLabel} getColor={getTeamColor} />
                               )}
                             </td>
                           </Fragment>
