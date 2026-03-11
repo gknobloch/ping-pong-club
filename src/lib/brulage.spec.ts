@@ -10,6 +10,7 @@ const makeTeam = (overrides: Partial<Team> & { id: string; number: number; clubI
   defaultTime: '20h00',
   captainId: '',
   playerIds: [],
+  isArchived: false,
   ...overrides,
 })
 

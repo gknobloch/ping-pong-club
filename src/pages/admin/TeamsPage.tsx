@@ -15,17 +15,27 @@ export function TeamsPage() {
     updateTeam,
     addTeam,
     updateGroup,
+    archiveTeam,
+    deleteTeam,
   } = useAppData()
 
   const isClubAdmin = user?.role === 'club_admin'
+  const isAdmin = user?.role === 'general_admin' || isClubAdmin
   const hasClubScope = (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') && (user?.clubIds?.length ?? 0) > 0
 
-  const teams = useMemo(() => {
+  const [showArchived, setShowArchived] = useState(false)
+
+  const allVisibleTeams = useMemo(() => {
+    let t = allTeams
     if (hasClubScope && user?.clubIds?.length) {
-      return allTeams.filter((t) => user.clubIds.includes(t.clubId))
+      t = t.filter((team) => user.clubIds.includes(team.clubId))
     }
-    return allTeams
+    return t
   }, [allTeams, hasClubScope, user?.clubIds])
+
+  const activeTeams = useMemo(() => allVisibleTeams.filter((t) => !t.isArchived), [allVisibleTeams])
+  const archivedTeams = useMemo(() => allVisibleTeams.filter((t) => t.isArchived), [allVisibleTeams])
+  const teams = showArchived ? allVisibleTeams : activeTeams
 
   const clubsForSelect =
     hasClubScope && user?.clubIds?.length
@@ -177,6 +187,7 @@ export function TeamsPage() {
       captainId: form.captainId,
       playerIds: form.playerIds,
       rosterInitialPoints: buildRosterInitialPoints(),
+      isArchived: false,
     })
     const group = groups.find((g) => g.id === form.groupId)
     if (group) {
@@ -185,11 +196,23 @@ export function TeamsPage() {
     closeModal()
   }
 
+  const handleArchive = (team: Team) => {
+    if (window.confirm(`Archiver l'équipe "${getClubName(team.clubId)} ${team.number}" ? Elle ne sera plus visible dans la liste active.`)) {
+      archiveTeam(team.id)
+    }
+  }
+
+  const handleDelete = (team: Team) => {
+    if (window.confirm(`Supprimer définitivement l'équipe "${getClubName(team.clubId)} ${team.number}" ? Les matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+      deleteTeam(team.id)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Équipes</h1>
-        {(user?.role === 'general_admin' || isClubAdmin) && (
+        {isAdmin && (
           <button
             type="button"
             onClick={openCreate}
@@ -199,6 +222,19 @@ export function TeamsPage() {
           </button>
         )}
       </div>
+      {archivedTeams.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les équipes archivées ({archivedTeams.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -221,15 +257,24 @@ export function TeamsPage() {
               <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
                 Capitaine
               </th>
-              <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
-                Actions
-              </th>
+              {isAdmin && (
+                <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {teams.map((team) => (
-              <tr key={team.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">{getClubName(team.clubId)}</td>
+              <tr key={team.id} className={`hover:bg-slate-50/50 ${team.isArchived ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  {getClubName(team.clubId)}
+                  {team.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivé
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{team.number}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getPhaseName(team.phaseId)}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getDivisionName(team.divisionId)}</td>
@@ -237,17 +282,37 @@ export function TeamsPage() {
                   {team.defaultDay} {team.defaultTime}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getCaptainName(team.captainId)}</td>
-                <td className="px-4 py-3 text-right">
-                  {(user?.role === 'general_admin' || isClubAdmin) && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(team)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Modifier
-                    </button>
-                  )}
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3 text-right space-x-3">
+                    {!team.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => openEdit(team)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        Modifier
+                      </button>
+                    )}
+                    {!team.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(team)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Archiver
+                      </button>
+                    )}
+                    {team.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(team)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

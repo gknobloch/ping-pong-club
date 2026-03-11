@@ -76,6 +76,7 @@ export interface Team {
   defaultDay: string
   defaultTime: string
   captainId: string
+  isArchived: boolean
   /** Roster for this team (phase). Used for availability and game selection. */
   playerIds: string[]
   /** Initial points per player at the start of the phase (Club Admin sets when defining roster). */

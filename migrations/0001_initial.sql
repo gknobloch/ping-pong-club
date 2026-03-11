@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS teams (
   player_ids TEXT NOT NULL DEFAULT '[]',
   roster_initial_points TEXT,
   color TEXT,
-  whatsapp_link TEXT
+  whatsapp_link TEXT,
+  is_archived INTEGER NOT NULL DEFAULT 0
 );
 
 -- Match days
