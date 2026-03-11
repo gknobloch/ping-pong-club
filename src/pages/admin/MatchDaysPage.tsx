@@ -1431,21 +1431,38 @@ export function MatchDaysPage() {
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-slate-700">Domicile / Extérieur</span>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={gameEditForm.isHome}
-                    onChange={(e) =>
-                      setGameEditForm((f) => ({ ...f, isHome: e.target.checked }))
-                    }
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">
-                    {gameEditForm.isHome ? 'Domicile' : 'Extérieur'}
-                  </span>
-                </label>
+              <div>
+                <span className="block text-sm font-medium text-slate-700 mb-1">Domicile / Extérieur</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGameEditForm((f) => ({ ...f, isHome: true }))}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      gameEditForm.isHome
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                    </svg>
+                    Domicile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGameEditForm((f) => ({ ...f, isHome: false }))}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      !gameEditForm.isHome
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    </svg>
+                    Extérieur
+                  </button>
+                </div>
               </div>
               <div>
                 <label htmlFor="game-edit-opponent" className="block text-sm font-medium text-slate-700">
