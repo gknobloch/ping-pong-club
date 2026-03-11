@@ -127,6 +127,45 @@ app.patch('/seasons/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+app.delete('/seasons/:id', async (c) => {
+  const db = c.env.DB
+  const id = c.req.param('id')
+  // Find phases belonging to this season
+  const phasesR = await db.prepare('SELECT id FROM phases WHERE season_id = ?').bind(id).all()
+  const phaseIds = phasesR.results.map(r => r.id as string)
+  for (const phaseId of phaseIds) {
+    // Find divisions in phase
+    const divsR = await db.prepare('SELECT id FROM divisions WHERE phase_id = ?').bind(phaseId).all()
+    const divIds = divsR.results.map(r => r.id as string)
+    for (const divId of divIds) {
+      // Find groups in division
+      const grpsR = await db.prepare('SELECT id FROM groups_tbl WHERE division_id = ?').bind(divId).all()
+      const grpIds = grpsR.results.map(r => r.id as string)
+      // Delete match days in these groups
+      for (const gid of grpIds) {
+        // Delete games + availabilities + selections for match days in this group
+        const mdsR = await db.prepare('SELECT id FROM match_days WHERE group_id = ?').bind(gid).all()
+        for (const md of mdsR.results) {
+          const mdGames = await db.prepare('SELECT id FROM games WHERE match_day_id = ?').bind(md.id).all()
+          for (const g of mdGames.results) {
+            await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(g.id).run()
+            await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(g.id).run()
+          }
+          await db.prepare('DELETE FROM games WHERE match_day_id = ?').bind(md.id).run()
+        }
+        await db.prepare('DELETE FROM match_days WHERE group_id = ?').bind(gid).run()
+        await db.prepare('DELETE FROM groups_tbl WHERE id = ?').bind(gid).run()
+      }
+      // Delete teams in division
+      await db.prepare('DELETE FROM teams WHERE division_id = ?').bind(divId).run()
+      await db.prepare('DELETE FROM divisions WHERE id = ?').bind(divId).run()
+    }
+    await db.prepare('DELETE FROM phases WHERE id = ?').bind(phaseId).run()
+  }
+  await db.prepare('DELETE FROM seasons WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
 // --- Phases ---
 app.post('/phases', async (c) => {
   const d = await c.req.json()

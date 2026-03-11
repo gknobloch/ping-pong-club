@@ -72,6 +72,8 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   updateClubAddress: (clubId: string, addressId: string, patch: Partial<Address>) => void
   deleteClubAddress: (clubId: string, addressId: string) => void
   updateSeason: (id: string, patch: Partial<Season>) => void
+  archiveSeason: (id: string) => void
+  deleteSeason: (id: string) => void
   updatePhase: (id: string, patch: Partial<Phase>) => void
   updateGroup: (id: string, patch: Partial<Group>) => void
   updateTeam: (id: string, patch: Partial<Team>) => void
@@ -188,6 +190,32 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     if (persist) api('/seasons', { method: 'POST', body: JSON.stringify(season) })
     return season
   }, [persist])
+
+  const archiveSeason = useCallback((id: string) => {
+    setSeasons((prev) => prev.map((s) => (s.id === id ? { ...s, isArchived: true } : s)))
+    if (persist) api(`/seasons/${id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: true }) })
+  }, [persist])
+
+  const deleteSeason = useCallback((id: string) => {
+    // Cascade: find phases → divisions → groups → teams, match days, games, avail, selections
+    const phaseIds = phases.filter((p) => p.seasonId === id).map((p) => p.id)
+    const divIds = divisions.filter((d) => phaseIds.includes(d.phaseId)).map((d) => d.id)
+    const grpIds = groups.filter((g) => divIds.includes(g.divisionId)).map((g) => g.id)
+    const teamIds = teams.filter((t) => phaseIds.includes(t.phaseId)).map((t) => t.id)
+    const mdIds = matchDays.filter((md) => grpIds.includes(md.groupId)).map((md) => md.id)
+    const gameIds = games.filter((g) => mdIds.includes(g.matchDayId)).map((g) => g.id)
+
+    setGameAvailabilities((prev) => prev.filter((a) => !gameIds.includes(a.gameId)))
+    setGameSelections((prev) => prev.filter((s) => !gameIds.includes(s.gameId)))
+    setGames((prev) => prev.filter((g) => !gameIds.includes(g.id)))
+    setMatchDays((prev) => prev.filter((md) => !mdIds.includes(md.id)))
+    setTeams((prev) => prev.filter((t) => !teamIds.includes(t.id)))
+    setGroups((prev) => prev.filter((g) => !grpIds.includes(g.id)))
+    setDivisions((prev) => prev.filter((d) => !divIds.includes(d.id)))
+    setPhases((prev) => prev.filter((p) => !phaseIds.includes(p.id)))
+    setSeasons((prev) => prev.filter((s) => s.id !== id))
+    if (persist) api(`/seasons/${id}`, { method: 'DELETE' })
+  }, [persist, phases, divisions, groups, teams, matchDays, games])
 
   // --- Phases ---
   const updatePhase = useCallback((id: string, patch: Partial<Phase>) => {
@@ -605,6 +633,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateClubAddress,
       deleteClubAddress,
       updateSeason,
+      archiveSeason,
+      deleteSeason,
       updatePhase,
       updateGroup,
       updateTeam,
@@ -636,7 +666,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       divisions, clubs, seasons, phases, groups, teams, players,
       matchDays, games,
       updateDivision, updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
-      updateSeason, updatePhase, updateGroup, updateTeam, archiveTeam, deleteTeam,
+      updateSeason, archiveSeason, deleteSeason, updatePhase, updateGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer,
