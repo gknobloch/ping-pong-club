@@ -252,7 +252,7 @@ export function MatchDaysPage() {
   const getTeamSelectLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
     if (!team) return teamId
-    return `Eq. ${team.number}`
+    return `Éq. ${team.number}`
   }
 
   const getTeamColor = (teamId: string): string | undefined =>
@@ -319,9 +319,15 @@ export function MatchDaysPage() {
   }
 
   const availabilityLabel: Record<AvailabilityStatus, string> = {
-    available: 'Disponible',
+    available: 'Oui',
     maybe: 'Peut-être',
-    unavailable: 'Indisponible',
+    unavailable: 'Non',
+  }
+
+  const availabilityColor: Record<AvailabilityStatus, string> = {
+    available: '#22c55e',
+    maybe: '#eab308',
+    unavailable: '#ef4444',
   }
 
   /** Which team (home or away) this player is selected for in this game; null if none. */
@@ -802,7 +808,7 @@ export function MatchDaysPage() {
                                       aria-hidden
                                     />
                                   )}
-                                  Equipe {brulageTeam.number}
+                                  Équipe {brulageTeam.number}
                                 </span>
                               ) : '—'}
                             </td>
@@ -862,25 +868,43 @@ export function MatchDaysPage() {
                                 <Fragment key={md.id}>
                                   <td className="border-l border-slate-100 px-2 py-1.5">
                                     {canEditAv ? (
-                                      <select
-                                        value={status ?? ''}
-                                        onChange={(e) => {
-                                          const v = e.target.value as AvailabilityStatus | ''
-                                          if (v) setGameAvailability(game.id, player.id, v, isOverride(player.id, team.id))
-                                          else if (status) clearGameAvailability(game.id, player.id)
-                                        }}
-                                        className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs"
-                                      >
-                                        <option value="">—</option>
-                                        {(['available', 'maybe', 'unavailable'] as const).map((s) => (
-                                          <option key={s} value={s}>
-                                            {availabilityLabel[s]}
-                                          </option>
-                                        ))}
-                                      </select>
+                                      <div className="flex items-center gap-1">
+                                        {status && (
+                                          <span
+                                            className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                            style={{ backgroundColor: availabilityColor[status] }}
+                                            aria-hidden
+                                          />
+                                        )}
+                                        <select
+                                          value={status ?? ''}
+                                          onChange={(e) => {
+                                            const v = e.target.value as AvailabilityStatus | ''
+                                            if (v) setGameAvailability(game.id, player.id, v, isOverride(player.id, team.id))
+                                            else if (status) clearGameAvailability(game.id, player.id)
+                                          }}
+                                          className="w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs"
+                                        >
+                                          <option value="">—</option>
+                                          {(['available', 'maybe', 'unavailable'] as const).map((s) => (
+                                            <option key={s} value={s}>
+                                              {availabilityLabel[s]}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
                                     ) : (
-                                      <span className="text-xs text-slate-600">
-                                        {status ? availabilityLabel[status] : '—'}
+                                      <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                                        {status ? (
+                                          <>
+                                            <span
+                                              className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                              style={{ backgroundColor: availabilityColor[status] }}
+                                              aria-hidden
+                                            />
+                                            {availabilityLabel[status]}
+                                          </>
+                                        ) : '—'}
                                       </span>
                                     )}
                                   </td>
@@ -1110,7 +1134,7 @@ export function MatchDaysPage() {
                                 aria-hidden
                               />
                             )}
-                            Equipe {bTeam.number}
+                            Équipe {bTeam.number}
                           </span>
                         ) : '—'
                       })()}
@@ -1145,7 +1169,7 @@ export function MatchDaysPage() {
                                     setPlayerSelectedForMatchDay(md.id, player.id, v)
                                   }
                                   optionIds={orderedTeamOptionIds(null, player.id, md.id)}
-                                  getLabel={getTeamLabel}
+                                  getLabel={getTeamSelectLabel}
                                   getColor={getTeamColor}
                                 />
                               ) : (
