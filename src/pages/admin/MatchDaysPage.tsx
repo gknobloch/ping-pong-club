@@ -967,7 +967,14 @@ export function MatchDaysPage() {
                                           getColor={getTeamColor}
                                         />
                                       ) : (
-                                        <span className="text-xs text-slate-600">
+                                        <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                                          {selectedTeamId && getTeamColor(selectedTeamId) && (
+                                            <span
+                                              className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                              style={{ backgroundColor: getTeamColor(selectedTeamId) }}
+                                              aria-hidden
+                                            />
+                                          )}
                                           {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
                                         </span>
                                       )}
@@ -1270,7 +1277,14 @@ export function MatchDaysPage() {
                                   getColor={getTeamColor}
                                 />
                               ) : (
-                                <span className="text-xs text-slate-600">
+                                <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                                  {selectedTeamId && getTeamColor(selectedTeamId) && (
+                                    <span
+                                      className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                      style={{ backgroundColor: getTeamColor(selectedTeamId) }}
+                                      aria-hidden
+                                    />
+                                  )}
                                   {selectedTeamId ? getTeamSelectLabel(selectedTeamId) : '—'}
                                 </span>
                               )}
