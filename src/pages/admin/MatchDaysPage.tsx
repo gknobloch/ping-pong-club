@@ -45,10 +45,13 @@ function TeamSelect({
       setListRect(null)
       return
     }
+    const listHeight = 160
     const updateRect = () => {
       if (buttonRef.current) {
         const r = buttonRef.current.getBoundingClientRect()
-        setListRect({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 140) })
+        const spaceBelow = window.innerHeight - r.bottom
+        const top = spaceBelow < listHeight ? r.top - listHeight - 2 : r.bottom + 2
+        setListRect({ top, left: r.left, width: Math.max(r.width, 140) })
       }
     }
     updateRect()
@@ -171,10 +174,13 @@ function AvailabilitySelect({
       setListRect(null)
       return
     }
+    const listHeight = 130
     const updateRect = () => {
       if (buttonRef.current) {
         const r = buttonRef.current.getBoundingClientRect()
-        setListRect({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 100) })
+        const spaceBelow = window.innerHeight - r.bottom
+        const top = spaceBelow < listHeight ? r.top - listHeight - 2 : r.bottom + 2
+        setListRect({ top, left: r.left, width: Math.max(r.width, 100) })
       }
     }
     updateRect()
