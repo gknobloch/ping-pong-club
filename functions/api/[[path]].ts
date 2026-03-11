@@ -61,6 +61,7 @@ app.get('/data', async (c) => {
     })),
     clubs: clubsR.results.map(r => ({
       id: r.id, affiliationNumber: r.affiliation_number, displayName: r.display_name,
+      isArchived: bool(r.is_archived),
       addresses: addrByClub.get(r.id as string) ?? [],
     })),
     groups: groupsR.results.map(r => ({
@@ -183,8 +184,8 @@ app.post('/divisions/:id/move', async (c) => {
 app.post('/clubs', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    'INSERT INTO clubs (id, affiliation_number, display_name) VALUES (?, ?, ?)'
-  ).bind(d.id, d.affiliationNumber, d.displayName).run()
+    'INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES (?, ?, ?, ?)'
+  ).bind(d.id, d.affiliationNumber, d.displayName, d.isArchived ? 1 : 0).run()
   // Insert addresses
   if (d.addresses?.length) {
     const stmts = d.addresses.map((a: Record<string, unknown>) =>
@@ -203,6 +204,7 @@ app.patch('/clubs/:id', async (c) => {
   const s: string[] = [], v: unknown[] = []
   if ('affiliationNumber' in p) { s.push('affiliation_number = ?'); v.push(p.affiliationNumber) }
   if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
+  if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
   if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE clubs SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
   return c.json({ ok: true })
 })

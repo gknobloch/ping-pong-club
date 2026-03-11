@@ -5,9 +5,14 @@ import { useAppData } from '@/contexts/DataContext'
 
 export function ClubsPage() {
   const navigate = useNavigate()
-  const { clubs, addClub } = useAppData()
+  const { clubs, addClub, archiveClub } = useAppData()
   const [creating, setCreating] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
+
+  const activeClubs = clubs.filter((c) => !c.isArchived)
+  const archivedClubs = clubs.filter((c) => c.isArchived)
+  const visibleClubs = showArchived ? clubs : activeClubs
 
   const openEdit = (club: Club) => {
     navigate(`/clubs/${club.affiliationNumber}`)
@@ -20,8 +25,14 @@ export function ClubsPage() {
 
   const handleSave = () => {
     if (creating) {
-      addClub({ ...form, addresses: [] })
+      addClub({ ...form, isArchived: false, addresses: [] })
       setCreating(false)
+    }
+  }
+
+  const handleArchive = (club: Club) => {
+    if (window.confirm(`Archiver le club "${club.displayName}" ? Il ne sera plus visible dans la liste active.`)) {
+      archiveClub(club.id)
     }
   }
 
@@ -41,6 +52,19 @@ export function ClubsPage() {
           Ajouter un club
         </button>
       </div>
+      {archivedClubs.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les clubs archivés ({archivedClubs.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -60,16 +84,23 @@ export function ClubsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
-            {clubs.map((club) => (
-              <tr key={club.id} className="hover:bg-slate-50/50">
+            {visibleClubs.map((club) => (
+              <tr key={club.id} className={`hover:bg-slate-50/50 ${club.isArchived ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm text-slate-900 font-mono">
                   {club.affiliationNumber}
                 </td>
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">{club.displayName}</td>
+                <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  {club.displayName}
+                  {club.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivé
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {(club.addresses ?? []).map((a) => a.label).join(', ') || '—'}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right space-x-3">
                   <button
                     type="button"
                     onClick={() => openEdit(club)}
@@ -77,6 +108,15 @@ export function ClubsPage() {
                   >
                     Modifier
                   </button>
+                  {!club.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(club)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Archiver
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

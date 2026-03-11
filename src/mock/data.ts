@@ -10,22 +10,24 @@ export const mockClubs: Club[] = [
     id: 'club-1',
     affiliationNumber: '06680011',
     displayName: 'PPA Rixheim',
+    isArchived: false,
     addresses,
   },
   {
     id: 'club-2',
     affiliationNumber: '06680022',
     displayName: 'TT Mulhouse',
+    isArchived: false,
     addresses: [
       { id: 'addr-3', label: 'Salle Omnisports', street: '1 place de la République', postalCode: '68100', city: 'Mulhouse', isDefault: true },
     ],
   },
-  { id: 'club-3', affiliationNumber: '06680033', displayName: 'TT Bergheim', addresses: [{ id: 'addr-4', label: 'Gymnase', street: '1 rue du Stade', postalCode: '68750', city: 'Bergheim', isDefault: true }] },
-  { id: 'club-4', affiliationNumber: '06680044', displayName: 'AS Wittelsheim', addresses: [{ id: 'addr-5', label: 'Salle', street: '2 ave des Sports', postalCode: '68270', city: 'Wittelsheim', isDefault: true }] },
-  { id: 'club-5', affiliationNumber: '06680055', displayName: 'TT Anould', addresses: [{ id: 'addr-6', label: 'Gymnase', street: '3 rue Principale', postalCode: '67130', city: 'Anould', isDefault: true }] },
-  { id: 'club-6', affiliationNumber: '06680066', displayName: 'TT Staffelfelden', addresses: [{ id: 'addr-7', label: 'Salle', street: '4 place du Jeu', postalCode: '68850', city: 'Staffelfelden', isDefault: true }] },
-  { id: 'club-7', affiliationNumber: '06680077', displayName: 'TT Bitschwiller', addresses: [{ id: 'addr-8', label: 'Gymnase', street: '5 rue du Sport', postalCode: '68220', city: 'Bitschwiller', isDefault: true }] },
-  { id: 'club-8', affiliationNumber: '06680088', displayName: 'TT Cernay', addresses: [{ id: 'addr-9', label: 'Salle', street: '6 rue des Lilas', postalCode: '68700', city: 'Cernay', isDefault: true }] },
+  { id: 'club-3', affiliationNumber: '06680033', displayName: 'TT Bergheim', isArchived: false, addresses: [{ id: 'addr-4', label: 'Gymnase', street: '1 rue du Stade', postalCode: '68750', city: 'Bergheim', isDefault: true }] },
+  { id: 'club-4', affiliationNumber: '06680044', displayName: 'AS Wittelsheim', isArchived: false, addresses: [{ id: 'addr-5', label: 'Salle', street: '2 ave des Sports', postalCode: '68270', city: 'Wittelsheim', isDefault: true }] },
+  { id: 'club-5', affiliationNumber: '06680055', displayName: 'TT Anould', isArchived: false, addresses: [{ id: 'addr-6', label: 'Gymnase', street: '3 rue Principale', postalCode: '67130', city: 'Anould', isDefault: true }] },
+  { id: 'club-6', affiliationNumber: '06680066', displayName: 'TT Staffelfelden', isArchived: false, addresses: [{ id: 'addr-7', label: 'Salle', street: '4 place du Jeu', postalCode: '68850', city: 'Staffelfelden', isDefault: true }] },
+  { id: 'club-7', affiliationNumber: '06680077', displayName: 'TT Bitschwiller', isArchived: false, addresses: [{ id: 'addr-8', label: 'Gymnase', street: '5 rue du Sport', postalCode: '68220', city: 'Bitschwiller', isDefault: true }] },
+  { id: 'club-8', affiliationNumber: '06680088', displayName: 'TT Cernay', isArchived: false, addresses: [{ id: 'addr-9', label: 'Salle', street: '6 rue des Lilas', postalCode: '68700', city: 'Cernay', isDefault: true }] },
 ]
 
 export const mockSeasons: Season[] = [
