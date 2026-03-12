@@ -14,6 +14,8 @@ export function DivisionsPage() {
     deleteDivision,
   } = useAppData()
 
+  const activePhaseId = phases.find((p) => p.isActive && !p.isArchived)?.id ?? ''
+  const [filterPhaseId, setFilterPhaseId] = useState(activePhaseId)
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
@@ -21,7 +23,10 @@ export function DivisionsPage() {
 
   const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
   const archivedDivisions = useMemo(() => allDivisions.filter((d) => d.isArchived), [allDivisions])
-  const divisions = showArchived ? allDivisions : activeDivisions
+  const visibleDivisions = showArchived ? allDivisions : activeDivisions
+  const divisions = filterPhaseId
+    ? visibleDivisions.filter((d) => d.phaseId === filterPhaseId)
+    : visibleDivisions
 
   const getPhaseName = (phaseId: string) =>
     phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
@@ -57,11 +62,9 @@ export function DivisionsPage() {
   const openCreate = () => {
     setEditing(null)
     setCreating(true)
-    const phaseId = phases[0]?.id ?? ''
-    const maxRank =
-      phaseId && activeDivisions.filter((d) => d.phaseId === phaseId).length > 0
-        ? Math.max(...activeDivisions.filter((d) => d.phaseId === phaseId).map((d) => d.rank)) + 1
-        : 1
+    const phaseId = filterPhaseId || phases[0]?.id || ''
+    const inPhase = activeDivisions.filter((d) => d.phaseId === phaseId)
+    const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
     setForm({
       phaseId,
       displayName: '',
@@ -118,6 +121,20 @@ export function DivisionsPage() {
         >
           Ajouter une division
         </button>
+      </div>
+      <div className="flex items-center gap-3">
+        <label htmlFor="filter-phase" className="text-sm font-medium text-slate-700">Phase :</label>
+        <select
+          id="filter-phase"
+          value={filterPhaseId}
+          onChange={(e) => setFilterPhaseId(e.target.value)}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        >
+          <option value="">Toutes les phases</option>
+          {phases.filter((p) => !p.isArchived).map((p) => (
+            <option key={p.id} value={p.id}>{p.displayName}</option>
+          ))}
+        </select>
       </div>
       {archivedDivisions.length > 0 && (
         <label className="flex items-center gap-2">
