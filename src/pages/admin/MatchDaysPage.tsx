@@ -336,7 +336,13 @@ export function MatchDaysPage() {
     if (!selectedPhaseId || !user?.clubIds?.length) return []
     return teams
       .filter((t) => t.phaseId === selectedPhaseId && user!.clubIds!.includes(t.clubId))
-      .sort((a, b) => (a.groupId === b.groupId ? a.number - b.number : a.groupId.localeCompare(b.groupId)))
+      .sort((a, b) => {
+        const clubA = clubs.find((c) => c.id === a.clubId)?.displayName ?? a.clubId
+        const clubB = clubs.find((c) => c.id === b.clubId)?.displayName ?? b.clubId
+        const nameA = `${clubA} ${a.number}`
+        const nameB = `${clubB} ${b.number}`
+        return nameA.localeCompare(nameB)
+      })
   }, [teams, selectedPhaseId, user?.clubIds])
 
   /** Match-days for a given team (its group). */
