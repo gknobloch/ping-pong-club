@@ -1,13 +1,27 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Division } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 
 export function DivisionsPage() {
-  const { divisions, phases, updateDivision, addDivision, moveDivisionUp, moveDivisionDown } =
-    useAppData()
+  const {
+    divisions: allDivisions,
+    phases,
+    updateDivision,
+    addDivision,
+    moveDivisionUp,
+    moveDivisionDown,
+    archiveDivision,
+    deleteDivision,
+  } = useAppData()
+
+  const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ phaseId: '', displayName: '', rank: 1, playersPerGame: 4 })
+
+  const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
+  const archivedDivisions = useMemo(() => allDivisions.filter((d) => d.isArchived), [allDivisions])
+  const divisions = showArchived ? allDivisions : activeDivisions
 
   const getPhaseName = (phaseId: string) =>
     phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
@@ -17,12 +31,14 @@ export function DivisionsPage() {
     .sort((a, b) => (a.phaseId !== b.phaseId ? a.phaseId.localeCompare(b.phaseId) : a.rank - b.rank))
 
   const getCanMoveUp = (div: Division) => {
-    const inPhase = divisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
+    if (div.isArchived) return false
+    const inPhase = activeDivisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
     const idx = inPhase.findIndex((d) => d.id === div.id)
     return idx > 0
   }
   const getCanMoveDown = (div: Division) => {
-    const inPhase = divisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
+    if (div.isArchived) return false
+    const inPhase = activeDivisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
     const idx = inPhase.findIndex((d) => d.id === div.id)
     return idx >= 0 && idx < inPhase.length - 1
   }
@@ -43,8 +59,8 @@ export function DivisionsPage() {
     setCreating(true)
     const phaseId = phases[0]?.id ?? ''
     const maxRank =
-      phaseId && divisions.filter((d) => d.phaseId === phaseId).length > 0
-        ? Math.max(...divisions.filter((d) => d.phaseId === phaseId).map((d) => d.rank)) + 1
+      phaseId && activeDivisions.filter((d) => d.phaseId === phaseId).length > 0
+        ? Math.max(...activeDivisions.filter((d) => d.phaseId === phaseId).map((d) => d.rank)) + 1
         : 1
     setForm({
       phaseId,
@@ -73,8 +89,21 @@ export function DivisionsPage() {
         displayName: form.displayName,
         rank: form.rank,
         playersPerGame: form.playersPerGame,
+        isArchived: false,
       })
       closeModal()
+    }
+  }
+
+  const handleArchive = (div: Division) => {
+    if (window.confirm(`Archiver la division "${div.displayName}" ? Elle ne sera plus visible dans la liste active.`)) {
+      archiveDivision(div.id)
+    }
+  }
+
+  const handleDelete = (div: Division) => {
+    if (window.confirm(`Supprimer définitivement la division "${div.displayName}" ? Les groupes, équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+      deleteDivision(div.id)
     }
   }
 
@@ -90,6 +119,19 @@ export function DivisionsPage() {
           Ajouter une division
         </button>
       </div>
+      {archivedDivisions.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les divisions archivées ({archivedDivisions.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -113,8 +155,15 @@ export function DivisionsPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {divisionsByPhase.map((div) => (
-              <tr key={div.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">{div.displayName}</td>
+              <tr key={div.id} className={`hover:bg-slate-50/50 ${div.isArchived ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  {div.displayName}
+                  {div.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivée
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getPhaseName(div.phaseId)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-0.5">
@@ -145,14 +194,34 @@ export function DivisionsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{div.playersPerGame}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(div)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                <td className="px-4 py-3 text-right space-x-3">
+                  {!div.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(div)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                  {!div.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(div)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Archiver
+                    </button>
+                  )}
+                  {div.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(div)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -182,7 +251,7 @@ export function DivisionsPage() {
                     value={form.phaseId}
                     onChange={(e) => {
                       const phaseId = e.target.value
-                      const inPhase = divisions.filter((d) => d.phaseId === phaseId)
+                      const inPhase = activeDivisions.filter((d) => d.phaseId === phaseId)
                       const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
                       setForm((f) => ({ ...f, phaseId, rank: maxRank }))
                     }}

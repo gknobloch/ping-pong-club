@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS divisions (
   phase_id TEXT NOT NULL,
   display_name TEXT NOT NULL,
   rank INTEGER NOT NULL,
-  players_per_game INTEGER NOT NULL DEFAULT 4
+  players_per_game INTEGER NOT NULL DEFAULT 4,
+  is_archived INTEGER NOT NULL DEFAULT 0
 );
 
 -- Clubs

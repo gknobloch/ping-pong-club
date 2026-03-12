@@ -41,6 +41,7 @@ export interface Division {
   displayName: string
   rank: number
   playersPerGame: number
+  isArchived: boolean
 }
 
 export interface Group {
