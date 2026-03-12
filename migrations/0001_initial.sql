@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS groups_tbl (
   id TEXT PRIMARY KEY,
   division_id TEXT NOT NULL,
   number INTEGER NOT NULL,
-  team_ids TEXT NOT NULL DEFAULT '[]'
+  team_ids TEXT NOT NULL DEFAULT '[]',
+  is_archived INTEGER NOT NULL DEFAULT 0
 );
 
 -- Players

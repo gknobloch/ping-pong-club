@@ -49,6 +49,7 @@ export interface Group {
   divisionId: string
   number: number
   teamIds: string[]
+  isArchived: boolean
 }
 
 export interface Player {

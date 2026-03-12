@@ -77,9 +77,9 @@ export const mockPlayers: Player[] = [
 ]
 
 export const mockGroups: Group[] = [
-  { id: 'group-1', divisionId: 'div-1', number: 1, teamIds: ['team-1', 'team-2', 'team-3', 'team-4', 'team-5', 'team-6', 'team-7', 'team-8'] },
-  { id: 'group-2', divisionId: 'div-2', number: 1, teamIds: ['team-9', 'team-10', 'team-11', 'team-12'] },
-  { id: 'group-3', divisionId: 'div-3', number: 1, teamIds: ['team-13', 'team-14', 'team-15', 'team-16', 'team-17', 'team-18', 'team-19', 'team-20'] },
+  { id: 'group-1', divisionId: 'div-1', number: 1, teamIds: ['team-1', 'team-2', 'team-3', 'team-4', 'team-5', 'team-6', 'team-7', 'team-8'], isArchived: false },
+  { id: 'group-2', divisionId: 'div-2', number: 1, teamIds: ['team-9', 'team-10', 'team-11', 'team-12'], isArchived: false },
+  { id: 'group-3', divisionId: 'div-3', number: 1, teamIds: ['team-13', 'team-14', 'team-15', 'team-16', 'team-17', 'team-18', 'team-19', 'team-20'], isArchived: false },
 ]
 
 export const mockTeams: Team[] = [
