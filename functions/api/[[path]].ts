@@ -188,6 +188,54 @@ app.patch('/phases/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// Delete phase (archived only) — cascades: divisions → groups → teams, match days → games → availabilities → selections
+app.delete('/phases/:id', async (c) => {
+  const db = c.env.DB
+  const id = c.req.param('id')
+  // Find divisions in this phase
+  const divsR = await db.prepare('SELECT id FROM divisions WHERE phase_id = ?').bind(id).all()
+  const divIds = divsR.results.map(r => r.id as string)
+  if (divIds.length > 0) {
+    for (const divId of divIds) {
+      // Find groups in this division
+      const grpsR = await db.prepare('SELECT id FROM groups_tbl WHERE division_id = ?').bind(divId).all()
+      const grpIds = grpsR.results.map(r => r.id as string)
+      for (const grpId of grpIds) {
+        // Find match days in this group → games → availabilities → selections
+        const mdsR = await db.prepare('SELECT id FROM match_days WHERE group_id = ?').bind(grpId).all()
+        for (const md of mdsR.results) {
+          const mdId = md.id as string
+          const gmsR = await db.prepare('SELECT id FROM games WHERE match_day_id = ?').bind(mdId).all()
+          for (const gm of gmsR.results) {
+            const gmId = gm.id as string
+            await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(gmId).run()
+            await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(gmId).run()
+          }
+          await db.prepare('DELETE FROM games WHERE match_day_id = ?').bind(mdId).run()
+        }
+        await db.prepare('DELETE FROM match_days WHERE group_id = ?').bind(grpId).run()
+      }
+      await db.prepare('DELETE FROM groups_tbl WHERE division_id = ?').bind(divId).run()
+    }
+    await db.prepare('DELETE FROM divisions WHERE phase_id = ?').bind(id).run()
+  }
+  // Delete teams in this phase (and their game references)
+  const teamsR = await db.prepare('SELECT id FROM teams WHERE phase_id = ?').bind(id).all()
+  for (const t of teamsR.results) {
+    const tid = t.id as string
+    const gamesR = await db.prepare('SELECT id FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(tid, tid).all()
+    for (const gm of gamesR.results) {
+      const gmId = gm.id as string
+      await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(gmId).run()
+      await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(gmId).run()
+    }
+    await db.prepare('DELETE FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(tid, tid).run()
+  }
+  await db.prepare('DELETE FROM teams WHERE phase_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM phases WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
 // --- Divisions ---
 app.post('/divisions', async (c) => {
   const d = await c.req.json()
