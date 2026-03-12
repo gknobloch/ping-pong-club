@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Season } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 
 export function SeasonsPage() {
-  const { seasons, updateSeason, addSeason } = useAppData()
+  const { seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason } = useAppData()
   const [editing, setEditing] = useState<Season | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ displayName: '', isActive: false, isArchived: false })
+  const [showArchived, setShowArchived] = useState(false)
+
+  const activeSeasons = useMemo(() => allSeasons.filter((s) => !s.isArchived), [allSeasons])
+  const archivedSeasons = useMemo(() => allSeasons.filter((s) => s.isArchived), [allSeasons])
+  const seasons = showArchived ? allSeasons : activeSeasons
 
   const openEdit = (season: Season) => {
     setEditing(season)
@@ -34,6 +39,18 @@ export function SeasonsPage() {
     }
   }
 
+  const handleArchive = (season: Season) => {
+    if (window.confirm(`Archiver la saison "${season.displayName}" ? Elle ne sera plus visible dans la liste active.`)) {
+      archiveSeason(season.id)
+    }
+  }
+
+  const handleDelete = (season: Season) => {
+    if (window.confirm(`Supprimer définitivement la saison "${season.displayName}" ? Toutes les phases, divisions, groupes, équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+      deleteSeason(season.id)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -46,6 +63,19 @@ export function SeasonsPage() {
           Ajouter une saison
         </button>
       </div>
+      {archivedSeasons.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les saisons archivées ({archivedSeasons.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -63,25 +93,52 @@ export function SeasonsPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {seasons.map((season) => (
-              <tr key={season.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">{season.displayName}</td>
+              <tr key={season.id} className={`hover:bg-slate-50/50 ${season.isArchived ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  {season.displayName}
+                  {season.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivée
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       season.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    {season.isActive ? 'Active' : season.isArchived ? 'Archivée' : '—'}
+                    {season.isActive ? 'Active' : '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(season)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                <td className="px-4 py-3 text-right space-x-3">
+                  {!season.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(season)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                  {!season.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(season)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Archiver
+                    </button>
+                  )}
+                  {season.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(season)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -122,15 +179,6 @@ export function SeasonsPage() {
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-slate-700">Active</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isArchived}
-                    onChange={(e) => setForm((f) => ({ ...f, isArchived: e.target.checked }))}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">Archivée</span>
                 </label>
               </div>
             </div>
