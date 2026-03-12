@@ -3,7 +3,7 @@ import type { Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 
 export function PhasesPage() {
-  const { phases: allPhases, seasons, updatePhase, addPhase, archivePhase, deletePhase } = useAppData()
+  const { phases: allPhases, seasons, divisions, groups, updatePhase, addPhase, addDivision, addGroup, archivePhase, deletePhase } = useAppData()
   const [editing, setEditing] = useState<Phase | null>(null)
   const [creating, setCreating] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -12,6 +12,7 @@ export function PhasesPage() {
     name: '',
     displayName: '',
     isActive: false,
+    copyFromPhaseId: '',
   })
 
   const activePhases = useMemo(() => allPhases.filter((p) => !p.isArchived), [allPhases])
@@ -29,6 +30,7 @@ export function PhasesPage() {
       name: phase.name,
       displayName: phase.displayName,
       isActive: phase.isActive,
+      copyFromPhaseId: '',
     })
   }
 
@@ -41,6 +43,7 @@ export function PhasesPage() {
       name: 'Phase 1',
       displayName: firstSeasonId ? `${getSeasonName(firstSeasonId)} Phase 1` : '',
       isActive: false,
+      copyFromPhaseId: '',
     })
   }
 
@@ -74,13 +77,39 @@ export function PhasesPage() {
       })
       closeModal()
     } else if (creating && form.seasonId && form.displayName) {
-      addPhase({
+      const newPhase = addPhase({
         seasonId: form.seasonId,
         name: form.name,
         displayName: form.displayName,
         isActive: form.isActive,
         isArchived: false,
       })
+      // Copy divisions (and their groups) from source phase
+      if (form.copyFromPhaseId) {
+        const srcDivisions = divisions
+          .filter((d) => d.phaseId === form.copyFromPhaseId && !d.isArchived)
+          .sort((a, b) => a.rank - b.rank)
+        for (const srcDiv of srcDivisions) {
+          const newDiv = addDivision({
+            phaseId: newPhase.id,
+            displayName: srcDiv.displayName,
+            rank: srcDiv.rank,
+            playersPerGame: srcDiv.playersPerGame,
+            isArchived: false,
+          })
+          const srcGroups = groups
+            .filter((g) => g.divisionId === srcDiv.id && !g.isArchived)
+            .sort((a, b) => a.number - b.number)
+          for (const srcGroup of srcGroups) {
+            addGroup({
+              divisionId: newDiv.id,
+              number: srcGroup.number,
+              teamIds: [],
+              isArchived: false,
+            })
+          }
+        }
+      }
       closeModal()
     }
   }
@@ -257,6 +286,29 @@ export function PhasesPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Nom affiché</label>
                   <p className="mt-1 text-sm text-slate-600">{form.displayName}</p>
+                </div>
+              )}
+              {creating && allPhases.filter((p) => !p.isArchived).length > 0 && (
+                <div>
+                  <label htmlFor="phase-copyFrom" className="block text-sm font-medium text-slate-700">
+                    Copier les divisions depuis
+                  </label>
+                  <select
+                    id="phase-copyFrom"
+                    value={form.copyFromPhaseId}
+                    onChange={(e) => setForm((f) => ({ ...f, copyFromPhaseId: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">— Aucune (créer vide) —</option>
+                    {allPhases.filter((p) => !p.isArchived).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.displayName} ({divisions.filter((d) => d.phaseId === p.id && !d.isArchived).length} div.)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Les divisions et groupes seront copiés (sans les équipes).
+                  </p>
                 </div>
               )}
               <div>
