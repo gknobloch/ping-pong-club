@@ -1,18 +1,22 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 
 export function PhasesPage() {
-  const { phases, seasons, updatePhase, addPhase } = useAppData()
+  const { phases: allPhases, seasons, updatePhase, addPhase, archivePhase, deletePhase } = useAppData()
   const [editing, setEditing] = useState<Phase | null>(null)
   const [creating, setCreating] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [form, setForm] = useState({
     seasonId: '',
     name: '',
     displayName: '',
     isActive: false,
-    isArchived: false,
   })
+
+  const activePhases = useMemo(() => allPhases.filter((p) => !p.isArchived), [allPhases])
+  const archivedPhases = useMemo(() => allPhases.filter((p) => p.isArchived), [allPhases])
+  const phases = showArchived ? allPhases : activePhases
 
   const getSeasonName = (seasonId: string) =>
     seasons.find((s) => s.id === seasonId)?.displayName ?? seasonId
@@ -25,7 +29,6 @@ export function PhasesPage() {
       name: phase.name,
       displayName: phase.displayName,
       isActive: phase.isActive,
-      isArchived: phase.isArchived,
     })
   }
 
@@ -38,7 +41,6 @@ export function PhasesPage() {
       name: 'Phase 1',
       displayName: firstSeasonId ? `${getSeasonName(firstSeasonId)} Phase 1` : '',
       isActive: false,
-      isArchived: false,
     })
   }
 
@@ -69,7 +71,6 @@ export function PhasesPage() {
       updatePhase(editing.id, {
         displayName: form.displayName,
         isActive: form.isActive,
-        isArchived: form.isArchived,
       })
       closeModal()
     } else if (creating && form.seasonId && form.displayName) {
@@ -78,9 +79,21 @@ export function PhasesPage() {
         name: form.name,
         displayName: form.displayName,
         isActive: form.isActive,
-        isArchived: form.isArchived,
+        isArchived: false,
       })
       closeModal()
+    }
+  }
+
+  const handleArchive = (phase: Phase) => {
+    if (window.confirm(`Archiver la phase "${phase.displayName}" ? Elle ne sera plus visible dans la liste active.`)) {
+      archivePhase(phase.id)
+    }
+  }
+
+  const handleDelete = (phase: Phase) => {
+    if (window.confirm(`Supprimer définitivement la phase "${phase.displayName}" ? Les divisions, groupes, équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+      deletePhase(phase.id)
     }
   }
 
@@ -96,6 +109,19 @@ export function PhasesPage() {
           Ajouter une phase
         </button>
       </div>
+      {archivedPhases.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les phases archivées ({archivedPhases.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -116,8 +142,15 @@ export function PhasesPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {phases.map((phase) => (
-              <tr key={phase.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">{phase.displayName}</td>
+              <tr key={phase.id} className={`hover:bg-slate-50/50 ${phase.isArchived ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  {phase.displayName}
+                  {phase.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivée
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getSeasonName(phase.seasonId)}</td>
                 <td className="px-4 py-3">
                   <span
@@ -125,17 +158,37 @@ export function PhasesPage() {
                       phase.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    {phase.isActive ? 'Active' : phase.isArchived ? 'Archivée' : '—'}
+                    {phase.isActive ? 'Active' : '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(phase)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                <td className="px-4 py-3 text-right space-x-3">
+                  {!phase.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(phase)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                  {!phase.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(phase)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Archiver
+                    </button>
+                  )}
+                  {phase.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(phase)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -206,7 +259,7 @@ export function PhasesPage() {
                   <p className="mt-1 text-sm text-slate-600">{form.displayName}</p>
                 </div>
               )}
-              <div className="flex gap-4">
+              <div>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -215,15 +268,6 @@ export function PhasesPage() {
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-slate-700">Active</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isArchived}
-                    onChange={(e) => setForm((f) => ({ ...f, isArchived: e.target.checked }))}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">Archivée</span>
                 </label>
               </div>
             </div>
