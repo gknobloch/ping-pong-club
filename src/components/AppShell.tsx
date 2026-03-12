@@ -2,6 +2,19 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 
+const prNumber = __PR_NUMBER__
+const commitSha = __COMMIT_SHA__
+
+function PreviewBanner() {
+  if (!prNumber) return null
+  const shortSha = commitSha ? commitSha.slice(0, 7) : ''
+  return (
+    <div className="bg-amber-500 text-white text-xs text-center py-1 px-4 font-medium">
+      Preview — PR #{prNumber}{shortSha ? ` · ${shortSha}` : ''}
+    </div>
+  )
+}
+
 const navLinkClass = (active: boolean) =>
   `text-sm font-medium ${active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
 
@@ -23,6 +36,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <PreviewBanner />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="font-display text-lg font-semibold text-slate-800">
