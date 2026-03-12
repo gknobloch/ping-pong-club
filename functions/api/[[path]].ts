@@ -67,6 +67,7 @@ app.get('/data', async (c) => {
     })),
     groups: groupsR.results.map(r => ({
       id: r.id, divisionId: r.division_id, number: r.number, teamIds: jsonParse(r.team_ids),
+      isArchived: bool(r.is_archived),
     })),
     players: playersR.results.map(r => ({
       id: r.id, firstName: r.first_name, lastName: r.last_name,
@@ -377,8 +378,8 @@ app.delete('/clubs/:clubId/addresses/:addressId', async (c) => {
 app.post('/groups', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    'INSERT INTO groups_tbl (id, division_id, number, team_ids) VALUES (?, ?, ?, ?)'
-  ).bind(d.id, d.divisionId, d.number, jsonStr(d.teamIds ?? [])).run()
+    'INSERT INTO groups_tbl (id, division_id, number, team_ids, is_archived) VALUES (?, ?, ?, ?, ?)'
+  ).bind(d.id, d.divisionId, d.number, jsonStr(d.teamIds ?? []), d.isArchived ? 1 : 0).run()
   return c.json({ ok: true })
 })
 
@@ -389,7 +390,39 @@ app.patch('/groups/:id', async (c) => {
   if ('divisionId' in p) { s.push('division_id = ?'); v.push(p.divisionId) }
   if ('number' in p) { s.push('number = ?'); v.push(p.number) }
   if ('teamIds' in p) { s.push('team_ids = ?'); v.push(jsonStr(p.teamIds)) }
+  if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
   if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE groups_tbl SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  return c.json({ ok: true })
+})
+
+// Delete group (archived only) — cascades: teams, match days → games → availabilities → selections
+app.delete('/groups/:id', async (c) => {
+  const db = c.env.DB
+  const id = c.req.param('id')
+  // Delete teams in this group (and their game cascades)
+  const teamsR = await db.prepare('SELECT id FROM teams WHERE group_id = ?').bind(id).all()
+  for (const t of teamsR.results) {
+    const tid = t.id as string
+    const gamesR = await db.prepare('SELECT id FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(tid, tid).all()
+    for (const g of gamesR.results) {
+      await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(g.id).run()
+      await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(g.id).run()
+    }
+    await db.prepare('DELETE FROM games WHERE home_team_id = ? OR away_team_id = ?').bind(tid, tid).run()
+  }
+  await db.prepare('DELETE FROM teams WHERE group_id = ?').bind(id).run()
+  // Delete match days in this group and their games/availabilities/selections
+  const matchDaysR = await db.prepare('SELECT id FROM match_days WHERE group_id = ?').bind(id).all()
+  for (const md of matchDaysR.results) {
+    const mdGamesR = await db.prepare('SELECT id FROM games WHERE match_day_id = ?').bind(md.id).all()
+    for (const g of mdGamesR.results) {
+      await db.prepare('DELETE FROM game_availabilities WHERE game_id = ?').bind(g.id).run()
+      await db.prepare('DELETE FROM game_selections WHERE game_id = ?').bind(g.id).run()
+    }
+    await db.prepare('DELETE FROM games WHERE match_day_id = ?').bind(md.id).run()
+  }
+  await db.prepare('DELETE FROM match_days WHERE group_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM groups_tbl WHERE id = ?').bind(id).run()
   return c.json({ ok: true })
 })
 

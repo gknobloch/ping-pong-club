@@ -1,12 +1,18 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Group } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 
 export function GroupsPage() {
-  const { groups, divisions, phases, teams, clubs, updateGroup, addGroup } = useAppData()
+  const { groups: allGroups, divisions, phases, teams, clubs, updateGroup, addGroup, archiveGroup, deleteGroup } = useAppData()
   const [editing, setEditing] = useState<Group | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ divisionId: '', number: 1 })
+
+  const [showArchived, setShowArchived] = useState(false)
+
+  const activeGroups = useMemo(() => allGroups.filter((g) => !g.isArchived), [allGroups])
+  const archivedGroups = useMemo(() => allGroups.filter((g) => g.isArchived), [allGroups])
+  const groups = showArchived ? allGroups : activeGroups
 
   const getDivisionName = (divisionId: string) =>
     divisions.find((d) => d.id === divisionId)?.displayName ?? divisionId
@@ -32,7 +38,7 @@ export function GroupsPage() {
     setCreating(true)
     setForm({
       divisionId: divisions[0]?.id ?? '',
-      number: groups.filter((g) => g.divisionId === divisions[0]?.id).length + 1,
+      number: allGroups.filter((g) => g.divisionId === divisions[0]?.id).length + 1,
     })
   }
 
@@ -50,8 +56,21 @@ export function GroupsPage() {
         divisionId: form.divisionId,
         number: form.number,
         teamIds: [],
+        isArchived: false,
       })
       closeModal()
+    }
+  }
+
+  const handleArchive = (group: Group) => {
+    if (window.confirm(`Archiver le groupe "${getDivisionName(group.divisionId)} - Groupe ${group.number}" ? Il ne sera plus visible dans la liste active.`)) {
+      archiveGroup(group.id)
+    }
+  }
+
+  const handleDelete = (group: Group) => {
+    if (window.confirm(`Supprimer définitivement le groupe "${getDivisionName(group.divisionId)} - Groupe ${group.number}" ? Les équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+      deleteGroup(group.id)
     }
   }
 
@@ -73,6 +92,19 @@ export function GroupsPage() {
           Ajouter un groupe
         </button>
       </div>
+      {archivedGroups.length > 0 && (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          <span className="text-sm text-slate-600">
+            Afficher les groupes archivés ({archivedGroups.length})
+          </span>
+        </label>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -96,9 +128,14 @@ export function GroupsPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {groups.map((group) => (
-              <tr key={group.id} className="hover:bg-slate-50/50">
+              <tr key={group.id} className={`hover:bg-slate-50/50 ${group.isArchived ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
                   {getDivisionName(group.divisionId)}
+                  {group.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                      Archivé
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {getPhaseName(getPhaseIdForDivision(group.divisionId) ?? '')}
@@ -107,14 +144,34 @@ export function GroupsPage() {
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {group.teamIds.map(getTeamLabel).join(', ') || '—'}
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(group)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    Modifier
-                  </button>
+                <td className="px-4 py-3 text-right space-x-3">
+                  {!group.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(group)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                  {!group.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(group)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Archiver
+                    </button>
+                  )}
+                  {group.isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(group)}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
