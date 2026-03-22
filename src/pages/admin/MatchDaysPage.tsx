@@ -662,7 +662,8 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-14 z-10 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">
             Journées
@@ -728,6 +729,7 @@ export function MatchDaysPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
 
