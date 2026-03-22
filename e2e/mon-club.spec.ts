@@ -3,7 +3,7 @@ import { loginAs } from './helpers'
 
 test.describe('Club admin / Captain — Mon club', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'marie')
+    await loginAs(page, 'szulc')
   })
 
   test('sees Mon club in nav and can open it', async ({ page }) => {

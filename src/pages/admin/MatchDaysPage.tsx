@@ -448,6 +448,13 @@ export function MatchDaysPage() {
    *  Filters out teams the player is not eligible for (brûlage) on the given match-day. */
   const orderedTeamOptionIds = (playerTeamId: string | null, playerId?: string, matchDayId?: string): (string | null)[] => {
     let all = myClubTeamsInPhase.map((t) => t.id)
+    if (matchDayId) {
+      // Only include teams that actually have a game on this round
+      const correspondingMdIds = getCorrespondingMatchDayIds(matchDayId)
+      const roundGames = games.filter((g) => correspondingMdIds.includes(g.matchDayId))
+      const teamsWithGame = new Set(roundGames.flatMap((g) => [g.homeTeamId, g.awayTeamId]))
+      all = all.filter((tid) => teamsWithGame.has(tid))
+    }
     if (playerId && matchDayId) {
       all = all.filter((tid) => {
         const t = teams.find((x) => x.id === tid)
@@ -513,14 +520,23 @@ export function MatchDaysPage() {
     return null
   }
 
+  /** Group IDs belonging to the selected phase (via divisions). */
+  const phaseGroupIds = useMemo(() => {
+    const divIds = new Set(divisions.filter((d) => d.phaseId === selectedPhaseId).map((d) => d.id))
+    return new Set(groups.filter((g) => divIds.has(g.divisionId)).map((g) => g.id))
+  }, [divisions, groups, selectedPhaseId])
+
   /**
-   * Find all match-days with the same number across groups (same "round" in different groups).
+   * Find all match-days with the same number across groups in the current phase
+   * (same "round" in different groups).
    * A player can only play in one team per round, even if teams are in different groups.
    */
   const getCorrespondingMatchDayIds = (matchDayId: string): string[] => {
     const md = matchDays.find((m) => m.id === matchDayId)
     if (!md) return [matchDayId]
-    return matchDays.filter((m) => m.number === md.number).map((m) => m.id)
+    return matchDays
+      .filter((m) => m.number === md.number && phaseGroupIds.has(m.groupId))
+      .map((m) => m.id)
   }
 
   /** Which team this player is selected for on this match-day round (across all groups); null if none. */
@@ -943,34 +959,40 @@ export function MatchDaysPage() {
                               className="whitespace-nowrap border-l border-slate-200 px-2 py-2 text-center font-medium text-slate-700 cursor-pointer hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
                             >
                               <span className="block">J{md.number}</span>
-                              <span className="block text-xs font-normal text-slate-500">
-                                {new Date(md.date + 'Z').toLocaleDateString('fr-FR', {
-                                  weekday: 'short',
-                                  day: 'numeric',
-                                  month: 'short',
-                                })}
-                                {(game?.time ?? team.defaultTime) && (
-                                  <span className="ml-1">{game?.time ?? team.defaultTime}</span>
-                                )}
-                              </span>
-                              {opponentId && (
-                                <span className="mt-0.5 flex items-center justify-center gap-1 text-xs text-slate-600">
-                                  <span
-                                    className="shrink-0 text-slate-500"
-                                    title={isHome ? 'Domicile' : 'Extérieur'}
-                                  >
-                                    {isHome ? (
-                                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                                      </svg>
-                                    ) : (
-                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                                      </svg>
+                              {game ? (
+                                <>
+                                  <span className="block text-xs font-normal text-slate-500">
+                                    {new Date(md.date + 'Z').toLocaleDateString('fr-FR', {
+                                      weekday: 'short',
+                                      day: 'numeric',
+                                      month: 'short',
+                                    })}
+                                    {(game.time ?? team.defaultTime) && (
+                                      <span className="ml-1">{game.time ?? team.defaultTime}</span>
                                     )}
                                   </span>
-                                  {getTeamLabel(opponentId)}
-                                </span>
+                                  {opponentId && (
+                                    <span className="mt-0.5 flex items-center justify-center gap-1 text-xs text-slate-600">
+                                      <span
+                                        className="shrink-0 text-slate-500"
+                                        title={isHome ? 'Domicile' : 'Extérieur'}
+                                      >
+                                        {isHome ? (
+                                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                          </svg>
+                                        ) : (
+                                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                                          </svg>
+                                        )}
+                                      </span>
+                                      {getTeamLabel(opponentId)}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="block text-xs font-normal text-slate-400 italic">Exempt</span>
                               )}
                             </th>
                           )
@@ -1064,7 +1086,8 @@ export function MatchDaysPage() {
                                   (g.homeTeamId === team.id || g.awayTeamId === team.id)
                               )
                               if (!game) {
-                                const dayGames = games.filter((g) => g.matchDayId === md.id)
+                                const correspondingMdIds = getCorrespondingMatchDayIds(md.id)
+                                const dayGames = games.filter((g) => correspondingMdIds.includes(g.matchDayId))
                                 const ourClubTeamsThisDay = [
                                   ...new Set(
                                     dayGames.flatMap((g) =>
