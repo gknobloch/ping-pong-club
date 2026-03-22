@@ -391,6 +391,19 @@ export function MatchDaysPage() {
   const [matchDayOffsetByTeamId, setMatchDayOffsetByTeamId] = useState<Record<string, number>>({})
   const [otherMatchDayOffset, setOtherMatchDayOffset] = useState(0)
 
+  const stickysentinelRef = useRef<HTMLDivElement>(null)
+  const [isStuck, setIsStuck] = useState(false)
+  useEffect(() => {
+    const el = stickysentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsStuck(!entry.isIntersecting),
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   /** Global match-day offset applied to all teams at once. */
   const [globalMatchDayOffset, setGlobalMatchDayOffset] = useState(0)
   const globalMaxMatchDays = useMemo(
@@ -662,8 +675,9 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
+      <div ref={stickysentinelRef} className="h-0" aria-hidden />
       <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div className={`rounded-xl border border-slate-200 bg-white px-4 py-3 transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
         <div className="flex items-center justify-between gap-4">
           <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">
             Journées
