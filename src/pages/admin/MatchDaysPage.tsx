@@ -1177,8 +1177,7 @@ export function MatchDaysPage() {
                                   ),
                                 ]
                                 const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                                const mdPast = isMatchDayPast(md.id)
-                                const canEditSel = !mdPast && ourClubTeamsThisDay.some((tid) =>
+                                const canEditSel = ourClubTeamsThisDay.some((tid) =>
                                   canEditGameSelection(tid)
                                 )
                                 return (
@@ -1208,7 +1207,7 @@ export function MatchDaysPage() {
                               const mdPast = isMatchDayPast(md.id)
                               const canEditAv = !mdPast && canEditAvailability(player.id, team.id)
                               const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                              const canEditSel = !mdPast && canEditGameSelection(team.id)
+                              const canEditSel = canEditGameSelection(team.id)
                               return (
                                 <Fragment key={md.id}>
                                   <td className="border-l border-slate-100 px-2 py-1.5">
@@ -1471,8 +1470,7 @@ export function MatchDaysPage() {
                           ),
                         ]
                         const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                        const mdPast = isMatchDayPast(md.id)
-                        const canEditSel = !mdPast && ourClubTeamsThisDay.some((tid) =>
+                        const canEditSel = ourClubTeamsThisDay.some((tid) =>
                           canEditGameSelection(tid)
                         )
                         return (
