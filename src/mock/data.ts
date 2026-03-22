@@ -17,7 +17,6 @@ const opponentAddr = (id: string, city: string): Address[] => [
 // ---------------------------------------------------------------------------
 export const mockClubs: Club[] = [
   { id: 'club-1', affiliationNumber: '06680011', displayName: 'PPA Rixheim', isArchived: false, addresses: ppaAddresses },
-  // Opponent clubs (one per unique club name across all groups)
   { id: 'club-etival', affiliationNumber: '06880001', displayName: 'Etival', isArchived: false, addresses: opponentAddr('addr-etival', 'Etival') },
   { id: 'club-rosenau', affiliationNumber: '06680002', displayName: 'Rosenau', isArchived: false, addresses: opponentAddr('addr-rosenau', 'Rosenau') },
   { id: 'club-rc-strasbourg', affiliationNumber: '06670001', displayName: 'RC Strasbourg', isArchived: false, addresses: opponentAddr('addr-rcs', 'Strasbourg') },
@@ -54,7 +53,7 @@ export const mockPhases: Phase[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Divisions (one per PPA team level)
+// Divisions
 // ---------------------------------------------------------------------------
 export const mockDivisions: Division[] = [
   { id: 'div-1', phaseId: 'phase-1', displayName: 'GE1', rank: 1, playersPerGame: 4, isArchived: false },
@@ -62,51 +61,73 @@ export const mockDivisions: Division[] = [
   { id: 'div-3', phaseId: 'phase-1', displayName: 'GE3', rank: 3, playersPerGame: 4, isArchived: false },
   { id: 'div-4', phaseId: 'phase-1', displayName: 'GE4', rank: 4, playersPerGame: 4, isArchived: false },
   { id: 'div-5', phaseId: 'phase-1', displayName: 'GE5', rank: 5, playersPerGame: 4, isArchived: false },
+  { id: 'div-6', phaseId: 'phase-1', displayName: 'GE6', rank: 6, playersPerGame: 3, isArchived: false },
+  { id: 'div-7', phaseId: 'phase-1', displayName: 'GE7', rank: 7, playersPerGame: 3, isArchived: false },
 ]
 
 // ---------------------------------------------------------------------------
-// Players — PPA Rixheim
+// Players — PPA Rixheim (IDs match remote DB p2-player-* scheme)
 // ---------------------------------------------------------------------------
 export const mockPlayers: Player[] = [
-  // Admin / system users
-  { id: 'player-admin', firstName: 'Admin', lastName: 'Global', licenseNumber: '0000001', email: 'admin@example.com', phone: '', status: 'active', clubId: '' },
-  { id: 'player-club-admin', firstName: 'Claire', lastName: 'Admin', licenseNumber: '0000002', email: 'club.admin@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 1
-  { id: 'p-szulc', firstName: 'Joris', lastName: 'Szulc', licenseNumber: '686910', email: 'joris.szulc@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1887' },
-  { id: 'p-canaque', firstName: 'Gregory', lastName: 'Canaque', licenseNumber: '425881', email: 'gregory.canaque@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1763' },
-  { id: 'p-colle', firstName: 'Quentin', lastName: 'Colle', licenseNumber: '8810008', email: 'quentin.colle@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1665' },
-  { id: 'p-lach', firstName: 'Stéphane', lastName: 'Lach', licenseNumber: '681364', email: 'stephane.lach@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1647' },
-  { id: 'p-lotz', firstName: 'Enzo', lastName: 'Lotz', licenseNumber: '6716966', email: 'enzo.lotz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1566' },
+  { id: 'p2-player-5', firstName: 'Joris', lastName: 'Szulc', licenseNumber: '686910', email: 'joris.szulc@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1887' },
+  { id: 'p2-player-1', firstName: 'Grégory', lastName: 'Canaque', licenseNumber: '425881', email: 'gregory.canaque@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1763' },
+  { id: 'p2-player-2', firstName: 'Quentin', lastName: 'Colle', licenseNumber: '8810008', email: 'quentin.colle@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1665' },
+  { id: 'p2-player-3', firstName: 'Stéphane', lastName: 'Lach', licenseNumber: '681364', email: 'stephane.lach@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1647' },
+  { id: 'p2-player-4', firstName: 'Enzo', lastName: 'Lotz', licenseNumber: '6716966', email: 'enzo.lotz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1566' },
   // Equipe 2
-  { id: 'p-buchi', firstName: 'Christian', lastName: 'Buchi', licenseNumber: '6815117', email: 'christian.buchi@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1791' },
-  { id: 'p-philippe', firstName: 'Olivier', lastName: 'Philippe', licenseNumber: '683975', email: 'olivier.philippe@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1661' },
-  { id: 'p-ceroni', firstName: 'Hervé', lastName: 'Ceroni', licenseNumber: '684545', email: 'herve.ceroni@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1500' },
-  { id: 'p-dangelser-f', firstName: 'Fabrice', lastName: 'Dangelser', licenseNumber: '682480', email: 'fabrice.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
-  { id: 'p-cunin', firstName: 'Cédric', lastName: 'Cunin', licenseNumber: '6810711', email: 'cedric.cunin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
+  { id: 'p2-player-6', firstName: 'Christian', lastName: 'Buchi', licenseNumber: '6815117', email: 'christian.buchi@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1791' },
+  { id: 'p2-player-10', firstName: 'Olivier', lastName: 'Philippe', licenseNumber: '683975', email: 'olivier.philippe@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1661' },
+  { id: 'p2-player-7', firstName: 'Hervé', lastName: 'Ceroni', licenseNumber: '684545', email: 'herve.ceroni@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1500' },
+  { id: 'p2-player-9', firstName: 'Fabrice', lastName: 'Dangelser', licenseNumber: '682480', email: 'fabrice.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
+  { id: 'p2-player-8', firstName: 'Cédric', lastName: 'Cunin', licenseNumber: '6810711', email: 'cedric.cunin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
   // Equipe 3
-  { id: 'p-rentz', firstName: 'Sébastien', lastName: 'Rentz', licenseNumber: '687433', email: 'sebastien.rentz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1356' },
-  { id: 'p-schatt', firstName: 'Sébastien', lastName: 'Schatt', licenseNumber: '685143', email: 'sebastien.schatt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1267' },
-  { id: 'p-schill', firstName: 'Yannick', lastName: 'Schill', licenseNumber: '6814304', email: 'yannick.schill@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1198' },
-  { id: 'p-cristini', firstName: 'Nello', lastName: 'Cristini', licenseNumber: '683787', email: 'nello.cristini@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1186' },
-  { id: 'p-dangelser-b', firstName: 'Bastien', lastName: 'Dangelser', licenseNumber: '684113', email: 'bastien.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '754' },
+  { id: 'p2-player-12', firstName: 'Sébastien', lastName: 'Rentz', licenseNumber: '687433', email: 'sebastien.rentz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1356' },
+  { id: 'p2-player-13', firstName: 'Sébastien', lastName: 'Schatt', licenseNumber: '685143', email: 'sebastien.schatt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1267' },
+  { id: 'p2-player-14', firstName: 'Yannick', lastName: 'Schill', licenseNumber: '6814304', email: 'yannick.schill@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1198' },
+  { id: 'p2-player-11', firstName: 'Nello', lastName: 'Cristini', licenseNumber: '683787', email: 'nello.cristini@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1186' },
+  { id: 'p2-player-17', firstName: 'Bastien', lastName: 'Dangelser', licenseNumber: '684113', email: 'bastien.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '754' },
   // Equipe 4
-  { id: 'p-clement', firstName: 'Didier', lastName: 'Clément', licenseNumber: '392885', email: 'didier.clement@example.com', phone: '', status: 'active', clubId: 'club-1', points: '889' },
-  { id: 'p-mougey', firstName: 'Mathieu', lastName: 'Mougey', licenseNumber: '6810243', email: 'mathieu.mougey@example.com', phone: '', status: 'active', clubId: 'club-1', points: '728' },
-  { id: 'p-decoatpont', firstName: 'Bertrand', lastName: 'De Coatpont', licenseNumber: '6813454', email: 'bertrand.decoatpont@example.com', phone: '', status: 'active', clubId: 'club-1', points: '727' },
-  { id: 'p-broglin', firstName: 'Nicolas', lastName: 'Broglin', licenseNumber: '6815877', email: 'nicolas.broglin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '713' },
-  { id: 'p-schmitt', firstName: 'David', lastName: 'Schmitt', licenseNumber: '6815675', email: 'david.schmitt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '704' },
+  { id: 'p2-player-16', firstName: 'Didier', lastName: 'Clément', licenseNumber: '392885', email: 'didier.clement@example.com', phone: '', status: 'active', clubId: 'club-1', points: '889' },
+  { id: 'p2-player-19', firstName: 'Mathieu', lastName: 'Mougey', licenseNumber: '6810243', email: 'mathieu.mougey@example.com', phone: '', status: 'active', clubId: 'club-1', points: '728' },
+  { id: 'p2-player-18', firstName: 'Bertrand', lastName: 'De Coatpont', licenseNumber: '6813454', email: 'bertrand.decoatpont@example.com', phone: '', status: 'active', clubId: 'club-1', points: '727' },
+  { id: 'p2-player-15', firstName: 'Nicolas', lastName: 'Broglin', licenseNumber: '6815877', email: 'nicolas.broglin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '713' },
+  { id: 'p2-player-20', firstName: 'David', lastName: 'Schmitt', licenseNumber: '6815675', email: 'david.schmitt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '704' },
   // Equipe 5
-  { id: 'p-depauli', firstName: 'Patricia', lastName: 'De Pauli', licenseNumber: '6812597', email: 'patricia.depauli@example.com', phone: '', status: 'active', clubId: 'club-1', points: '735' },
-  { id: 'p-knobloch', firstName: 'Gilles', lastName: 'Knobloch', licenseNumber: '6814428', email: 'gilles.knobloch@example.com', phone: '', status: 'active', clubId: 'club-1', points: '701' },
-  { id: 'p-arif', firstName: 'Abdelaziz', lastName: 'Arif', licenseNumber: '9131446', email: 'abdelaziz.arif@example.com', phone: '', status: 'active', clubId: 'club-1', points: '702' },
-  { id: 'p-heurtin', firstName: 'Christophe', lastName: 'Heurtin', licenseNumber: '6816317', email: 'christophe.heurtin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1050' },
-  { id: 'p-zilbermann', firstName: 'Frédéric', lastName: 'Zilbermann', licenseNumber: '689768', email: 'frederic.zilbermann@example.com', phone: '', status: 'active', clubId: 'club-1', points: '707' },
-  // Unassigned PPA player (shows in "Autres joueurs du club")
-  { id: 'p-hoffmann', firstName: 'Marc', lastName: 'Hoffmann', licenseNumber: '6814449', email: 'marc.hoffmann@example.com', phone: '06 56 78 90 12', status: 'active', clubId: 'club-1', points: '620' },
+  { id: 'p2-player-22', firstName: 'Patricia', lastName: 'De Pauli', licenseNumber: '6812597', email: 'patricia.depauli@example.com', phone: '', status: 'active', clubId: 'club-1', points: '735' },
+  { id: 'p2-player-24', firstName: 'Gilles', lastName: 'Knobloch', licenseNumber: '6814428', email: 'gilles.knobloch@example.com', phone: '', status: 'active', clubId: 'club-1', points: '701' },
+  { id: 'p2-player-21', firstName: 'Abdelaziz', lastName: 'Arif', licenseNumber: '9131446', email: 'abdelaziz.arif@example.com', phone: '', status: 'active', clubId: 'club-1', points: '702' },
+  { id: 'p2-player-23', firstName: 'Christophe', lastName: 'Heurtin', licenseNumber: '6816317', email: 'christophe.heurtin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1050' },
+  { id: 'p2-player-26', firstName: 'Frédéric', lastName: 'Zilbermann', licenseNumber: '689768', email: 'frederic.zilbermann@example.com', phone: '', status: 'active', clubId: 'club-1', points: '707' },
+  // Equipe 6
+  { id: 'p2-player-29', firstName: 'Christophe', lastName: 'Hueber', licenseNumber: '686956', email: 'christophe.hueber@example.com', phone: '', status: 'active', clubId: 'club-1', points: '632' },
+  { id: 'p2-player-39', firstName: 'Samuel', lastName: 'Canemolla', licenseNumber: '6816075', email: 'samuel.canemolla@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-40', firstName: 'Yvan', lastName: 'Meyer', licenseNumber: '6815960', email: 'yvan.meyer@example.com', phone: '', status: 'active', clubId: 'club-1', points: '503' },
+  { id: 'p2-player-41', firstName: 'Nathan', lastName: 'Moreau', licenseNumber: '6816100', email: 'nathan.moreau@example.com', phone: '', status: 'active', clubId: 'club-1', points: '561' },
+  { id: 'p2-player-42', firstName: 'Sacha', lastName: 'Pent', licenseNumber: '6816097', email: 'sacha.pent@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-38', firstName: 'Quentin', lastName: 'Broglin', licenseNumber: '6816118', email: 'quentin.broglin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-43', firstName: 'Léo', lastName: 'Remetter', licenseNumber: '6815965', email: 'leo.remetter@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-44', firstName: 'Mathéo', lastName: 'Scremin', licenseNumber: '6816084', email: 'matheo.scremin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  // Equipe 7
+  { id: 'p2-player-33', firstName: 'Eric', lastName: 'Cavasino', licenseNumber: '6815606', email: 'eric.cavasino@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-35', firstName: 'Luc', lastName: 'Guehl', licenseNumber: '6816152', email: 'luc.guehl@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-34', firstName: 'Boris', lastName: 'Fessler', licenseNumber: '6816176', email: 'boris.fessler@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-36', firstName: 'Bruno', lastName: 'Lafont', licenseNumber: '6816419', email: 'bruno.lafont@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-37', firstName: 'Alain', lastName: 'Schillinger', licenseNumber: '6816418', email: 'alain.schillinger@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  // Equipe 8
+  { id: 'p2-player-32', firstName: 'Vincent', lastName: 'Rambeau', licenseNumber: '6815464', email: 'vincent.rambeau@example.com', phone: '', status: 'active', clubId: 'club-1', points: '607' },
+  { id: 'p2-player-27', firstName: 'Jacky', lastName: 'Antony', licenseNumber: '6815563', email: 'jacky.antony@example.com', phone: '', status: 'active', clubId: 'club-1', points: '501' },
+  { id: 'p2-player-28', firstName: 'Stéphane', lastName: 'Donditz', licenseNumber: '6816101', email: 'stephane.donditz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-30', firstName: 'Jean-Claude', lastName: 'Laffuge', licenseNumber: '68357', email: 'jeanclaude.laffuge@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-31', firstName: 'Gilles', lastName: 'Metz', licenseNumber: '6816164', email: 'gilles.metz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  // Remplaçante (unassigned)
+  { id: 'p2-player-45', firstName: 'Marie-Line', lastName: 'Wertenschlag', licenseNumber: '686416', email: 'marieline.wertenschlag@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1287' },
+  // Equipe 5 extra
+  { id: 'p2-player-25', firstName: 'Jordan', lastName: 'Pesenti', licenseNumber: '6718937', email: 'jordan.pesenti@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
 ]
 
 // ---------------------------------------------------------------------------
-// Groups (one per division, 8 teams each)
+// Groups
 // ---------------------------------------------------------------------------
 export const mockGroups: Group[] = [
   { id: 'group-1', divisionId: 'div-1', number: 1, teamIds: ['team-1', 'opp-etival-1', 'opp-rosenau-1', 'opp-rcs-2', 'opp-vittel-1', 'opp-illzach-2', 'opp-moussey-1', 'opp-anould-2'], isArchived: false },
@@ -114,6 +135,8 @@ export const mockGroups: Group[] = [
   { id: 'group-3', divisionId: 'div-3', number: 1, teamIds: ['team-3', 'opp-issenheim-1', 'opp-illzach-6', 'opp-wintzfelden-2', 'opp-huningue-2', 'opp-thann-2', 'opp-rosenau-4'], isArchived: false },
   { id: 'group-4', divisionId: 'div-4', number: 1, teamIds: ['team-4', 'opp-soultz-2', 'opp-wittelsheim-5', 'opp-illzach-8', 'opp-fcm-3', 'opp-kembs-2', 'opp-ensisheim-1', 'opp-rosenau-6'], isArchived: false },
   { id: 'group-5', divisionId: 'div-5', number: 1, teamIds: ['team-5', 'team-6', 'opp-issenheim-3', 'opp-illzach-7', 'opp-ballons-4', 'opp-mutt-5', 'opp-wittelsheim-4', 'opp-wintzfelden-3'], isArchived: false },
+  { id: 'group-6', divisionId: 'div-6', number: 1, teamIds: ['team-7', 'opp-huningue-3', 'opp-mutt-7', 'opp-thann-5', 'opp-stlouis-3', 'opp-kembs-3', 'opp-illzach-10', 'opp-soultz-4'], isArchived: false },
+  { id: 'group-7', divisionId: 'div-7', number: 1, teamIds: ['team-8', 'opp-rosenau-7', 'opp-thann-4', 'opp-issenheim-4', 'opp-huningue-4', 'opp-kembs-6', 'opp-kembs-4', 'opp-illzach-11'], isArchived: false },
 ]
 
 // ---------------------------------------------------------------------------
@@ -129,52 +152,61 @@ export const mockTeams: Team[] = [
   // PPA Rixheim teams
   {
     id: 'team-1', clubId: 'club-1', phaseId: 'phase-1', number: 1, divisionId: 'div-1', groupId: 'group-1',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00',
-    captainId: 'p-szulc',
-    playerIds: ['p-szulc', 'p-canaque', 'p-colle', 'p-lach', 'p-lotz'],
-    rosterInitialPoints: { 'p-szulc': '1887', 'p-canaque': '1763', 'p-colle': '1665', 'p-lach': '1647', 'p-lotz': '1566' },
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-5',
+    playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-3', 'p2-player-4'],
+    rosterInitialPoints: { 'p2-player-5': '1887', 'p2-player-1': '1763', 'p2-player-2': '1665', 'p2-player-3': '1647', 'p2-player-4': '1566' },
     color: '#374151', isArchived: false,
   },
   {
     id: 'team-2', clubId: 'club-1', phaseId: 'phase-1', number: 2, divisionId: 'div-2', groupId: 'group-2',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00',
-    captainId: 'p-buchi',
-    playerIds: ['p-buchi', 'p-philippe', 'p-ceroni', 'p-dangelser-f', 'p-cunin'],
-    rosterInitialPoints: { 'p-buchi': '1791', 'p-philippe': '1661', 'p-ceroni': '1500', 'p-dangelser-f': '1301', 'p-cunin': '1301' },
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-6',
+    playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-9', 'p2-player-8'],
+    rosterInitialPoints: { 'p2-player-6': '1791', 'p2-player-10': '1661', 'p2-player-7': '1500', 'p2-player-9': '1301', 'p2-player-8': '1301' },
     color: '#b91c1c', isArchived: false,
   },
   {
     id: 'team-3', clubId: 'club-1', phaseId: 'phase-1', number: 3, divisionId: 'div-3', groupId: 'group-3',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00',
-    captainId: 'p-rentz',
-    playerIds: ['p-rentz', 'p-schatt', 'p-schill', 'p-cristini', 'p-dangelser-b'],
-    rosterInitialPoints: { 'p-rentz': '1356', 'p-schatt': '1267', 'p-schill': '1198', 'p-cristini': '1186', 'p-dangelser-b': '754' },
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-12',
+    playerIds: ['p2-player-12', 'p2-player-13', 'p2-player-14', 'p2-player-11', 'p2-player-17'],
+    rosterInitialPoints: { 'p2-player-12': '1356', 'p2-player-13': '1267', 'p2-player-14': '1198', 'p2-player-11': '1186', 'p2-player-17': '754' },
     color: '#15803d', isArchived: false,
   },
   {
     id: 'team-4', clubId: 'club-1', phaseId: 'phase-1', number: 4, divisionId: 'div-4', groupId: 'group-4',
-    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00',
-    captainId: 'p-clement',
-    playerIds: ['p-clement', 'p-mougey', 'p-decoatpont', 'p-broglin', 'p-schmitt'],
-    rosterInitialPoints: { 'p-clement': '889', 'p-mougey': '728', 'p-decoatpont': '727', 'p-broglin': '713', 'p-schmitt': '704' },
+    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-16',
+    playerIds: ['p2-player-16', 'p2-player-19', 'p2-player-18', 'p2-player-15', 'p2-player-20'],
+    rosterInitialPoints: { 'p2-player-16': '889', 'p2-player-19': '728', 'p2-player-18': '727', 'p2-player-15': '713', 'p2-player-20': '704' },
     color: '#c2410c', isArchived: false,
   },
   {
     id: 'team-5', clubId: 'club-1', phaseId: 'phase-1', number: 5, divisionId: 'div-5', groupId: 'group-5',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00',
-    captainId: 'p-heurtin',
-    playerIds: ['p-depauli', 'p-knobloch', 'p-arif', 'p-heurtin', 'p-zilbermann'],
-    rosterInitialPoints: { 'p-depauli': '735', 'p-knobloch': '701', 'p-arif': '702', 'p-heurtin': '1050', 'p-zilbermann': '707' },
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-23',
+    playerIds: ['p2-player-22', 'p2-player-24', 'p2-player-21', 'p2-player-23', 'p2-player-26'],
+    rosterInitialPoints: { 'p2-player-22': '735', 'p2-player-24': '701', 'p2-player-21': '702', 'p2-player-23': '1050', 'p2-player-26': '707' },
     color: '#1d4ed8', isArchived: false,
   },
   {
     id: 'team-6', clubId: 'club-1', phaseId: 'phase-1', number: 6, divisionId: 'div-5', groupId: 'group-5',
-    gameLocationId: 'addr-2', defaultDay: 'Samedi', defaultTime: '16h00',
-    captainId: 'p-hoffmann',
-    playerIds: ['p-hoffmann'],
+    gameLocationId: 'addr-2', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-42',
+    playerIds: ['p2-player-29', 'p2-player-39', 'p2-player-40', 'p2-player-41', 'p2-player-42', 'p2-player-38', 'p2-player-43', 'p2-player-44'],
+    rosterInitialPoints: { 'p2-player-29': '632', 'p2-player-39': '500', 'p2-player-40': '503', 'p2-player-41': '561', 'p2-player-42': '500', 'p2-player-38': '500', 'p2-player-43': '500', 'p2-player-44': '500' },
     color: '#be185d', isArchived: false,
   },
-  // Group 1 opponents (Equipe 1)
+  {
+    id: 'team-7', clubId: 'club-1', phaseId: 'phase-1', number: 7, divisionId: 'div-6', groupId: 'group-6',
+    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-33',
+    playerIds: ['p2-player-33', 'p2-player-35', 'p2-player-34', 'p2-player-36', 'p2-player-37'],
+    rosterInitialPoints: { 'p2-player-33': '500', 'p2-player-35': '500', 'p2-player-34': '500', 'p2-player-36': '500', 'p2-player-37': '500' },
+    color: '#7c2d12', isArchived: false,
+  },
+  {
+    id: 'team-8', clubId: 'club-1', phaseId: 'phase-1', number: 8, divisionId: 'div-7', groupId: 'group-7',
+    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-32',
+    playerIds: ['p2-player-32', 'p2-player-27', 'p2-player-28', 'p2-player-30', 'p2-player-31'],
+    rosterInitialPoints: { 'p2-player-32': '607', 'p2-player-27': '501', 'p2-player-28': '500', 'p2-player-30': '500', 'p2-player-31': '500' },
+    color: '#0d9488', isArchived: false,
+  },
+  // Group 1-5 opponents
   oppTeam('opp-etival-1', 'club-etival', 1, 'div-1', 'group-1'),
   oppTeam('opp-rosenau-1', 'club-rosenau', 1, 'div-1', 'group-1'),
   oppTeam('opp-rcs-2', 'club-rc-strasbourg', 2, 'div-1', 'group-1'),
@@ -182,7 +214,6 @@ export const mockTeams: Team[] = [
   oppTeam('opp-illzach-2', 'club-illzach', 2, 'div-1', 'group-1'),
   oppTeam('opp-moussey-1', 'club-moussey', 1, 'div-1', 'group-1'),
   oppTeam('opp-anould-2', 'club-anould', 2, 'div-1', 'group-1'),
-  // Group 2 opponents (Equipe 2)
   oppTeam('opp-illzach-3', 'club-illzach', 3, 'div-2', 'group-2'),
   oppTeam('opp-rosenau-2', 'club-rosenau', 2, 'div-2', 'group-2'),
   oppTeam('opp-cmjc-3', 'club-colmar-mjc', 3, 'div-2', 'group-2'),
@@ -190,14 +221,12 @@ export const mockTeams: Team[] = [
   oppTeam('opp-stlouis-1', 'club-saint-louis', 1, 'div-2', 'group-2'),
   oppTeam('opp-huningue-1', 'club-huningue', 1, 'div-2', 'group-2'),
   oppTeam('opp-ingersheim-1', 'club-ingersheim', 1, 'div-2', 'group-2'),
-  // Group 3 opponents (Equipe 3) — 7-team group (J7 = Exempt)
   oppTeam('opp-issenheim-1', 'club-issenheim', 1, 'div-3', 'group-3'),
   oppTeam('opp-illzach-6', 'club-illzach', 6, 'div-3', 'group-3'),
   oppTeam('opp-wintzfelden-2', 'club-wintzfelden', 2, 'div-3', 'group-3'),
   oppTeam('opp-huningue-2', 'club-huningue', 2, 'div-3', 'group-3'),
   oppTeam('opp-thann-2', 'club-thann', 2, 'div-3', 'group-3'),
   oppTeam('opp-rosenau-4', 'club-rosenau', 4, 'div-3', 'group-3'),
-  // Group 4 opponents (Equipe 4)
   oppTeam('opp-soultz-2', 'club-soultz', 2, 'div-4', 'group-4'),
   oppTeam('opp-wittelsheim-5', 'club-wittelsheim', 5, 'div-4', 'group-4'),
   oppTeam('opp-illzach-8', 'club-illzach', 8, 'div-4', 'group-4'),
@@ -205,20 +234,35 @@ export const mockTeams: Team[] = [
   oppTeam('opp-kembs-2', 'club-kembs', 2, 'div-4', 'group-4'),
   oppTeam('opp-ensisheim-1', 'club-ensisheim', 1, 'div-4', 'group-4'),
   oppTeam('opp-rosenau-6', 'club-rosenau', 6, 'div-4', 'group-4'),
-  // Group 5 opponents (Equipe 5) — team-6 (PPA Rixheim 6) is already above
   oppTeam('opp-issenheim-3', 'club-issenheim', 3, 'div-5', 'group-5'),
   oppTeam('opp-illzach-7', 'club-illzach', 7, 'div-5', 'group-5'),
   oppTeam('opp-ballons-4', 'club-ballons', 4, 'div-5', 'group-5'),
   oppTeam('opp-mutt-5', 'club-mulhouse-tt', 5, 'div-5', 'group-5'),
   oppTeam('opp-wittelsheim-4', 'club-wittelsheim', 4, 'div-5', 'group-5'),
   oppTeam('opp-wintzfelden-3', 'club-wintzfelden', 3, 'div-5', 'group-5'),
+  // Group 6 opponents (Equipe 7)
+  oppTeam('opp-huningue-3', 'club-huningue', 3, 'div-6', 'group-6'),
+  oppTeam('opp-mutt-7', 'club-mulhouse-tt', 7, 'div-6', 'group-6'),
+  oppTeam('opp-thann-5', 'club-thann', 5, 'div-6', 'group-6'),
+  oppTeam('opp-stlouis-3', 'club-saint-louis', 3, 'div-6', 'group-6'),
+  oppTeam('opp-kembs-3', 'club-kembs', 3, 'div-6', 'group-6'),
+  oppTeam('opp-illzach-10', 'club-illzach', 10, 'div-6', 'group-6'),
+  oppTeam('opp-soultz-4', 'club-soultz', 4, 'div-6', 'group-6'),
+  // Group 7 opponents (Equipe 8)
+  oppTeam('opp-rosenau-7', 'club-rosenau', 7, 'div-7', 'group-7'),
+  oppTeam('opp-thann-4', 'club-thann', 4, 'div-7', 'group-7'),
+  oppTeam('opp-issenheim-4', 'club-issenheim', 4, 'div-7', 'group-7'),
+  oppTeam('opp-huningue-4', 'club-huningue', 4, 'div-7', 'group-7'),
+  oppTeam('opp-kembs-6', 'club-kembs', 6, 'div-7', 'group-7'),
+  oppTeam('opp-kembs-4', 'club-kembs', 4, 'div-7', 'group-7'),
+  oppTeam('opp-illzach-11', 'club-illzach', 11, 'div-7', 'group-7'),
 ]
 
 // ---------------------------------------------------------------------------
 // Match Days (7 per group)
 // ---------------------------------------------------------------------------
 export const mockMatchDays: MatchDay[] = [
-  // Group 1 (Equipe 1) — Samedi
+  // Group 1 (Equipe 1)
   { id: 'md-g1-1', groupId: 'group-1', number: 1, date: '2025-09-27' },
   { id: 'md-g1-2', groupId: 'group-1', number: 2, date: '2025-10-11' },
   { id: 'md-g1-3', groupId: 'group-1', number: 3, date: '2025-11-08' },
@@ -226,7 +270,7 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g1-5', groupId: 'group-1', number: 5, date: '2025-11-29' },
   { id: 'md-g1-6', groupId: 'group-1', number: 6, date: '2025-12-13' },
   { id: 'md-g1-7', groupId: 'group-1', number: 7, date: '2026-01-10' },
-  // Group 2 (Equipe 2) — Samedi (J4 = dimanche)
+  // Group 2 (Equipe 2)
   { id: 'md-g2-1', groupId: 'group-2', number: 1, date: '2025-09-27' },
   { id: 'md-g2-2', groupId: 'group-2', number: 2, date: '2025-10-11' },
   { id: 'md-g2-3', groupId: 'group-2', number: 3, date: '2025-11-08' },
@@ -234,7 +278,7 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g2-5', groupId: 'group-2', number: 5, date: '2025-11-29' },
   { id: 'md-g2-6', groupId: 'group-2', number: 6, date: '2025-12-13' },
   { id: 'md-g2-7', groupId: 'group-2', number: 7, date: '2026-01-10' },
-  // Group 3 (Equipe 3) — mixed days; J7 exists but Equipe 3 is exempt
+  // Group 3 (Equipe 3)
   { id: 'md-g3-1', groupId: 'group-3', number: 1, date: '2025-09-27' },
   { id: 'md-g3-2', groupId: 'group-3', number: 2, date: '2025-10-10' },
   { id: 'md-g3-3', groupId: 'group-3', number: 3, date: '2025-11-08' },
@@ -242,7 +286,7 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g3-5', groupId: 'group-3', number: 5, date: '2025-11-29' },
   { id: 'md-g3-6', groupId: 'group-3', number: 6, date: '2025-12-13' },
   { id: 'md-g3-7', groupId: 'group-3', number: 7, date: '2026-01-10' },
-  // Group 4 (Equipe 4) — Jeudi/Lundi/Mercredi/Samedi
+  // Group 4 (Equipe 4)
   { id: 'md-g4-1', groupId: 'group-4', number: 1, date: '2025-09-22' },
   { id: 'md-g4-2', groupId: 'group-4', number: 2, date: '2025-10-09' },
   { id: 'md-g4-3', groupId: 'group-4', number: 3, date: '2025-11-05' },
@@ -250,7 +294,7 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g4-5', groupId: 'group-4', number: 5, date: '2025-11-27' },
   { id: 'md-g4-6', groupId: 'group-4', number: 6, date: '2025-12-13' },
   { id: 'md-g4-7', groupId: 'group-4', number: 7, date: '2026-01-08' },
-  // Group 5 (Equipe 5) — Samedi/Vendredi
+  // Group 5 (Equipe 5 & 6)
   { id: 'md-g5-1', groupId: 'group-5', number: 1, date: '2025-09-27' },
   { id: 'md-g5-2', groupId: 'group-5', number: 2, date: '2025-10-11' },
   { id: 'md-g5-3', groupId: 'group-5', number: 3, date: '2025-11-07' },
@@ -258,13 +302,29 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g5-5', groupId: 'group-5', number: 5, date: '2025-11-28' },
   { id: 'md-g5-6', groupId: 'group-5', number: 6, date: '2025-12-13' },
   { id: 'md-g5-7', groupId: 'group-5', number: 7, date: '2026-01-10' },
+  // Group 6 (Equipe 7)
+  { id: 'md-g6-1', groupId: 'group-6', number: 1, date: '2025-09-25' },
+  { id: 'md-g6-2', groupId: 'group-6', number: 2, date: '2025-10-09' },
+  { id: 'md-g6-3', groupId: 'group-6', number: 3, date: '2025-11-08' },
+  { id: 'md-g6-4', groupId: 'group-6', number: 4, date: '2025-11-11' },
+  { id: 'md-g6-5', groupId: 'group-6', number: 5, date: '2025-11-27' },
+  { id: 'md-g6-6', groupId: 'group-6', number: 6, date: '2025-12-10' },
+  { id: 'md-g6-7', groupId: 'group-6', number: 7, date: '2026-01-08' },
+  // Group 7 (Equipe 8)
+  { id: 'md-g7-1', groupId: 'group-7', number: 1, date: '2025-09-25' },
+  { id: 'md-g7-2', groupId: 'group-7', number: 2, date: '2025-10-09' },
+  { id: 'md-g7-3', groupId: 'group-7', number: 3, date: '2025-11-07' },
+  { id: 'md-g7-4', groupId: 'group-7', number: 4, date: '2025-11-13' },
+  { id: 'md-g7-5', groupId: 'group-7', number: 5, date: '2025-11-27' },
+  { id: 'md-g7-6', groupId: 'group-7', number: 6, date: '2025-12-09' },
+  { id: 'md-g7-7', groupId: 'group-7', number: 7, date: '2026-01-08' },
 ]
 
 // ---------------------------------------------------------------------------
-// Games (PPA Rixheim games only, home/away from screenshot)
+// Games (PPA Rixheim games only)
 // ---------------------------------------------------------------------------
 export const mockGames: Game[] = [
-  // Equipe 1 — all away in screenshot (opponent listed = away venue)
+  // Equipe 1
   { id: 'g1-1', matchDayId: 'md-g1-1', homeTeamId: 'opp-etival-1', awayTeamId: 'team-1' },
   { id: 'g1-2', matchDayId: 'md-g1-2', homeTeamId: 'opp-rosenau-1', awayTeamId: 'team-1' },
   { id: 'g1-3', matchDayId: 'md-g1-3', homeTeamId: 'opp-rcs-2', awayTeamId: 'team-1' },
@@ -280,7 +340,7 @@ export const mockGames: Game[] = [
   { id: 'g2-5', matchDayId: 'md-g2-5', homeTeamId: 'opp-stlouis-1', awayTeamId: 'team-2' },
   { id: 'g2-6', matchDayId: 'md-g2-6', homeTeamId: 'opp-huningue-1', awayTeamId: 'team-2' },
   { id: 'g2-7', matchDayId: 'md-g2-7', homeTeamId: 'opp-ingersheim-1', awayTeamId: 'team-2' },
-  // Equipe 3 (J7 = exempt, no game)
+  // Equipe 3 (J7 = exempt)
   { id: 'g3-1', matchDayId: 'md-g3-1', homeTeamId: 'opp-issenheim-1', awayTeamId: 'team-3' },
   { id: 'g3-2', matchDayId: 'md-g3-2', homeTeamId: 'opp-illzach-6', awayTeamId: 'team-3', time: '20h00' },
   { id: 'g3-3', matchDayId: 'md-g3-3', homeTeamId: 'opp-wintzfelden-2', awayTeamId: 'team-3' },
@@ -303,6 +363,29 @@ export const mockGames: Game[] = [
   { id: 'g5-5', matchDayId: 'md-g5-5', homeTeamId: 'opp-mutt-5', awayTeamId: 'team-5', time: '20h00' },
   { id: 'g5-6', matchDayId: 'md-g5-6', homeTeamId: 'opp-wittelsheim-4', awayTeamId: 'team-5' },
   { id: 'g5-7', matchDayId: 'md-g5-7', homeTeamId: 'opp-wintzfelden-3', awayTeamId: 'team-5' },
+  // Equipe 6
+  { id: 'g6-2', matchDayId: 'md-g5-2', homeTeamId: 'opp-illzach-7', awayTeamId: 'team-6' },
+  { id: 'g6-3', matchDayId: 'md-g5-3', homeTeamId: 'opp-ballons-4', awayTeamId: 'team-6' },
+  { id: 'g6-4', matchDayId: 'md-g5-4', homeTeamId: 'opp-mutt-5', awayTeamId: 'team-6' },
+  { id: 'g6-5', matchDayId: 'md-g5-5', homeTeamId: 'opp-wittelsheim-4', awayTeamId: 'team-6' },
+  { id: 'g6-6', matchDayId: 'md-g5-6', homeTeamId: 'opp-wintzfelden-3', awayTeamId: 'team-6' },
+  { id: 'g6-7', matchDayId: 'md-g5-7', homeTeamId: 'opp-issenheim-3', awayTeamId: 'team-6' },
+  // Equipe 7
+  { id: 'g7-1', matchDayId: 'md-g6-1', homeTeamId: 'opp-huningue-3', awayTeamId: 'team-7' },
+  { id: 'g7-2', matchDayId: 'md-g6-2', homeTeamId: 'opp-mutt-7', awayTeamId: 'team-7' },
+  { id: 'g7-3', matchDayId: 'md-g6-3', homeTeamId: 'opp-thann-5', awayTeamId: 'team-7' },
+  { id: 'g7-4', matchDayId: 'md-g6-4', homeTeamId: 'opp-stlouis-3', awayTeamId: 'team-7' },
+  { id: 'g7-5', matchDayId: 'md-g6-5', homeTeamId: 'opp-kembs-3', awayTeamId: 'team-7' },
+  { id: 'g7-6', matchDayId: 'md-g6-6', homeTeamId: 'opp-illzach-10', awayTeamId: 'team-7' },
+  { id: 'g7-7', matchDayId: 'md-g6-7', homeTeamId: 'opp-soultz-4', awayTeamId: 'team-7' },
+  // Equipe 8
+  { id: 'g8-1', matchDayId: 'md-g7-1', homeTeamId: 'opp-rosenau-7', awayTeamId: 'team-8' },
+  { id: 'g8-2', matchDayId: 'md-g7-2', homeTeamId: 'opp-thann-4', awayTeamId: 'team-8' },
+  { id: 'g8-3', matchDayId: 'md-g7-3', homeTeamId: 'opp-issenheim-4', awayTeamId: 'team-8' },
+  { id: 'g8-4', matchDayId: 'md-g7-4', homeTeamId: 'opp-huningue-4', awayTeamId: 'team-8' },
+  { id: 'g8-5', matchDayId: 'md-g7-5', homeTeamId: 'opp-kembs-6', awayTeamId: 'team-8' },
+  { id: 'g8-6', matchDayId: 'md-g7-6', homeTeamId: 'opp-kembs-4', awayTeamId: 'team-8' },
+  { id: 'g8-7', matchDayId: 'md-g7-7', homeTeamId: 'opp-illzach-11', awayTeamId: 'team-8' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -315,12 +398,12 @@ export const mockGameSelections: GameSelection[] = []
 // Users
 // ---------------------------------------------------------------------------
 export const mockUsers: User[] = [
-  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', playerId: 'player-admin', clubIds: [], captainTeamIds: [] },
-  { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', playerId: 'player-club-admin', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-3', email: 'joris.szulc@example.com', role: 'captain', playerId: 'p-szulc', clubIds: ['club-1'], captainTeamIds: ['team-1'] },
-  { id: 'user-4', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'p-heurtin', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-5', email: 'gilles.knobloch@example.com', role: 'player', playerId: 'p-knobloch', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'captain', playerId: 'p-rentz', clubIds: ['club-1'], captainTeamIds: ['team-3'] },
+  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', clubIds: [], captainTeamIds: [] },
+  { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-3', email: 'joris.szulc@example.com', role: 'captain', playerId: 'p2-player-5', clubIds: ['club-1'], captainTeamIds: ['team-1'] },
+  { id: 'user-4', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'p2-player-23', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-5', email: 'gilles.knobloch@example.com', role: 'player', playerId: 'p2-player-24', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'captain', playerId: 'p2-player-12', clubIds: ['club-1'], captainTeamIds: ['team-3'] },
 ]
 
 // ---------------------------------------------------------------------------
