@@ -448,6 +448,13 @@ export function MatchDaysPage() {
    *  Filters out teams the player is not eligible for (brûlage) on the given match-day. */
   const orderedTeamOptionIds = (playerTeamId: string | null, playerId?: string, matchDayId?: string): (string | null)[] => {
     let all = myClubTeamsInPhase.map((t) => t.id)
+    if (matchDayId) {
+      // Only include teams that actually have a game on this round
+      const correspondingMdIds = getCorrespondingMatchDayIds(matchDayId)
+      const roundGames = games.filter((g) => correspondingMdIds.includes(g.matchDayId))
+      const teamsWithGame = new Set(roundGames.flatMap((g) => [g.homeTeamId, g.awayTeamId]))
+      all = all.filter((tid) => teamsWithGame.has(tid))
+    }
     if (playerId && matchDayId) {
       all = all.filter((tid) => {
         const t = teams.find((x) => x.id === tid)
