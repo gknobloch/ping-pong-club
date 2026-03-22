@@ -56,7 +56,29 @@ export function TeamsPage() {
     playerIds: [] as string[],
     /** Initial points per player for this phase (when in this team). */
     initialPoints: {} as Record<string, string>,
+    whatsappLink: '',
   })
+
+  const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+  const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9..21
+  const MINUTES = ['00', '15', '30', '45']
+
+  /** Parse "16h30" → { hour: 16, minute: '30' } */
+  const parseTime = (t: string) => {
+    const m = t.match(/^(\d{1,2})h(\d{2})$/)
+    return m ? { hour: Number(m[1]), minute: m[2] } : null
+  }
+  const parsedTime = parseTime(form.defaultTime)
+  const timeHour = parsedTime?.hour ?? ''
+  const timeMinute = parsedTime?.minute ?? '00'
+
+  const setTimeFromParts = (hour: string, minute: string) => {
+    if (!hour) {
+      setForm((f) => ({ ...f, defaultTime: '' }))
+    } else {
+      setForm((f) => ({ ...f, defaultTime: `${hour}h${minute}` }))
+    }
+  }
 
   const getClubName = (clubId: string) => clubs.find((c) => c.id === clubId)?.displayName ?? clubId
   const getPhaseName = (phaseId: string) => phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
@@ -81,6 +103,22 @@ export function TeamsPage() {
       )
     : []
 
+  /** Player IDs already assigned to another team in the same phase (excluding current team). */
+  const playerIdsInOtherTeams = useMemo(() => {
+    if (!form.phaseId) return new Set<string>()
+    const editingId = editing?.id
+    return new Set(
+      allTeams
+        .filter((t) => t.phaseId === form.phaseId && !t.isArchived && t.id !== editingId)
+        .flatMap((t) => t.playerIds ?? [])
+    )
+  }, [allTeams, form.phaseId, editing?.id])
+
+  /** Players available to add: in club, not already in this team, not in another team in the same phase. */
+  const availablePlayersToAdd = playersInClub.filter(
+    (p) => !form.playerIds.includes(p.id) && !playerIdsInOtherTeams.has(p.id)
+  )
+
   const openEdit = (team: Team) => {
     setEditing(team)
     setCreating(false)
@@ -101,6 +139,7 @@ export function TeamsPage() {
       captainId: team.captainId,
       playerIds: rosterIds,
       initialPoints,
+      whatsappLink: team.whatsappLink ?? '',
     })
   }
 
@@ -124,6 +163,7 @@ export function TeamsPage() {
       captainId: '',
       playerIds: [],
       initialPoints: {},
+      whatsappLink: '',
     })
   }
 
@@ -160,6 +200,7 @@ export function TeamsPage() {
         playerIds: form.playerIds,
         captainId: captainForSave,
         rosterInitialPoints: buildRosterInitialPoints(),
+        whatsappLink: form.whatsappLink || undefined,
       })
       closeModal()
       return
@@ -187,6 +228,7 @@ export function TeamsPage() {
       captainId: form.captainId,
       playerIds: form.playerIds,
       rosterInitialPoints: buildRosterInitialPoints(),
+      whatsappLink: form.whatsappLink || undefined,
       isArchived: false,
     })
     const group = groups.find((g) => g.id === form.groupId)
@@ -326,27 +368,20 @@ export function TeamsPage() {
           aria-modal="true"
           aria-labelledby="team-modal-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg my-8">
+          <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg my-8">
             <h2 id="team-modal-title" className="font-display text-lg font-semibold text-slate-800">
               {creating ? 'Ajouter une équipe' : 'Modifier l\'équipe'}
             </h2>
-            <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="team-clubId" className="block text-sm font-medium text-slate-700">
-                    Club
-                  </label>
+            <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              {/* Row 1: Club + N° */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label htmlFor="team-clubId" className="block text-sm font-medium text-slate-700">Club</label>
                   <select
                     id="team-clubId"
                     value={form.clubId}
                     onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        clubId: e.target.value,
-                        gameLocationId: '',
-                        captainId: '',
-                        playerIds: [],
-                      }))
+                      setForm((f) => ({ ...f, clubId: e.target.value, gameLocationId: '', captainId: '', playerIds: [] }))
                     }
                     disabled={!!editing}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100"
@@ -357,9 +392,7 @@ export function TeamsPage() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="team-number" className="block text-sm font-medium text-slate-700">
-                    N° équipe
-                  </label>
+                  <label htmlFor="team-number" className="block text-sm font-medium text-slate-700">N° équipe</label>
                   <input
                     id="team-number"
                     type="number"
@@ -370,23 +403,16 @@ export function TeamsPage() {
                   />
                 </div>
               </div>
+
+              {/* Create-only: Phase, Division, Group */}
               {creating && (
-                <>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label htmlFor="team-phaseId" className="block text-sm font-medium text-slate-700">
-                      Phase
-                    </label>
+                    <label htmlFor="team-phaseId" className="block text-sm font-medium text-slate-700">Phase</label>
                     <select
                       id="team-phaseId"
                       value={form.phaseId}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          phaseId: e.target.value,
-                          divisionId: '',
-                          groupId: '',
-                        }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value, divisionId: '', groupId: '' }))}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       {phases.map((p) => (
@@ -395,15 +421,11 @@ export function TeamsPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="team-divisionId" className="block text-sm font-medium text-slate-700">
-                      Division
-                    </label>
+                    <label htmlFor="team-divisionId" className="block text-sm font-medium text-slate-700">Division</label>
                     <select
                       id="team-divisionId"
                       value={form.divisionId}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, divisionId: e.target.value, groupId: '' }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, divisionId: e.target.value, groupId: '' }))}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       {divisionsInPhase.map((d) => (
@@ -412,9 +434,7 @@ export function TeamsPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="team-groupId" className="block text-sm font-medium text-slate-700">
-                      Groupe
-                    </label>
+                    <label htmlFor="team-groupId" className="block text-sm font-medium text-slate-700">Groupe</label>
                     <select
                       id="team-groupId"
                       value={form.groupId}
@@ -426,112 +446,152 @@ export function TeamsPage() {
                       ))}
                     </select>
                   </div>
-                </>
+                </div>
               )}
-              <div>
-                <label htmlFor="team-gameLocationId" className="block text-sm font-medium text-slate-700">
-                  Lieu de jeu
-                </label>
-                <select
-                  id="team-gameLocationId"
-                  value={form.gameLocationId}
-                  onChange={(e) => setForm((f) => ({ ...f, gameLocationId: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {addressesForClub.map((a) => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Row 2: Lieu, Jour, Heure */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="col-span-2">
+                  <label htmlFor="team-gameLocationId" className="block text-sm font-medium text-slate-700">Lieu de jeu</label>
+                  <select
+                    id="team-gameLocationId"
+                    value={form.gameLocationId}
+                    onChange={(e) => setForm((f) => ({ ...f, gameLocationId: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    {addressesForClub.map((a) => (
+                      <option key={a.id} value={a.id}>{a.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
-                  <label htmlFor="team-defaultDay" className="block text-sm font-medium text-slate-700">
-                    Jour
-                  </label>
-                  <input
+                  <label htmlFor="team-defaultDay" className="block text-sm font-medium text-slate-700">Jour</label>
+                  <select
                     id="team-defaultDay"
-                    type="text"
                     value={form.defaultDay}
                     onChange={(e) => setForm((f) => ({ ...f, defaultDay: e.target.value }))}
-                    placeholder="Jeudi"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                  >
+                    <option value="">—</option>
+                    {DAYS_OF_WEEK.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label htmlFor="team-defaultTime" className="block text-sm font-medium text-slate-700">
-                    Heure
-                  </label>
-                  <input
-                    id="team-defaultTime"
-                    type="text"
-                    value={form.defaultTime}
-                    onChange={(e) => setForm((f) => ({ ...f, defaultTime: e.target.value }))}
-                    placeholder="20h00"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                  <label className="block text-sm font-medium text-slate-700">Heure</label>
+                  <div className="mt-1 flex items-center gap-1">
+                    <select
+                      value={timeHour}
+                      onChange={(e) => setTimeFromParts(e.target.value, timeMinute)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">—</option>
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <span className="text-slate-500 font-medium">h</span>
+                    <select
+                      value={timeMinute}
+                      onChange={(e) => setTimeFromParts(String(timeHour), e.target.value)}
+                      disabled={!timeHour}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100"
+                    >
+                      {MINUTES.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
+
+              {/* Player table */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Joueurs de l&apos;équipe
                 </label>
-                <p className="text-xs text-slate-500 mb-2">
-                  Joueurs du club dans cette équipe. Ajoutez ou retirez des joueurs.
-                </p>
-                <ul className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/50 p-3 max-h-48 overflow-y-auto mb-2">
-                  {rosterPlayers.length === 0 ? (
-                    <li className="text-sm text-slate-500">Aucun joueur dans l&apos;équipe.</li>
-                  ) : (
-                    rosterPlayers.map((p) => (
-                      <li
-                        key={p.id}
-                        className="flex items-center justify-between gap-2 rounded bg-white border border-slate-200 px-2 py-1.5"
-                      >
-                        <span className="text-sm font-medium text-slate-900 shrink-0">
-                          {p.firstName} {p.lastName}
-                        </span>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <label className="text-xs text-slate-500 whitespace-nowrap">Points (phase)</label>
-                          <input
-                            type="text"
-                            value={form.initialPoints[p.id] ?? ''}
-                            onChange={(e) =>
-                              setForm((f) => ({
-                                ...f,
-                                initialPoints: { ...f.initialPoints, [p.id]: e.target.value },
-                              }))
-                            }
-                            placeholder="—"
-                            className="w-16 rounded border border-slate-300 px-1.5 py-0.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm((f) => {
-                              const next = { ...f.initialPoints }
-                              delete next[p.id]
-                              return {
-                                ...f,
-                                playerIds: f.playerIds.filter((id) => id !== p.id),
-                                captainId: form.captainId === p.id ? '' : form.captainId,
-                                initialPoints: next,
-                              }
-                            })
-                          }}
-                          className="text-slate-500 hover:text-red-600 text-sm font-medium shrink-0"
-                          title="Retirer de l'équipe"
-                        >
-                          Retirer
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                {playersInClub.length === 0 ? (
-                  <p className="text-xs text-slate-500">Aucun joueur actif dans ce club.</p>
-                ) : (
-                  <div className="flex gap-2 items-center">
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-slate-700">Joueur</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-700">Licence</th>
+                        <th className="px-3 py-2 text-left font-medium text-slate-700">Points (phase)</th>
+                        <th className="px-3 py-2 text-center font-medium text-slate-700">Capitaine</th>
+                        <th className="px-3 py-2 text-right font-medium text-slate-700"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {rosterPlayers.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-4 text-center text-slate-400">
+                            Aucun joueur dans l&apos;équipe.
+                          </td>
+                        </tr>
+                      ) : (
+                        rosterPlayers.map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2 font-medium text-slate-900">
+                              {p.firstName} {p.lastName}
+                            </td>
+                            <td className="px-3 py-2 text-slate-500 text-xs">
+                              {p.licenseNumber}
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={form.initialPoints[p.id] ?? ''}
+                                onChange={(e) =>
+                                  setForm((f) => ({
+                                    ...f,
+                                    initialPoints: { ...f.initialPoints, [p.id]: e.target.value },
+                                  }))
+                                }
+                                placeholder="—"
+                                className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <input
+                                type="radio"
+                                name="captain"
+                                checked={form.captainId === p.id}
+                                onChange={() => setForm((f) => ({ ...f, captainId: p.id }))}
+                                className="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setForm((f) => {
+                                    const next = { ...f.initialPoints }
+                                    delete next[p.id]
+                                    return {
+                                      ...f,
+                                      playerIds: f.playerIds.filter((id) => id !== p.id),
+                                      captainId: f.captainId === p.id ? '' : f.captainId,
+                                      initialPoints: next,
+                                    }
+                                  })
+                                }}
+                                className="text-slate-400 hover:text-red-600 transition-colors"
+                                title="Retirer de l'équipe"
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {availablePlayersToAdd.length > 0 && (
+                  <div className="mt-2">
                     <select
                       value=""
                       onChange={(e) => {
@@ -548,38 +608,30 @@ export function TeamsPage() {
                       }}
                       className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
-                      <option value="">— Ajouter un joueur —</option>
-                      {playersInClub
-                        .filter((p) => !form.playerIds.includes(p.id))
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.firstName} {p.lastName}
-                          </option>
-                        ))}
+                      <option value="">+ Ajouter un joueur</option>
+                      {availablePlayersToAdd.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.firstName} {p.lastName}{p.points ? ` (${p.points})` : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
               </div>
+
+              {/* WhatsApp link */}
               <div>
-                <label htmlFor="team-captainId" className="block text-sm font-medium text-slate-700">
-                  Capitaine
+                <label htmlFor="team-whatsapp" className="block text-sm font-medium text-slate-700">
+                  Groupe WhatsApp
                 </label>
-                <p className="text-xs text-slate-500 mb-1">
-                  Le capitaine doit faire partie des joueurs de l&apos;équipe ci-dessus.
-                </p>
-                <select
-                  id="team-captainId"
-                  value={form.playerIds.includes(form.captainId) ? form.captainId : ''}
-                  onChange={(e) => setForm((f) => ({ ...f, captainId: e.target.value }))}
+                <input
+                  id="team-whatsapp"
+                  type="url"
+                  value={form.whatsappLink}
+                  onChange={(e) => setForm((f) => ({ ...f, whatsappLink: e.target.value }))}
+                  placeholder="https://chat.whatsapp.com/..."
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="">— Choisir un capitaine —</option>
-                  {rosterPlayers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
