@@ -274,11 +274,12 @@ function AvailabilitySelect({
   )
 }
 
+/** Number of match-day columns visible at once before pagination kicks in. */
+const VISIBLE_MATCH_DAY_COUNT = 3
+
 /** Fixed column widths so team tables and Other players table stay aligned. */
 const TABLE_COL_WIDTHS = {
-  joueur: 160,
-  licence: 88,
-  points: 64,
+  joueur: 180,
   dispo: 64,
   joues: 64,
   brulage: 80,
@@ -290,8 +291,6 @@ function MatchDayColgroup({ matchDayCount }: { matchDayCount: number }) {
   return (
     <colgroup>
       <col style={{ width: TABLE_COL_WIDTHS.joueur }} />
-      <col style={{ width: TABLE_COL_WIDTHS.licence }} />
-      <col style={{ width: TABLE_COL_WIDTHS.points }} />
       <col style={{ width: TABLE_COL_WIDTHS.dispo }} />
       <col style={{ width: TABLE_COL_WIDTHS.joues }} />
       <col style={{ width: TABLE_COL_WIDTHS.brulage }} />
@@ -690,8 +689,8 @@ export function MatchDaysPage() {
       {myClubTeamsInPhase.map((team) => {
         const groupMatchDays = getMatchDaysForTeam(team.id)
         const offset = matchDayOffsetByTeamId[team.id] ?? 0
-        const visibleMatchDays = groupMatchDays.slice(offset, offset + 2)
-        const maxOffset = Math.max(0, groupMatchDays.length - 2)
+        const visibleMatchDays = groupMatchDays.slice(offset, offset + VISIBLE_MATCH_DAY_COUNT)
+        const maxOffset = Math.max(0, groupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
         const roster = (team.playerIds ?? [])
           .map((pid) => players.find((p) => p.id === pid))
           .filter((p): p is Player => p != null)
@@ -727,7 +726,7 @@ export function MatchDaysPage() {
                 )}
                 {getTeamLabel(team.id)}
               </h2>
-              {groupMatchDays.length > 2 && (
+              {groupMatchDays.length > VISIBLE_MATCH_DAY_COUNT && (
                 <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
                   <button
                     type="button"
@@ -746,7 +745,7 @@ export function MatchDaysPage() {
                     </svg>
                   </button>
                   <span className="text-xs text-slate-600 tabular-nums">
-                    {offset + 1}–{Math.min(offset + 2, groupMatchDays.length)} / {groupMatchDays.length}
+                    {offset + 1}–{Math.min(offset + VISIBLE_MATCH_DAY_COUNT, groupMatchDays.length)} / {groupMatchDays.length}
                   </span>
                   <button
                     type="button"
@@ -779,8 +778,6 @@ export function MatchDaysPage() {
                     style={{
                       minWidth:
                         TABLE_COL_WIDTHS.joueur +
-                        TABLE_COL_WIDTHS.licence +
-                        TABLE_COL_WIDTHS.points +
                         TABLE_COL_WIDTHS.dispo +
                         TABLE_COL_WIDTHS.joues +
                         TABLE_COL_WIDTHS.brulage +
@@ -793,12 +790,6 @@ export function MatchDaysPage() {
                       <tr className="border-b border-slate-200 bg-slate-50/80">
                         <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
                           Joueur
-                        </th>
-                        <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
-                          Licence
-                        </th>
-                        <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
-                          Points
                         </th>
                         <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
                           Dispo
@@ -871,7 +862,7 @@ export function MatchDaysPage() {
                         })}
                       </tr>
                       <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
-                        <th colSpan={6} className="px-3 py-1"></th>
+                        <th colSpan={4} className="px-3 py-1"></th>
                         {visibleMatchDays.map((md) => (
                           <Fragment key={md.id}>
                             <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
@@ -919,16 +910,17 @@ export function MatchDaysPage() {
                           : null
                         return (
                           <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
-                              <span className={player.id === team.captainId ? 'font-bold' : ''}>
+                            <td className="px-3 py-1.5 text-slate-800">
+                              <span className={`block font-medium ${player.id === team.captainId ? 'font-bold' : ''}`}>
                                 {player.firstName} {player.lastName}
+                                {(() => {
+                                  const pts = team.rosterInitialPoints?.[player.id] ?? player.points
+                                  return pts ? <span className="ml-1 text-slate-500 font-normal">({pts})</span> : null
+                                })()}
                               </span>
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                              {player.licenseNumber || '—'}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                              {(team.rosterInitialPoints?.[player.id] ?? player.points) || '—'}
+                              {player.licenseNumber && (
+                                <span className="block text-xs text-slate-400">{player.licenseNumber}</span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 text-center text-slate-600">
                               {availCount}/{teamGamesCount}
@@ -1050,7 +1042,7 @@ export function MatchDaysPage() {
                     </tbody>
                     <tfoot>
                       <tr className="border-t border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-700">
-                        <td colSpan={6} className="px-3 py-2">
+                        <td colSpan={4} className="px-3 py-2">
                           Résumé
                         </td>
                         {visibleMatchDays.map((md) => {
@@ -1116,7 +1108,7 @@ export function MatchDaysPage() {
             </p>
           </div>
           <div className="flex items-center justify-end gap-2 border-b border-slate-100 px-4 py-2">
-            {otherGroupMatchDays.length > 2 && (
+            {otherGroupMatchDays.length > VISIBLE_MATCH_DAY_COUNT && (
               <>
                 <button
                   type="button"
@@ -1130,16 +1122,16 @@ export function MatchDaysPage() {
                   </svg>
                 </button>
                 <span className="text-xs text-slate-500">
-                  {otherMatchDayOffset + 1}–{Math.min(otherMatchDayOffset + 2, otherGroupMatchDays.length)} / {otherGroupMatchDays.length}
+                  {otherMatchDayOffset + 1}–{Math.min(otherMatchDayOffset + VISIBLE_MATCH_DAY_COUNT, otherGroupMatchDays.length)} / {otherGroupMatchDays.length}
                 </span>
                 <button
                   type="button"
                   onClick={() =>
                     setOtherMatchDayOffset((o) =>
-                      Math.min(Math.max(0, otherGroupMatchDays.length - 2), o + 1)
+                      Math.min(Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT), o + 1)
                     )
                   }
-                  disabled={otherMatchDayOffset >= Math.max(0, otherGroupMatchDays.length - 2)}
+                  disabled={otherMatchDayOffset >= Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)}
                   className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
                   aria-label="Journées suivantes"
                 >
@@ -1154,14 +1146,13 @@ export function MatchDaysPage() {
             {(() => {
               const otherVisibleMatchDays = otherGroupMatchDays.slice(
                 otherMatchDayOffset,
-                otherMatchDayOffset + 2
+                otherMatchDayOffset + VISIBLE_MATCH_DAY_COUNT
               )
               const otherMinWidth =
                 TABLE_COL_WIDTHS.joueur +
-                TABLE_COL_WIDTHS.licence +
-                TABLE_COL_WIDTHS.points +
                 TABLE_COL_WIDTHS.dispo +
                 TABLE_COL_WIDTHS.joues +
+                TABLE_COL_WIDTHS.brulage +
                 otherVisibleMatchDays.length *
                   (TABLE_COL_WIDTHS.matchDayDispo + TABLE_COL_WIDTHS.matchDayCompo)
               return (
@@ -1174,12 +1165,6 @@ export function MatchDaysPage() {
                 <tr className="border-b border-slate-200 bg-slate-50/80">
                   <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
                     Joueur
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
-                    Licence
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-700">
-                    Points
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-slate-700">
                     Dispo
@@ -1208,7 +1193,7 @@ export function MatchDaysPage() {
                     ))}
                 </tr>
                 <tr className="border-b border-slate-200 bg-slate-50/50 text-xs text-slate-600">
-                  <th colSpan={6} className="px-3 py-1"></th>
+                  <th colSpan={4} className="px-3 py-1"></th>
                   {otherVisibleMatchDays.map((md) => (
                     <Fragment key={md.id}>
                       <th className="border-l border-slate-200 px-1 py-1 text-center font-normal">
@@ -1224,14 +1209,14 @@ export function MatchDaysPage() {
               <tbody>
                 {otherPlayers.map((player) => (
                   <tr key={player.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-800">
-                      {player.firstName} {player.lastName}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                      {player.licenseNumber || '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">
-                      {player.points ?? '—'}
+                    <td className="px-3 py-1.5 text-slate-800">
+                      <span className="block font-medium">
+                        {player.firstName} {player.lastName}
+                        {player.points ? <span className="ml-1 text-slate-500 font-normal">({player.points})</span> : null}
+                      </span>
+                      {player.licenseNumber && (
+                        <span className="block text-xs text-slate-400">{player.licenseNumber}</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
                     <td className="whitespace-nowrap px-3 py-2 text-center text-slate-400">—</td>
