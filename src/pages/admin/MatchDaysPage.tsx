@@ -274,6 +274,9 @@ function AvailabilitySelect({
   )
 }
 
+/** Number of match-day columns visible at once before pagination kicks in. */
+const VISIBLE_MATCH_DAY_COUNT = 3
+
 /** Fixed column widths so team tables and Other players table stay aligned. */
 const TABLE_COL_WIDTHS = {
   joueur: 180,
@@ -686,8 +689,8 @@ export function MatchDaysPage() {
       {myClubTeamsInPhase.map((team) => {
         const groupMatchDays = getMatchDaysForTeam(team.id)
         const offset = matchDayOffsetByTeamId[team.id] ?? 0
-        const visibleMatchDays = groupMatchDays.slice(offset, offset + 3)
-        const maxOffset = Math.max(0, groupMatchDays.length - 3)
+        const visibleMatchDays = groupMatchDays.slice(offset, offset + VISIBLE_MATCH_DAY_COUNT)
+        const maxOffset = Math.max(0, groupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
         const roster = (team.playerIds ?? [])
           .map((pid) => players.find((p) => p.id === pid))
           .filter((p): p is Player => p != null)
@@ -723,7 +726,7 @@ export function MatchDaysPage() {
                 )}
                 {getTeamLabel(team.id)}
               </h2>
-              {groupMatchDays.length > 3 && (
+              {groupMatchDays.length > VISIBLE_MATCH_DAY_COUNT && (
                 <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
                   <button
                     type="button"
@@ -742,7 +745,7 @@ export function MatchDaysPage() {
                     </svg>
                   </button>
                   <span className="text-xs text-slate-600 tabular-nums">
-                    {offset + 1}–{Math.min(offset + 3, groupMatchDays.length)} / {groupMatchDays.length}
+                    {offset + 1}–{Math.min(offset + VISIBLE_MATCH_DAY_COUNT, groupMatchDays.length)} / {groupMatchDays.length}
                   </span>
                   <button
                     type="button"
@@ -1105,7 +1108,7 @@ export function MatchDaysPage() {
             </p>
           </div>
           <div className="flex items-center justify-end gap-2 border-b border-slate-100 px-4 py-2">
-            {otherGroupMatchDays.length > 3 && (
+            {otherGroupMatchDays.length > VISIBLE_MATCH_DAY_COUNT && (
               <>
                 <button
                   type="button"
@@ -1119,16 +1122,16 @@ export function MatchDaysPage() {
                   </svg>
                 </button>
                 <span className="text-xs text-slate-500">
-                  {otherMatchDayOffset + 1}–{Math.min(otherMatchDayOffset + 3, otherGroupMatchDays.length)} / {otherGroupMatchDays.length}
+                  {otherMatchDayOffset + 1}–{Math.min(otherMatchDayOffset + VISIBLE_MATCH_DAY_COUNT, otherGroupMatchDays.length)} / {otherGroupMatchDays.length}
                 </span>
                 <button
                   type="button"
                   onClick={() =>
                     setOtherMatchDayOffset((o) =>
-                      Math.min(Math.max(0, otherGroupMatchDays.length - 3), o + 1)
+                      Math.min(Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT), o + 1)
                     )
                   }
-                  disabled={otherMatchDayOffset >= Math.max(0, otherGroupMatchDays.length - 3)}
+                  disabled={otherMatchDayOffset >= Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)}
                   className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
                   aria-label="Journées suivantes"
                 >
@@ -1143,7 +1146,7 @@ export function MatchDaysPage() {
             {(() => {
               const otherVisibleMatchDays = otherGroupMatchDays.slice(
                 otherMatchDayOffset,
-                otherMatchDayOffset + 3
+                otherMatchDayOffset + VISIBLE_MATCH_DAY_COUNT
               )
               const otherMinWidth =
                 TABLE_COL_WIDTHS.joueur +
