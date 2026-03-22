@@ -513,14 +513,23 @@ export function MatchDaysPage() {
     return null
   }
 
+  /** Group IDs belonging to the selected phase (via divisions). */
+  const phaseGroupIds = useMemo(() => {
+    const divIds = new Set(divisions.filter((d) => d.phaseId === selectedPhaseId).map((d) => d.id))
+    return new Set(groups.filter((g) => divIds.has(g.divisionId)).map((g) => g.id))
+  }, [divisions, groups, selectedPhaseId])
+
   /**
-   * Find all match-days with the same number across groups (same "round" in different groups).
+   * Find all match-days with the same number across groups in the current phase
+   * (same "round" in different groups).
    * A player can only play in one team per round, even if teams are in different groups.
    */
   const getCorrespondingMatchDayIds = (matchDayId: string): string[] => {
     const md = matchDays.find((m) => m.id === matchDayId)
     if (!md) return [matchDayId]
-    return matchDays.filter((m) => m.number === md.number).map((m) => m.id)
+    return matchDays
+      .filter((m) => m.number === md.number && phaseGroupIds.has(m.groupId))
+      .map((m) => m.id)
   }
 
   /** Which team this player is selected for on this match-day round (across all groups); null if none. */
