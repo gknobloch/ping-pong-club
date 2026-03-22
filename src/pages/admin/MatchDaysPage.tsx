@@ -277,6 +277,64 @@ function AvailabilitySelect({
 /** Number of match-day columns visible at once before pagination kicks in. */
 const VISIBLE_MATCH_DAY_COUNT = 3
 
+/** Get Monday 00:00 local time of the week containing the given date. */
+function getWeekMonday(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const day = d.getDay() // 0=Sun, 1=Mon, ...
+  const diff = (day + 6) % 7 // days since Monday
+  d.setDate(d.getDate() - diff)
+  return d
+}
+
+/**
+ * Compute the smart default offset so columns show [previous, current, next].
+ * "Current" = the match day whose date falls in the current Mon-Sun week.
+ */
+function computeSmartOffset(sortedMatchDays: { date: string }[]): number {
+  if (sortedMatchDays.length === 0) return 0
+  const today = new Date()
+  const thisMonday = getWeekMonday(today)
+
+  // Find the index of the match day in the current week
+  let currentIdx = -1
+  for (let i = 0; i < sortedMatchDays.length; i++) {
+    const mdDate = new Date(sortedMatchDays[i].date + 'T00:00:00')
+    const mdMonday = getWeekMonday(mdDate)
+    if (mdMonday.getTime() === thisMonday.getTime()) {
+      currentIdx = i
+      break
+    }
+  }
+
+  if (currentIdx === -1) {
+    // No match day this week — find the next upcoming one
+    const todayTime = today.getTime()
+    const nextIdx = sortedMatchDays.findIndex(
+      (md) => new Date(md.date + 'T00:00:00').getTime() >= todayTime
+    )
+    if (nextIdx === -1) {
+      // All in the past: show last 3
+      return Math.max(0, sortedMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
+    }
+    // Show previous + next upcoming
+    currentIdx = nextIdx
+  }
+
+  // Position so current is the middle column: offset = currentIdx - 1
+  const offset = Math.max(0, currentIdx - 1)
+  const maxOffset = Math.max(0, sortedMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
+  return Math.min(offset, maxOffset)
+}
+
+/** A match day is "past" if the current week is strictly after its week. */
+function isMatchDayDatePast(dateStr: string): boolean {
+  const mdDate = new Date(dateStr + 'T00:00:00')
+  const mdMonday = getWeekMonday(mdDate)
+  const thisMonday = getWeekMonday(new Date())
+  return thisMonday.getTime() > mdMonday.getTime()
+}
+
 /** Fixed column widths so team tables and Other players table stay aligned. */
 const TABLE_COL_WIDTHS = {
   joueur: 180,
@@ -427,6 +485,24 @@ export function MatchDaysPage() {
     const otherMax = Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
     setOtherMatchDayOffset(Math.min(clamped, otherMax))
   }
+
+  /** Whether a match day is in a past week (read-only). */
+  const isMatchDayPast = (matchDayId: string): boolean => {
+    const md = matchDays.find((m) => m.id === matchDayId)
+    return md ? isMatchDayDatePast(md.date) : false
+  }
+
+  // Auto-position to smart offset on phase change
+  const autoPositionedPhaseRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedPhaseId || myClubTeamsInPhase.length === 0) return
+    if (autoPositionedPhaseRef.current === selectedPhaseId) return
+    autoPositionedPhaseRef.current = selectedPhaseId
+    // Use the first team's match days as reference
+    const refMatchDays = getMatchDaysForTeam(myClubTeamsInPhase[0].id)
+    const smartOffset = computeSmartOffset(refMatchDays)
+    setGlobalOffset(smartOffset)
+  }, [selectedPhaseId, myClubTeamsInPhase.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const getTeamLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
@@ -675,6 +751,7 @@ export function MatchDaysPage() {
   const selectedPhase = phases[selectedPhaseIndex]
 
   const handlePhaseChange = (phaseId: string) => {
+    autoPositionedPhaseRef.current = null // allow auto-positioning for new phase
     setSelectedPhaseId(phaseId)
     setMatchDayOffsetByTeamId({})
     setOtherMatchDayOffset(0)
@@ -1100,7 +1177,8 @@ export function MatchDaysPage() {
                                   ),
                                 ]
                                 const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                                const canEditSel = ourClubTeamsThisDay.some((tid) =>
+                                const mdPast = isMatchDayPast(md.id)
+                                const canEditSel = !mdPast && ourClubTeamsThisDay.some((tid) =>
                                   canEditGameSelection(tid)
                                 )
                                 return (
@@ -1127,9 +1205,10 @@ export function MatchDaysPage() {
                                 )
                               }
                               const status = getAvailability(game.id, player.id)
-                              const canEditAv = canEditAvailability(player.id, team.id)
+                              const mdPast = isMatchDayPast(md.id)
+                              const canEditAv = !mdPast && canEditAvailability(player.id, team.id)
                               const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                              const canEditSel = canEditGameSelection(team.id)
+                              const canEditSel = !mdPast && canEditGameSelection(team.id)
                               return (
                                 <Fragment key={md.id}>
                                   <td className="border-l border-slate-100 px-2 py-1.5">
@@ -1392,7 +1471,8 @@ export function MatchDaysPage() {
                           ),
                         ]
                         const selectedTeamId = getSelectedTeamForMatchDay(md.id, player.id)
-                        const canEditSel = ourClubTeamsThisDay.some((tid) =>
+                        const mdPast = isMatchDayPast(md.id)
+                        const canEditSel = !mdPast && ourClubTeamsThisDay.some((tid) =>
                           canEditGameSelection(tid)
                         )
                         return (
