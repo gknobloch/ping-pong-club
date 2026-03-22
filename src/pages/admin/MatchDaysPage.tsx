@@ -676,13 +676,17 @@ export function MatchDaysPage() {
     document.getElementById('other-players')?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Scroll to hash target on initial load
+  // Scroll to hash target or user's team on initial load
   useEffect(() => {
     const hash = window.location.hash.slice(1)
-    if (!hash) return
-    // Defer to allow DOM to render
+    let target = hash
+    if (!target && user?.playerId) {
+      const userTeam = myClubTeamsInPhase.find((t) => t.playerIds?.includes(user.playerId!))
+      if (userTeam) target = `team-${userTeam.id}`
+    }
+    if (!target) return
     const timer = setTimeout(() => {
-      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' })
+      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth' })
     }, 300)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
