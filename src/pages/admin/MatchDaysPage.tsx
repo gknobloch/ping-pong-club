@@ -666,12 +666,26 @@ export function MatchDaysPage() {
   }
 
   const scrollToTeam = (teamId: string) => {
-    document.getElementById(`team-${teamId}`)?.scrollIntoView({ behavior: 'smooth' })
+    const anchor = `team-${teamId}`
+    window.history.replaceState(null, '', `#${anchor}`)
+    document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' })
   }
 
   const scrollToOtherPlayers = () => {
+    window.history.replaceState(null, '', '#other-players')
     document.getElementById('other-players')?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  // Scroll to hash target on initial load
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    // Defer to allow DOM to render
+    const timer = setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Groups in this phase where we have at least one team (for "add match day" modal). */
   const groupOptionsInPhase = useMemo(() => {
