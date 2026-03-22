@@ -60,7 +60,25 @@ export function TeamsPage() {
   })
 
   const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-  const COMMON_TIMES = ['14h00', '15h00', '16h00', '17h00', '18h00', '19h00', '19h30', '20h00', '20h30', '21h00']
+  const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9..21
+  const MINUTES = ['00', '15', '30', '45']
+
+  /** Parse "16h30" → { hour: 16, minute: '30' } */
+  const parseTime = (t: string) => {
+    const m = t.match(/^(\d{1,2})h(\d{2})$/)
+    return m ? { hour: Number(m[1]), minute: m[2] } : null
+  }
+  const parsedTime = parseTime(form.defaultTime)
+  const timeHour = parsedTime?.hour ?? ''
+  const timeMinute = parsedTime?.minute ?? '00'
+
+  const setTimeFromParts = (hour: string, minute: string) => {
+    if (!hour) {
+      setForm((f) => ({ ...f, defaultTime: '' }))
+    } else {
+      setForm((f) => ({ ...f, defaultTime: `${hour}h${minute}` }))
+    }
+  }
 
   const getClubName = (clubId: string) => clubs.find((c) => c.id === clubId)?.displayName ?? clubId
   const getPhaseName = (phaseId: string) => phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
@@ -461,18 +479,30 @@ export function TeamsPage() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="team-defaultTime" className="block text-sm font-medium text-slate-700">Heure</label>
-                  <select
-                    id="team-defaultTime"
-                    value={form.defaultTime}
-                    onChange={(e) => setForm((f) => ({ ...f, defaultTime: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="">—</option>
-                    {COMMON_TIMES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-slate-700">Heure</label>
+                  <div className="mt-1 flex items-center gap-1">
+                    <select
+                      value={timeHour}
+                      onChange={(e) => setTimeFromParts(e.target.value, timeMinute)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">—</option>
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <span className="text-slate-500 font-medium">h</span>
+                    <select
+                      value={timeMinute}
+                      onChange={(e) => setTimeFromParts(String(timeHour), e.target.value)}
+                      disabled={!timeHour}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100"
+                    >
+                      {MINUTES.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
