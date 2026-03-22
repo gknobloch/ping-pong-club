@@ -706,6 +706,8 @@ export function MatchDaysPage() {
       <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
         <div className={`rounded-xl border border-slate-200 bg-white px-4 py-3 transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
         <div className="flex items-center justify-between gap-4">
+          <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">Journées</h1>
+          <div className="flex flex-wrap items-center gap-2">
           {/* Phase switcher */}
           <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
             <button
@@ -734,8 +736,6 @@ export function MatchDaysPage() {
               </svg>
             </button>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
             {/* Team toggle buttons */}
             {myClubTeamsInPhase.length > 0 && (
               <div className="flex items-center gap-1">
