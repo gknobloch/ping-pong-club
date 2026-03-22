@@ -662,21 +662,16 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-14 z-10 -mx-4 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-semibold text-slate-800">
-              Disponibilités et compositions
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Par équipe : disponibilité et joueurs retenus par match.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="sticky top-14 z-10 -mx-4 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">
+            Journées
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedPhaseId}
               onChange={(e) => handlePhaseChange(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -692,7 +687,7 @@ export function MatchDaysPage() {
                   if (id) scrollToTeam(id)
                   e.target.value = ''
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 title="Aller à l'équipe"
               >
                 <option value="">Aller à l&apos;équipe…</option>
@@ -760,7 +755,7 @@ export function MatchDaysPage() {
           <section
             key={team.id}
             id={`team-${team.id}`}
-            className="overflow-hidden -mx-4 border-t border-slate-200 bg-white scroll-mt-36 sm:-mx-6"
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-36"
           >
             <div
               className="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-4"
@@ -1152,7 +1147,7 @@ export function MatchDaysPage() {
 
       {/* Other players (club, not in any team roster) */}
       {otherPlayers.length > 0 && otherGroupMatchDays.length > 0 && (
-        <section className="overflow-hidden -mx-4 border-t border-slate-200 bg-white sm:-mx-6">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="font-display text-lg font-medium text-slate-800">
               Autres joueurs du club
