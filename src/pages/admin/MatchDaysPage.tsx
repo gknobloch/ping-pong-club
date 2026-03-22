@@ -717,7 +717,7 @@ export function MatchDaysPage() {
                   </svg>
                 </button>
                 <span className="text-xs text-slate-600 tabular-nums">
-                  J{globalMatchDayOffset + 1}–{Math.min(globalMatchDayOffset + VISIBLE_MATCH_DAY_COUNT, globalMaxMatchDays)}
+                  {globalMatchDayOffset + 1}–{Math.min(globalMatchDayOffset + VISIBLE_MATCH_DAY_COUNT, globalMaxMatchDays)} / {globalMaxMatchDays}
                 </span>
                 <button
                   type="button"
@@ -760,7 +760,7 @@ export function MatchDaysPage() {
           <section
             key={team.id}
             id={`team-${team.id}`}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-36"
+            className="overflow-hidden -mx-4 border-t border-slate-200 bg-white scroll-mt-36 sm:-mx-6"
           >
             <div
               className="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-4"
@@ -1152,7 +1152,7 @@ export function MatchDaysPage() {
 
       {/* Other players (club, not in any team roster) */}
       {otherPlayers.length > 0 && otherGroupMatchDays.length > 0 && (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <section className="overflow-hidden -mx-4 border-t border-slate-200 bg-white sm:-mx-6">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="font-display text-lg font-medium text-slate-800">
               Autres joueurs du club
