@@ -74,6 +74,7 @@ export const mockPlayers: Player[] = [
   { id: 'player-25', firstName: 'Lucie', lastName: 'Meyer', licenseNumber: '6814448', email: 'lucie.meyer@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // PPA Rixheim player not assigned to any team (shows in "Autres joueurs du club")
   { id: 'player-26', firstName: 'Marc', lastName: 'Hoffmann', licenseNumber: '6814449', email: 'marc.hoffmann@example.com', phone: '06 56 78 90 12', status: 'active', clubId: 'club-1' },
+  { id: 'player-27', firstName: 'Christophe', lastName: 'Heurtin', licenseNumber: '6816317', email: 'christophe.heurtin@example.com', phone: '', status: 'active', clubId: 'club-1' },
 ]
 
 export const mockGroups: Group[] = [
@@ -152,8 +153,8 @@ export const mockTeams: Team[] = [
     defaultDay: 'Vendredi',
     defaultTime: '20h00',
     captainId: 'player-20',
-    playerIds: ['player-20', 'player-21', 'player-22'],
-    rosterInitialPoints: { 'player-20': '580', 'player-21': '540', 'player-22': '510' },
+    playerIds: ['player-20', 'player-21', 'player-22', 'player-27'],
+    rosterInitialPoints: { 'player-20': '580', 'player-21': '540', 'player-22': '510', 'player-27': '620' },
     color: '#0891b2',
     isArchived: false,
   },
@@ -284,6 +285,7 @@ export const mockUsers: User[] = [
   { id: 'user-4', email: 'jean.martin@example.com', role: 'player', playerId: 'player-2', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-5', email: 'sophie.bernard@example.com', role: 'player', playerId: 'player-3', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-6', email: 'pierre.leroy@example.com', role: 'player', playerId: 'player-4', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-7', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'player-27', clubIds: ['club-1'], captainTeamIds: [] },
 ]
 
 export function getDisplayNameForUser(user: User): string {

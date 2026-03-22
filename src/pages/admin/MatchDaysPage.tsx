@@ -328,7 +328,9 @@ export function MatchDaysPage() {
     addGame,
     updateGame,
   } = useAppData()
-  const [selectedPhaseId, setSelectedPhaseId] = useState<string>(phases[0]?.id ?? '')
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string>(
+    () => phases.find((p) => p.isActive)?.id ?? phases[0]?.id ?? ''
+  )
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
   const myClubTeamsInPhase = useMemo(() => {
@@ -653,6 +655,9 @@ export function MatchDaysPage() {
       )
     : []
 
+  const selectedPhaseIndex = phases.findIndex((p) => p.id === selectedPhaseId)
+  const selectedPhase = phases[selectedPhaseIndex]
+
   const handlePhaseChange = (phaseId: string) => {
     setSelectedPhaseId(phaseId)
     setMatchDayOffsetByTeamId({})
@@ -661,8 +666,30 @@ export function MatchDaysPage() {
   }
 
   const scrollToTeam = (teamId: string) => {
-    document.getElementById(`team-${teamId}`)?.scrollIntoView({ behavior: 'smooth' })
+    const anchor = `team-${teamId}`
+    window.history.replaceState(null, '', `#${anchor}`)
+    document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  const scrollToOtherPlayers = () => {
+    window.history.replaceState(null, '', '#other-players')
+    document.getElementById('other-players')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Scroll to hash target or user's team on initial load
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    let target = hash
+    if (!target && user?.playerId) {
+      const userTeam = myClubTeamsInPhase.find((t) => t.playerIds?.includes(user.playerId!))
+      if (userTeam) target = `team-${userTeam.id}`
+    }
+    if (!target) return
+    const timer = setTimeout(() => {
+      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth' })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Groups in this phase where we have at least one team (for "add match day" modal). */
   const groupOptionsInPhase = useMemo(() => {
@@ -679,40 +706,63 @@ export function MatchDaysPage() {
       <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
         <div className={`rounded-xl border border-slate-200 bg-white px-4 py-3 transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">
-            Journées
-          </h1>
+          <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">Journées</h1>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedPhaseId}
-              onChange={(e) => handlePhaseChange(e.target.value)}
-              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          {/* Phase switcher */}
+          <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+            <button
+              type="button"
+              onClick={() => handlePhaseChange(phases[selectedPhaseIndex - 1].id)}
+              disabled={selectedPhaseIndex <= 0}
+              className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              aria-label="Phase précédente"
             >
-              {phases.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.displayName}
-                </option>
-              ))}
-            </select>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-xs font-medium text-slate-700 tabular-nums">
+              {selectedPhase?.displayName ?? '—'}
+            </span>
+            <button
+              type="button"
+              onClick={() => handlePhaseChange(phases[selectedPhaseIndex + 1].id)}
+              disabled={selectedPhaseIndex >= phases.length - 1}
+              className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              aria-label="Phase suivante"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+            {/* Team toggle buttons */}
             {myClubTeamsInPhase.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => {
-                  const id = e.target.value
-                  if (id) scrollToTeam(id)
-                  e.target.value = ''
-                }}
-                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                title="Aller à l'équipe"
-              >
-                <option value="">Aller à l&apos;équipe…</option>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-slate-500 mr-1">Aller à</span>
                 {myClubTeamsInPhase.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {getTeamLabel(t.id)}
-                  </option>
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => scrollToTeam(t.id)}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    {t.number}
+                  </button>
                 ))}
-              </select>
+                {otherPlayers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={scrollToOtherPlayers}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    Autres
+                  </button>
+                )}
+              </div>
             )}
+
+            {/* Global match-day switcher */}
             {globalMaxMatchDays > VISIBLE_MATCH_DAY_COUNT && (
               <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
                 <button
@@ -1163,7 +1213,7 @@ export function MatchDaysPage() {
 
       {/* Other players (club, not in any team roster) */}
       {otherPlayers.length > 0 && otherGroupMatchDays.length > 0 && (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <section id="other-players" className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-36">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="font-display text-lg font-medium text-slate-800">
               Autres joueurs du club

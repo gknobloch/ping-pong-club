@@ -22,7 +22,7 @@ test.describe('Navigation after login', () => {
     await page.getByRole('link', { name: 'Journées' }).click()
     await expect(page).toHaveURL('/journees')
     await expect(
-      page.getByRole('heading', { name: 'Disponibilités et compositions' })
+      page.getByRole('heading', { name: 'Journées' })
     ).toBeVisible()
   })
 
