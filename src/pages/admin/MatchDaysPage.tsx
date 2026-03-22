@@ -662,7 +662,7 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-20 -mx-4 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="sticky top-14 z-10 -mx-4 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-semibold text-slate-800">
@@ -704,7 +704,7 @@ export function MatchDaysPage() {
               </select>
             )}
             {globalMaxMatchDays > VISIBLE_MATCH_DAY_COUNT && (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+              <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
                 <button
                   type="button"
                   onClick={() => setGlobalOffset(globalMatchDayOffset - 1)}
@@ -760,7 +760,7 @@ export function MatchDaysPage() {
           <section
             key={team.id}
             id={`team-${team.id}`}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-4"
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-36"
           >
             <div
               className="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-4"
