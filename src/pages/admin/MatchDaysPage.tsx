@@ -387,9 +387,31 @@ export function MatchDaysPage() {
     isHome: true,
     opponentTeamId: '',
   })
-  /** Sliding window: which pair of match-days is visible per team (index into that team's group match-days). */
+  /** Sliding window: which match-days are visible per team (index into that team's group match-days). */
   const [matchDayOffsetByTeamId, setMatchDayOffsetByTeamId] = useState<Record<string, number>>({})
   const [otherMatchDayOffset, setOtherMatchDayOffset] = useState(0)
+
+  /** Global match-day offset applied to all teams at once. */
+  const [globalMatchDayOffset, setGlobalMatchDayOffset] = useState(0)
+  const globalMaxMatchDays = useMemo(
+    () =>
+      Math.max(0, ...myClubTeamsInPhase.map((t) => getMatchDaysForTeam(t.id).length)),
+    [myClubTeamsInPhase, matchDays, teams]
+  )
+  const globalMaxOffset = Math.max(0, globalMaxMatchDays - VISIBLE_MATCH_DAY_COUNT)
+
+  const setGlobalOffset = (newOffset: number) => {
+    const clamped = Math.max(0, Math.min(globalMaxOffset, newOffset))
+    setGlobalMatchDayOffset(clamped)
+    const byTeam: Record<string, number> = {}
+    for (const t of myClubTeamsInPhase) {
+      const teamMax = Math.max(0, getMatchDaysForTeam(t.id).length - VISIBLE_MATCH_DAY_COUNT)
+      byTeam[t.id] = Math.min(clamped, teamMax)
+    }
+    setMatchDayOffsetByTeamId(byTeam)
+    const otherMax = Math.max(0, otherGroupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
+    setOtherMatchDayOffset(Math.min(clamped, otherMax))
+  }
 
   const getTeamLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
@@ -622,6 +644,7 @@ export function MatchDaysPage() {
     setSelectedPhaseId(phaseId)
     setMatchDayOffsetByTeamId({})
     setOtherMatchDayOffset(0)
+    setGlobalMatchDayOffset(0)
   }
 
   const scrollToTeam = (teamId: string) => {
@@ -639,46 +662,77 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-slate-800">
-            Disponibilités et compositions
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Par équipe : disponibilité et joueurs retenus par match.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedPhaseId}
-            onChange={(e) => handlePhaseChange(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            {phases.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.displayName}
-              </option>
-            ))}
-          </select>
-          {myClubTeamsInPhase.length > 0 && (
+      <div className="sticky top-0 z-20 -mx-4 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-semibold text-slate-800">
+              Disponibilités et compositions
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Par équipe : disponibilité et joueurs retenus par match.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             <select
-              value=""
-              onChange={(e) => {
-                const id = e.target.value
-                if (id) scrollToTeam(id)
-                e.target.value = ''
-              }}
+              value={selectedPhaseId}
+              onChange={(e) => handlePhaseChange(e.target.value)}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              title="Aller à l'équipe"
             >
-              <option value="">Aller à l&apos;équipe…</option>
-              {myClubTeamsInPhase.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {getTeamLabel(t.id)}
+              {phases.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
                 </option>
               ))}
             </select>
-          )}
+            {myClubTeamsInPhase.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value
+                  if (id) scrollToTeam(id)
+                  e.target.value = ''
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                title="Aller à l'équipe"
+              >
+                <option value="">Aller à l&apos;équipe…</option>
+                {myClubTeamsInPhase.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {getTeamLabel(t.id)}
+                  </option>
+                ))}
+              </select>
+            )}
+            {globalMaxMatchDays > VISIBLE_MATCH_DAY_COUNT && (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setGlobalOffset(globalMatchDayOffset - 1)}
+                  disabled={globalMatchDayOffset <= 0}
+                  className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                  aria-label="Journées précédentes (toutes équipes)"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="text-xs text-slate-600 tabular-nums">
+                  J{globalMatchDayOffset + 1}–{Math.min(globalMatchDayOffset + VISIBLE_MATCH_DAY_COUNT, globalMaxMatchDays)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGlobalOffset(globalMatchDayOffset + 1)}
+                  disabled={globalMatchDayOffset >= globalMaxOffset}
+                  className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                  aria-label="Journées suivantes (toutes équipes)"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
