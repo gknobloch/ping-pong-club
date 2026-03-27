@@ -1,6 +1,5 @@
-import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useAppData } from '@/contexts/DataContext'
 
 const prNumber = __PR_NUMBER__
 const commitSha = __COMMIT_SHA__
@@ -19,22 +18,12 @@ const navLinkClass = (active: boolean) =>
   `text-sm font-medium ${active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
 
 export function AppShell() {
-  const { user, displayName, roleLabel, logout } = useAuth()
-  const { clubs } = useAppData()
-  const navigate = useNavigate()
+  const { user, displayName, roleLabel } = useAuth()
   const location = useLocation()
   const isGeneralAdmin = user?.role === 'general_admin'
   const isClubAdmin = user?.role === 'club_admin'
 
-  const adminClubNames =
-    user?.clubIds?.map((id) => clubs.find((c) => c.id === id)?.displayName).filter(Boolean).join(', ') ?? ''
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login', { replace: true })
-  }
-
-  return (
+return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <PreviewBanner />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -94,21 +83,9 @@ export function AppShell() {
                 Joueurs
               </Link>
             )}
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
-              <div className="text-right hidden sm:block">
-                {(isClubAdmin || user?.role === 'captain' || user?.role === 'player') && !isGeneralAdmin && adminClubNames && (
-                  <p className="text-xs font-medium text-slate-600">Club : {adminClubNames}</p>
-                )}
-                <p className="text-sm font-medium text-slate-800">{displayName}</p>
-                <p className="text-xs text-slate-500">{roleLabel}</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
-              >
-                Déconnexion
-              </button>
+            <div className="hidden sm:block text-right border-l border-slate-200 pl-4">
+              <p className="text-sm font-medium text-slate-800">{displayName}</p>
+              <p className="text-xs text-slate-500">{roleLabel}</p>
             </div>
           </nav>
         </div>
