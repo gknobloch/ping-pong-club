@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 const prNumber = __PR_NUMBER__
@@ -18,12 +18,20 @@ const navLinkClass = (active: boolean) =>
   `text-sm font-medium ${active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
 
 export function AppShell() {
-  const { user, displayName, roleLabel } = useAuth()
+  const { user, displayName, roleLabel, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const isGeneralAdmin = user?.role === 'general_admin'
   const isClubAdmin = user?.role === 'club_admin'
 
-return (
+  const handleLogout = () => {
+    if (window.confirm('Se déconnecter ?')) {
+      logout()
+      navigate('/login', { replace: true })
+    }
+  }
+
+  return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <PreviewBanner />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -83,9 +91,23 @@ return (
                 Joueurs
               </Link>
             )}
-            <div className="hidden sm:block text-right border-l border-slate-200 pl-4">
-              <p className="text-sm font-medium text-slate-800">{displayName}</p>
-              <p className="text-xs text-slate-500">{roleLabel}</p>
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-slate-800">{displayName}</p>
+                <p className="text-xs text-slate-500">{roleLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Se déconnecter"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
             </div>
           </nav>
         </div>
