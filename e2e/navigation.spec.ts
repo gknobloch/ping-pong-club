@@ -28,7 +28,8 @@ test.describe('Navigation after login', () => {
 
   test('can logout and is redirected to login', async ({ page }) => {
     await expect(page.getByText(/Bienvenue/)).toBeVisible()
-    await page.getByRole('button', { name: 'Déconnexion' }).click()
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: 'Se déconnecter' }).click()
     await expect(page).toHaveURL(/\/login/)
     await expect(page.getByRole('heading', { name: /Disponibilités Ping-Pong/i })).toBeVisible()
   })
