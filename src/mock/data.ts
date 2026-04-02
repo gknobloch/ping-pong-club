@@ -159,35 +159,35 @@ export const mockTeams: Team[] = [
   },
   {
     id: 'team-2', clubId: 'club-1', phaseId: 'phase-1', number: 2, divisionId: 'div-2', groupId: 'group-2',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-6',
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-8',
     playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-9', 'p2-player-8'],
     rosterInitialPoints: { 'p2-player-6': '1791', 'p2-player-10': '1661', 'p2-player-7': '1500', 'p2-player-9': '1301', 'p2-player-8': '1301' },
     color: '#b91c1c', isArchived: false,
   },
   {
     id: 'team-3', clubId: 'club-1', phaseId: 'phase-1', number: 3, divisionId: 'div-3', groupId: 'group-3',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-12',
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-13',
     playerIds: ['p2-player-12', 'p2-player-13', 'p2-player-14', 'p2-player-11', 'p2-player-17'],
     rosterInitialPoints: { 'p2-player-12': '1356', 'p2-player-13': '1267', 'p2-player-14': '1198', 'p2-player-11': '1186', 'p2-player-17': '754' },
     color: '#15803d', isArchived: false,
   },
   {
     id: 'team-4', clubId: 'club-1', phaseId: 'phase-1', number: 4, divisionId: 'div-4', groupId: 'group-4',
-    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-16',
+    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-19',
     playerIds: ['p2-player-16', 'p2-player-19', 'p2-player-18', 'p2-player-15', 'p2-player-20'],
     rosterInitialPoints: { 'p2-player-16': '889', 'p2-player-19': '728', 'p2-player-18': '727', 'p2-player-15': '713', 'p2-player-20': '704' },
     color: '#c2410c', isArchived: false,
   },
   {
     id: 'team-5', clubId: 'club-1', phaseId: 'phase-1', number: 5, divisionId: 'div-5', groupId: 'group-5',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-23',
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-24',
     playerIds: ['p2-player-22', 'p2-player-24', 'p2-player-21', 'p2-player-23', 'p2-player-26'],
     rosterInitialPoints: { 'p2-player-22': '735', 'p2-player-24': '701', 'p2-player-21': '702', 'p2-player-23': '1050', 'p2-player-26': '707' },
     color: '#1d4ed8', isArchived: false,
   },
   {
     id: 'team-6', clubId: 'club-1', phaseId: 'phase-1', number: 6, divisionId: 'div-5', groupId: 'group-5',
-    gameLocationId: 'addr-2', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-42',
+    gameLocationId: 'addr-2', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-29',
     playerIds: ['p2-player-29', 'p2-player-39', 'p2-player-40', 'p2-player-41', 'p2-player-42', 'p2-player-38', 'p2-player-43', 'p2-player-44'],
     rosterInitialPoints: { 'p2-player-29': '632', 'p2-player-39': '500', 'p2-player-40': '503', 'p2-player-41': '561', 'p2-player-42': '500', 'p2-player-38': '500', 'p2-player-43': '500', 'p2-player-44': '500' },
     color: '#be185d', isArchived: false,
@@ -201,7 +201,7 @@ export const mockTeams: Team[] = [
   },
   {
     id: 'team-8', clubId: 'club-1', phaseId: 'phase-1', number: 8, divisionId: 'div-7', groupId: 'group-7',
-    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-32',
+    gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p2-player-42',
     playerIds: ['p2-player-32', 'p2-player-27', 'p2-player-28', 'p2-player-30', 'p2-player-31'],
     rosterInitialPoints: { 'p2-player-32': '607', 'p2-player-27': '501', 'p2-player-28': '500', 'p2-player-30': '500', 'p2-player-31': '500' },
     color: '#0d9488', isArchived: false,
@@ -403,7 +403,7 @@ export const mockUsers: User[] = [
   { id: 'user-3', email: 'joris.szulc@example.com', role: 'player', playerId: 'p2-player-5', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-4', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'p2-player-23', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-5', email: 'gilles.knobloch@example.com', role: 'player', playerId: 'p2-player-24', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'captain', playerId: 'p2-player-12', clubIds: ['club-1'], captainTeamIds: ['team-3'] },
+  { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'player', playerId: 'p2-player-12', clubIds: ['club-1'], captainTeamIds: [] },
 ]
 
 // ---------------------------------------------------------------------------
