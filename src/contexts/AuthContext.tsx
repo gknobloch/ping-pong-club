@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { User } from '@/types'
-import { mockUsers, mockPlayers, getDisplayNameForUser, getRoleLabel } from '@/mock/data'
+import { mockUsers, mockPlayers, mockTeams, getDisplayNameForUser, getRoleLabel } from '@/mock/data'
 
 const STORAGE_KEY = 'ping-pong-club-dev-user-id'
 
@@ -11,13 +11,16 @@ const STORAGE_KEY = 'ping-pong-club-dev-user-id'
 function buildAdHocUser(playerId: string): User | null {
   const player = mockPlayers.find((p) => p.id === playerId)
   if (!player || !player.clubId) return null
+  const captainTeamIds = mockTeams
+    .filter((t) => t.captainId === playerId)
+    .map((t) => t.id)
   return {
     id: `adhoc-${playerId}`,
     email: player.email,
-    role: 'player',
+    role: captainTeamIds.length > 0 ? 'captain' : 'player',
     playerId: player.id,
     clubIds: [player.clubId],
-    captainTeamIds: [],
+    captainTeamIds,
   }
 }
 
