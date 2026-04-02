@@ -152,7 +152,7 @@ export const mockTeams: Team[] = [
   // PPA Rixheim teams
   {
     id: 'team-1', clubId: 'club-1', phaseId: 'phase-1', number: 1, divisionId: 'div-1', groupId: 'group-1',
-    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-5',
+    gameLocationId: 'addr-1', defaultDay: 'Samedi', defaultTime: '16h00', captainId: 'p2-player-2',
     playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-3', 'p2-player-4'],
     rosterInitialPoints: { 'p2-player-5': '1887', 'p2-player-1': '1763', 'p2-player-2': '1665', 'p2-player-3': '1647', 'p2-player-4': '1566' },
     color: '#374151', isArchived: false,
@@ -400,7 +400,7 @@ export const mockGameSelections: GameSelection[] = []
 export const mockUsers: User[] = [
   { id: 'user-1', email: 'admin@example.com', role: 'general_admin', clubIds: [], captainTeamIds: [] },
   { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-3', email: 'joris.szulc@example.com', role: 'captain', playerId: 'p2-player-5', clubIds: ['club-1'], captainTeamIds: ['team-1'] },
+  { id: 'user-3', email: 'joris.szulc@example.com', role: 'player', playerId: 'p2-player-5', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-4', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'p2-player-23', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-5', email: 'gilles.knobloch@example.com', role: 'player', playerId: 'p2-player-24', clubIds: ['club-1'], captainTeamIds: [] },
   { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'captain', playerId: 'p2-player-12', clubIds: ['club-1'], captainTeamIds: ['team-3'] },
