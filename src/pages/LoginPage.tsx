@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { getDisplayNameForUser, getRoleLabel } from '@/mock/data'
+import { getDisplayNameForUser, mockPlayers, mockClubs } from '@/mock/data'
 import type { User } from '@/types'
 
 export function LoginPage() {
@@ -74,8 +74,13 @@ export function LoginPage() {
                     <span className="font-medium text-slate-900">
                       {getDisplayNameForUser(user)}
                     </span>
-                    <span className="block text-sm text-slate-500">{user.email}</span>
-                    <span className="text-xs text-slate-400">{getRoleLabel(user.role)}</span>
+                    <span className="block text-sm text-slate-500">
+                      {(() => {
+                        const player = mockPlayers.find((p) => p.id === user.playerId)
+                        const club = player?.clubId ? mockClubs.find((c) => c.id === player.clubId) : null
+                        return club?.displayName ?? user.email
+                      })()}
+                    </span>
                   </li>
                 ))
               )}
