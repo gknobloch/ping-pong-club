@@ -22,6 +22,10 @@ import type {
   User,
 } from '@shared/types'
 import { apiUrl } from '@/constants/api'
+import {
+  mockClubs, mockSeasons, mockPhases, mockDivisions, mockGroups,
+  mockTeams, mockPlayers, mockMatchDays, mockGames,
+} from '@/mock/appData'
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -41,16 +45,16 @@ interface DataState {
   users: User[]
 }
 
-const empty: DataState = {
-  clubs: [],
-  seasons: [],
-  phases: [],
-  divisions: [],
-  groups: [],
-  teams: [],
-  players: [],
-  matchDays: [],
-  games: [],
+const mockFallback: DataState = {
+  clubs: mockClubs,
+  seasons: mockSeasons,
+  phases: mockPhases,
+  divisions: mockDivisions,
+  groups: mockGroups,
+  teams: mockTeams,
+  players: mockPlayers,
+  matchDays: mockMatchDays,
+  games: mockGames,
   gameAvailabilities: [],
   gameSelections: [],
   users: [],
@@ -81,7 +85,7 @@ const DataContext = createContext<DataContextValue | null>(null)
 // Provider
 // ---------------------------------------------------------------------------
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<DataState>(empty)
+  const [state, setState] = useState<DataState>(mockFallback)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -91,8 +95,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(apiUrl('/data'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: DataState = await res.json()
-      setState(data)
+      const data: Partial<DataState> = await res.json()
+      // Merge: use API data where present, fall back to mock for missing fields
+      setState((prev) => ({ ...prev, ...data }))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur réseau')
     } finally {
