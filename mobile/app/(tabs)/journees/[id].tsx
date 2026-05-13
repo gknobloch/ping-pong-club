@@ -109,7 +109,7 @@ const selStyles = StyleSheet.create({
 export default function MatchDayDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const navigation = useNavigation()
-  const { matchDays, games, teams, players, divisions, groups, gameAvailabilities, gameSelections, setAvailability, setGameSelection } = useAppData()
+  const { matchDays, games, teams, clubs, players, divisions, groups, gameAvailabilities, gameSelections, setAvailability, setGameSelection } = useAppData()
   const { user } = useAuth()
 
   const matchDay = matchDays.find((md) => md.id === id)
