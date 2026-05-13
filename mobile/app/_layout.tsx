@@ -31,7 +31,8 @@ function InnerLayout() {
   const { users, players, teams } = useAppData()
 
   return (
-    <AuthProvider users={users} players={players} teams={teams}>
+    // apiUsers / players / teams are optional — AuthProvider uses bundled mock users as fallback
+    <AuthProvider apiUsers={users} players={players} teams={teams}>
       <AuthGuard>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />
