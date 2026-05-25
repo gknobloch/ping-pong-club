@@ -28,11 +28,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 // Inner layout — has access to DataContext
 // ---------------------------------------------------------------------------
 function InnerLayout() {
-  const { users, players, teams } = useAppData()
+  const { users, players } = useAppData()
 
   return (
-    // apiUsers / players / teams are optional — AuthProvider uses bundled mock users as fallback
-    <AuthProvider apiUsers={users} players={players} teams={teams}>
+    <AuthProvider apiUsers={users} players={players}>
       <AuthGuard>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />

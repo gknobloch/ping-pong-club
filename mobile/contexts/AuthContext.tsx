@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { User, Player } from '@shared/types'
 import { getDisplayName, getRoleLabel } from '@/utils/roles'
-import { mockAuthUsers, mockAuthPlayers } from '@/mock/authData'
 
 const STORAGE_KEY = 'ping-pong-club-user-id'
 
@@ -29,9 +28,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // ---------------------------------------------------------------------------
 interface AuthProviderProps {
   children: React.ReactNode
-  /** API users — merged with bundled mock users; may be empty before API loads */
   apiUsers?: User[]
-  /** API players — used for display names; falls back to bundled mock players */
   players?: Player[]
 }
 
@@ -44,17 +41,9 @@ export function AuthProvider({ children, apiUsers = [], players = [] }: AuthProv
     })
   }, [])
 
-  // Merge: bundled mock users are always present; API users are added if not already there
-  const allUsers = useMemo<User[]>(() => {
-    const extra = apiUsers.filter((u) => !mockAuthUsers.some((m) => m.id === u.id))
-    return [...mockAuthUsers, ...extra]
-  }, [apiUsers])
+  const allUsers = useMemo<User[]>(() => apiUsers, [apiUsers])
 
-  // Players: prefer API data (more complete), fall back to mock for display names
-  const allPlayers = useMemo<Player[]>(() => {
-    if (players.length > 0) return players
-    return mockAuthPlayers as Player[]
-  }, [players])
+  const allPlayers = useMemo<Player[]>(() => players, [players])
 
   const user = useMemo(
     () => (userId ? (allUsers.find((u) => u.id === userId) ?? null) : null),
