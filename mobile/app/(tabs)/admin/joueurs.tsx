@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FlatList, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native'
+import { FlatList, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native'
 import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'

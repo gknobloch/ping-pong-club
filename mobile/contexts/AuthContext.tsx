@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { User, Player, Team } from '@shared/types'
+import type { User, Player } from '@shared/types'
 import { getDisplayName, getRoleLabel } from '@/utils/roles'
 import { mockAuthUsers, mockAuthPlayers } from '@/mock/authData'
 
@@ -33,10 +33,9 @@ interface AuthProviderProps {
   apiUsers?: User[]
   /** API players — used for display names; falls back to bundled mock players */
   players?: Player[]
-  teams?: Team[]
 }
 
-export function AuthProvider({ children, apiUsers = [], players = [], teams: _teams = [] }: AuthProviderProps) {
+export function AuthProvider({ children, apiUsers = [], players = [] }: AuthProviderProps) {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
