@@ -479,19 +479,21 @@ export default function HomeScreen() {
   }
 
   // ---------------------------------------------------------------------------
-  // Current-week games for the active team
+  // Upcoming games for the active team (current week onwards)
   // ---------------------------------------------------------------------------
   const currentWeekGames = useMemo(() => {
     if (!myActiveTeam) return []
-    const weekEnd = (() => {
-      const d = new Date(currentWeekMonday + 'T12:00:00')
-      d.setDate(d.getDate() + 6)
-      return d.toISOString().slice(0, 10)
-    })()
-    return getTeamGames(myActiveTeam.id).filter((g) => {
-      const md = mdMap.get(g.matchDayId)
-      return md && md.date >= currentWeekMonday && md.date <= weekEnd
-    })
+    return getTeamGames(myActiveTeam.id)
+      .filter((g) => {
+        const md = mdMap.get(g.matchDayId)
+        // Include if the game's calendar week has not ended yet
+        return md && getMondayOf(md.date) >= currentWeekMonday
+      })
+      .sort((a, b) => {
+        const da = mdMap.get(a.matchDayId)?.date ?? ''
+        const db = mdMap.get(b.matchDayId)?.date ?? ''
+        return da.localeCompare(db) // soonest first
+      })
   }, [myActiveTeam, games, mdMap, currentWeekMonday]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
@@ -590,10 +592,10 @@ export default function HomeScreen() {
         {/* ── Player dashboard ── */}
         {isPlayer && myActiveTeam && (
           <>
-            {/* Current week */}
-            <SectionHeader title="Cette semaine" />
+            {/* Upcoming games */}
+            <SectionHeader title="Prochains matchs" />
             {currentWeekGames.length === 0 ? (
-              <Text style={styles.empty}>Pas de match cette semaine.</Text>
+              <Text style={styles.empty}>Pas de prochain match.</Text>
             ) : (
               currentWeekGames.map((game) => {
                 const md = mdMap.get(game.matchDayId)!
