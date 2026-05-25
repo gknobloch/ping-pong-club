@@ -88,6 +88,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<DataState>(mockFallback)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [apiAvailable, setApiAvailable] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,8 +99,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const data: Partial<DataState> = await res.json()
       // Merge: use API data where present, fall back to mock for missing fields
       setState((prev) => ({ ...prev, ...data }))
+      setApiAvailable(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur réseau')
+      setApiAvailable(false)
     } finally {
       setLoading(false)
     }
@@ -111,7 +114,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const setAvailability = useCallback(
     async (playerId: string, gameId: string, status: AvailabilityStatus) => {
-      // Optimistic update
+      // Optimistic update always applies immediately
       setState((prev) => {
         const existing = prev.gameAvailabilities.find(
           (a) => a.playerId === playerId && a.gameId === gameId,
@@ -132,13 +135,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ],
         }
       })
-      fetch(apiUrl('/availability'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId, gameId, status }),
-      }).catch(console.error)
+      // Only persist to API when server was reachable at startup
+      if (apiAvailable) {
+        fetch(apiUrl('/availability'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, gameId, status }),
+        }).catch(() => {})
+      }
     },
-    [],
+    [apiAvailable],
   )
 
   const setGameSelection = useCallback(
@@ -165,13 +171,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ],
         }
       })
-      fetch(apiUrl('/game-selections'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, gameId, playerIds }),
-      }).catch(console.error)
+      if (apiAvailable) {
+        fetch(apiUrl('/game-selections'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId, gameId, playerIds }),
+        }).catch(() => {})
+      }
     },
-    [],
+    [apiAvailable],
   )
 
   const value = useMemo<DataContextValue>(

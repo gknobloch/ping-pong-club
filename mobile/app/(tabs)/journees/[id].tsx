@@ -1,11 +1,21 @@
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native'
 import { useLocalSearchParams, useNavigation } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { formatWeekRange } from './index'
 import type { AvailabilityStatus } from '@shared/types'
+
+// ---------------------------------------------------------------------------
+// Week helpers
+// ---------------------------------------------------------------------------
+function getSundayOf(mondayStr: string): string {
+  const d = new Date(mondayStr + 'T12:00:00')
+  d.setDate(d.getDate() + 6)
+  return d.toISOString().slice(0, 10)
+}
 
 // ---------------------------------------------------------------------------
 // Availability pill
@@ -106,26 +116,46 @@ const selStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
-export default function MatchDayDetailScreen() {
+export default function WeekDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const navigation = useNavigation()
   const { matchDays, games, teams, clubs, players, divisions, groups, gameAvailabilities, gameSelections, setAvailability, setGameSelection } = useAppData()
   const { user } = useAuth()
 
-  const matchDay = matchDays.find((md) => md.id === id)
-  const dayGames = games.filter((g) => g.matchDayId === id)
-
-  // Selection state: gameId → teamId → Set of playerIds
-  const [pendingSelections, setPendingSelections] = useState<Record<string, string[]>>({})
+  // id is a Monday date string e.g. "2025-09-22"
+  const mondayStr = id ?? ''
+  const sundayStr = mondayStr ? getSundayOf(mondayStr) : ''
 
   useEffect(() => {
-    if (matchDay) navigation.setOptions({ title: `Journée ${matchDay.number}` })
-  }, [matchDay, navigation])
+    if (mondayStr) navigation.setOptions({ title: formatWeekRange(mondayStr) })
+  }, [mondayStr, navigation])
 
-  if (!matchDay) {
+  // All matchDays in this calendar week
+  const weekMatchDays = useMemo(
+    () => matchDays.filter((md) => md.date >= mondayStr && md.date <= sundayStr),
+    [matchDays, mondayStr, sundayStr],
+  )
+
+  // All games for this week, sorted by our team's number
+  // "Our" teams are identified by having a roster (playerIds.length > 0)
+  const weekGames = useMemo(() => {
+    const mds = new Set(weekMatchDays.map((md) => md.id))
+    return games
+      .filter((g) => mds.has(g.matchDayId))
+      .sort((a, b) => {
+        const ourTeam = (g: typeof a) =>
+          teams.find((t) => (t.id === g.homeTeamId || t.id === g.awayTeamId) && t.playerIds.length > 0)
+        return (ourTeam(a)?.number ?? 99) - (ourTeam(b)?.number ?? 99)
+      })
+  }, [games, weekMatchDays, teams])
+
+  // Selection state: "gameId:teamId" → playerIds
+  const [pendingSelections, setPendingSelections] = useState<Record<string, string[]>>({})
+
+  if (!mondayStr) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.notFound}>Journée introuvable.</Text>
+        <Text style={styles.notFound}>Semaine introuvable.</Text>
       </SafeAreaView>
     )
   }
@@ -135,7 +165,6 @@ export default function MatchDayDetailScreen() {
   }
 
   function getSelection(teamId: string, gameId: string): string[] {
-    // Use pending override if present, otherwise saved
     const key = `${gameId}:${teamId}`
     if (pendingSelections[key] !== undefined) return pendingSelections[key]
     return gameSelections.find((s) => s.teamId === teamId && s.gameId === gameId)?.playerIds ?? []
@@ -172,55 +201,70 @@ export default function MatchDayDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Date header */}
-        <View style={styles.dateCard}>
-          <Text style={styles.dateLabel}>
-            {new Date(matchDay.date).toLocaleDateString('fr-FR', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+        {/* Week summary header */}
+        <View style={styles.headerCard}>
+          <Text style={styles.headerTitle}>{formatWeekRange(mondayStr)}</Text>
+          <Text style={styles.headerMeta}>
+            {weekGames.length} match{weekGames.length !== 1 ? 's' : ''}
           </Text>
-          <Text style={styles.gameCount}>{dayGames.length} match{dayGames.length > 1 ? 's' : ''}</Text>
         </View>
 
-        {/* Games */}
-        {dayGames.map((game) => {
+        {/* Games ordered by team number */}
+        {weekGames.map((game) => {
           const homeTeam = teams.find((t) => t.id === game.homeTeamId)
           const awayTeam = teams.find((t) => t.id === game.awayTeamId)
           const homeTeamName = homeTeam ? getTeamName(homeTeam, clubs) : '?'
           const awayTeamName = awayTeam ? getTeamName(awayTeam, clubs) : '?'
+          const ourTeam = [homeTeam, awayTeam].find((t) => t && t.playerIds.length > 0) ?? null
 
-          // Find the division to know playersPerGame
-          const group = groups.find((g) => homeTeam && g.teamIds?.includes(homeTeam.id))
+          // Division via group
+          const group = groups.find((g) => ourTeam && g.teamIds?.includes(ourTeam.id))
           const division = divisions.find((d) => d.id === group?.divisionId)
           const playersPerGame = division?.playersPerGame ?? 4
 
-          // Determine which team(s) the current user can manage
-          const userTeams = [homeTeam, awayTeam].filter(
+          // Game date (from its matchDay)
+          const matchDay = matchDays.find((md) => md.id === game.matchDayId)
+          const gameDate = matchDay
+            ? new Date(matchDay.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })
+            : null
+
+          // Which teams the current user can manage
+          const manageableTeams = [homeTeam, awayTeam].filter(
             (t) => t && user && canManageTeam(user, t.id),
           )
 
-          // Own availability (if user is a player)
           const myPlayerId = user?.playerId
           const myAvail = myPlayerId ? getAvailability(myPlayerId, game.id) : undefined
+          const userIsInThisGame =
+            myPlayerId &&
+            ourTeam &&
+            ourTeam.playerIds.includes(myPlayerId)
+
+          const roundLabel = ourTeam ? `Équipe ${ourTeam.number}` : null
 
           return (
             <View key={game.id} style={styles.gameCard}>
-              {/* Match header */}
+              {/* Game header */}
               <View style={styles.gameHeader}>
+                {roundLabel && <Text style={styles.teamLabel}>{roundLabel}</Text>}
                 <Text style={styles.gameTitle}>
                   {homeTeamName} – {awayTeamName}
                 </Text>
-                {game.time && <Text style={styles.gameTime}>🕐 {game.time}</Text>}
+                <View style={styles.gameMeta}>
+                  {gameDate && <Text style={styles.gameMetaText}>{gameDate}</Text>}
+                  {game.time && <Text style={styles.gameMetaText}>🕐 {game.time}</Text>}
+                </View>
                 {division && (
                   <Text style={styles.divisionLabel}>{division.displayName}</Text>
                 )}
               </View>
 
-              {/* My availability */}
-              {myPlayerId && (
+              {/* My availability (only if user is on this team's roster) */}
+              {userIsInThisGame && myPlayerId && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Ma disponibilité</Text>
                   <AvailabilityPicker
@@ -231,7 +275,7 @@ export default function MatchDayDetailScreen() {
               )}
 
               {/* Captain selection panels */}
-              {userTeams.map((team) => {
+              {manageableTeams.map((team) => {
                 if (!team) return null
                 const teamPlayers = (team.playerIds ?? [])
                   .map((pid) => players.find((p) => p.id === pid))
@@ -265,7 +309,12 @@ export default function MatchDayDetailScreen() {
                             onToggle={() => togglePlayerSelection(game.id, team.id, p.id, playersPerGame)}
                           />
                           {avail && (
-                            <Text style={[styles.availDot, { color: AVAIL_OPTIONS.find((o) => o.status === avail)?.color }]}>
+                            <Text
+                              style={[
+                                styles.availDot,
+                                { color: AVAIL_OPTIONS.find((o) => o.status === avail)?.color },
+                              ]}
+                            >
                               ●
                             </Text>
                           )}
@@ -282,9 +331,9 @@ export default function MatchDayDetailScreen() {
           )
         })}
 
-        {dayGames.length === 0 && (
+        {weekGames.length === 0 && (
           <View style={styles.emptyCard}>
-            <Text style={styles.empty}>Aucun match pour cette journée.</Text>
+            <Text style={styles.empty}>Aucun match pour cette semaine.</Text>
           </View>
         )}
       </ScrollView>
@@ -296,7 +345,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: 16, gap: 12 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
-  dateCard: {
+
+  headerCard: {
     backgroundColor: colors.primary,
     borderRadius: 12,
     padding: 16,
@@ -304,8 +354,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dateLabel: { fontSize: 15, fontWeight: '600', color: '#fff', flex: 1 },
-  gameCount: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+  headerTitle: { fontSize: 15, fontWeight: '600', color: '#fff', flex: 1 },
+  headerMeta: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+
   gameCard: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -314,8 +365,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   gameHeader: { padding: 14, gap: 4, borderBottomWidth: 1, borderBottomColor: colors.border },
+  teamLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
   gameTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  gameTime: { fontSize: 13, color: colors.textSecondary },
+  gameMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
+  gameMetaText: { fontSize: 13, color: colors.textSecondary },
   divisionLabel: {
     fontSize: 11,
     fontWeight: '600',
@@ -325,10 +385,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
+    marginTop: 2,
   },
+
   section: { padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 8 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   saveBtn: { backgroundColor: colors.accent, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
   saveBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   playerSelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
