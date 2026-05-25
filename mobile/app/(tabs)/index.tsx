@@ -14,7 +14,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
-import type { AvailabilityStatus, Player, Team } from '@shared/types'
+import { computeBrulage, isPlayerEligibleForTeam } from '@/utils/brulage'
+import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
 
 // ---------------------------------------------------------------------------
 // Week helpers
@@ -33,10 +34,12 @@ function todayIso(): string {
 // ---------------------------------------------------------------------------
 // Availability config
 // ---------------------------------------------------------------------------
-const AVAIL: Record<AvailabilityStatus, { label: string; color: string; bg: string }> = {
-  available:   { label: 'Disponible',   color: '#16a34a', bg: '#dcfce7' },
-  maybe:       { label: 'Peut-être',    color: '#d97706', bg: '#fef3c7' },
-  unavailable: { label: 'Indisponible', color: '#dc2626', bg: '#fee2e2' },
+const ALL_STATUSES: AvailabilityStatus[] = ['available', 'maybe', 'unavailable']
+
+const AVAIL: Record<AvailabilityStatus, { short: string; color: string; bg: string }> = {
+  available:   { short: 'OUI', color: '#16a34a', bg: '#dcfce7' },
+  maybe:       { short: 'PE',  color: '#d97706', bg: '#fef3c7' },
+  unavailable: { short: 'NON', color: '#dc2626', bg: '#fee2e2' },
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +52,33 @@ interface GameHistoryEntry {
   isPast: boolean
 }
 
+interface SelectionData {
+  matchDayId: string
+  allClubPlayers: Player[]
+  clubTeams: Team[]
+  matchDays: MatchDay[]
+  games: Game[]
+  gameSelections: GameSelection[]
+}
+
+// ---------------------------------------------------------------------------
+// Color helper — converts #rrggbb to rgba() for semi-transparent backgrounds
+// ---------------------------------------------------------------------------
+function hexToRgba(hex: string, alpha: number): string {
+  try {
+    const h = hex.startsWith('#') && hex.length === 4
+      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+      : hex
+    const r = parseInt(h.slice(1, 3), 16)
+    const g = parseInt(h.slice(3, 5), 16)
+    const b = parseInt(h.slice(5, 7), 16)
+    if (isNaN(r) || isNaN(g) || isNaN(b)) throw new Error('bad hex')
+    return `rgba(${r},${g},${b},${alpha})`
+  } catch {
+    return `rgba(59,130,246,${alpha})`
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Player info modal
 // ---------------------------------------------------------------------------
@@ -57,18 +87,24 @@ function PlayerModal({
   phaseGamesPlayed,
   phasePoints,
   gameHistory,
+  playerTeam,
+  brulageTeam,
   onClose,
 }: {
   player: Player
   phaseGamesPlayed: number
   phasePoints: string | undefined
   gameHistory: GameHistoryEntry[]
+  /** The team the player is registered with in the active phase. */
+  playerTeam: Team | null
+  /** The team the player is brûlé into (null = not burned). */
+  brulageTeam: Team | null
   onClose: () => void
 }) {
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={modal.backdrop} onPress={onClose}>
-        <Pressable style={modal.sheet} onPress={() => {}}>
+        <View style={modal.sheet} onStartShouldSetResponder={() => true}>
           <View style={modal.handle} />
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={modal.name}>{player.firstName} {player.lastName}</Text>
@@ -76,13 +112,15 @@ function PlayerModal({
               <ModalRow label="Licence" value={player.licenseNumber} />
               {phasePoints ? <ModalRow label="Points (phase)" value={phasePoints} /> : null}
               <ModalRow label="Matchs joués" value={String(phaseGamesPlayed)} />
+              {playerTeam ? <ModalTeamRow label="Équipe" team={playerTeam} /> : null}
+              {brulageTeam ? <ModalTeamRow label="Brûlage" team={brulageTeam} burned /> : null}
               {player.phone ? <ModalRow label="Téléphone" value={player.phone} /> : null}
               {player.email ? <ModalRow label="Email" value={player.email} /> : null}
             </View>
 
             {gameHistory.length > 0 && (
               <View style={modal.historySection}>
-                <Text style={modal.historyTitle}>Historique</Text>
+                <Text style={modal.historyTitle}>Historique (phase en cours)</Text>
                 {gameHistory.map((entry, i) => {
                   const date = new Date(entry.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
                     day: 'numeric', month: 'short',
@@ -105,7 +143,7 @@ function PlayerModal({
               <Text style={modal.closeTxt}>Fermer</Text>
             </TouchableOpacity>
           </ScrollView>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   )
@@ -116,6 +154,21 @@ function ModalRow({ label, value }: { label: string; value: string }) {
     <View style={modal.row}>
       <Text style={modal.label}>{label}</Text>
       <Text style={modal.value}>{value}</Text>
+    </View>
+  )
+}
+
+function ModalTeamRow({ label, team, burned = false }: { label: string; team: Team; burned?: boolean }) {
+  const tc = team.color ?? colors.accent
+  const bg = hexToRgba(tc, 0.1)
+  const teamLabel = burned ? `Brûlé — Équipe ${team.number}` : `Équipe ${team.number}`
+  return (
+    <View style={modal.row}>
+      <Text style={modal.label}>{label}</Text>
+      <View style={[modal.teamBadge, { borderColor: tc, backgroundColor: bg }]}>
+        <View style={[modal.teamDot, { backgroundColor: tc }]} />
+        <Text style={[modal.teamBadgeTxt, { color: tc }]}>{teamLabel}</Text>
+      </View>
     </View>
   )
 }
@@ -147,7 +200,14 @@ const modal = StyleSheet.create({
   historyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
   historyText: { fontSize: 14, color: colors.textPrimary },
   historyDate: { fontSize: 13, color: colors.textSecondary },
-  historyPast: { color: colors.border },
+  historyPast: { color: '#94a3b8' },
+  teamBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1.5, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 3,
+  },
+  teamDot: { width: 7, height: 7, borderRadius: 4 },
+  teamBadgeTxt: { fontSize: 13, fontWeight: '600' },
   closeBtn: {
     backgroundColor: colors.bg, borderRadius: 10,
     padding: 14, alignItems: 'center', marginTop: 20,
@@ -156,55 +216,7 @@ const modal = StyleSheet.create({
 })
 
 // ---------------------------------------------------------------------------
-// Availability pills
-// ---------------------------------------------------------------------------
-function AvailabilityPicker({
-  current,
-  disabled,
-  onChange,
-}: {
-  current: AvailabilityStatus | undefined
-  disabled: boolean
-  onChange: (s: AvailabilityStatus) => void
-}) {
-  return (
-    <View style={av.row}>
-      {(Object.entries(AVAIL) as [AvailabilityStatus, typeof AVAIL[AvailabilityStatus]][]).map(([status, cfg]) => {
-        const active = current === status
-        return (
-          <TouchableOpacity
-            key={status}
-            disabled={disabled}
-            onPress={() => onChange(status)}
-            style={[
-              av.pill,
-              { backgroundColor: active ? cfg.bg : colors.bg },
-              active && { borderColor: cfg.color },
-              disabled && av.pillDisabled,
-            ]}
-          >
-            <Text style={[av.pillTxt, { color: active ? cfg.color : colors.textSecondary }]}>
-              {cfg.label}
-            </Text>
-          </TouchableOpacity>
-        )
-      })}
-    </View>
-  )
-}
-
-const av = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8 },
-  pill: {
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 20, borderWidth: 1.5, borderColor: colors.border,
-  },
-  pillDisabled: { opacity: 0.45 },
-  pillTxt: { fontSize: 12, fontWeight: '500' },
-})
-
-// ---------------------------------------------------------------------------
-// Player row — inline availability, expandable picker
+// Player row — always-visible compact OUI/PE/NON pills
 // ---------------------------------------------------------------------------
 function PlayerRow({
   player,
@@ -213,8 +225,6 @@ function PlayerRow({
   isMe,
   canEdit,
   gameDatePast,
-  expanded,
-  onToggleExpand,
   onPickAvailability,
   onPressName,
 }: {
@@ -222,61 +232,56 @@ function PlayerRow({
   availability: AvailabilityStatus | undefined
   selected: boolean
   isMe: boolean
-  canEdit: boolean        // captain can edit anyone; player only edits self
+  canEdit: boolean
   gameDatePast: boolean
-  expanded: boolean
-  onToggleExpand: () => void
   onPickAvailability: (s: AvailabilityStatus) => void
   onPressName: () => void
 }) {
-  const cfg = availability ? AVAIL[availability] : null
-  const showPicker = expanded && canEdit && !gameDatePast
-
   return (
-    <View style={pr.wrapper}>
-      <TouchableOpacity
-        style={pr.row}
-        onPress={canEdit && !gameDatePast ? onToggleExpand : undefined}
-        activeOpacity={canEdit && !gameDatePast ? 0.6 : 1}
-      >
-        {/* Selection check */}
-        {selected ? (
-          <View style={pr.checkBadge}><Text style={pr.checkTxt}>✓</Text></View>
-        ) : (
-          <View style={pr.checkPlaceholder} />
-        )}
+    <View style={pr.row}>
+      {selected ? (
+        <View style={pr.checkBadge}><Text style={pr.checkTxt}>✓</Text></View>
+      ) : (
+        <View style={pr.checkPlaceholder} />
+      )}
 
-        {/* Name */}
-        <TouchableOpacity style={pr.nameBtn} onPress={onPressName}>
-          <Text style={[pr.name, isMe && pr.nameMe]} numberOfLines={1}>
-            {player.firstName} {player.lastName}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Inline availability chip */}
-        {cfg ? (
-          <View style={[pr.availChip, { backgroundColor: cfg.bg }]}>
-            <Text style={[pr.availTxt, { color: cfg.color }]}>{cfg.label}</Text>
-          </View>
-        ) : (
-          <Text style={pr.noAvail}>—</Text>
-        )}
+      <TouchableOpacity style={pr.nameBtn} onPress={onPressName}>
+        <Text style={[pr.name, isMe && pr.nameMe]} numberOfLines={1}>
+          {player.firstName} {player.lastName}
+        </Text>
       </TouchableOpacity>
 
-      {showPicker && (
-        <AvailabilityPicker
-          current={availability}
-          disabled={false}
-          onChange={onPickAvailability}
-        />
-      )}
+      <View style={pr.pills}>
+        {ALL_STATUSES.map((status) => {
+          const cfg = AVAIL[status]
+          const active = availability === status
+          const editable = canEdit && !gameDatePast
+          return (
+            <TouchableOpacity
+              key={status}
+              disabled={!editable}
+              onPress={() => onPickAvailability(status)}
+              style={[
+                pr.pill,
+                active
+                  ? { backgroundColor: cfg.bg, borderColor: cfg.color }
+                  : { borderColor: colors.border },
+                !editable && pr.pillDisabled,
+              ]}
+            >
+              <Text style={[pr.pillTxt, { color: active ? cfg.color : colors.textSecondary }]}>
+                {cfg.short}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
     </View>
   )
 }
 
 const pr = StyleSheet.create({
-  wrapper: { paddingVertical: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5 },
   checkBadge: {
     width: 18, height: 18, borderRadius: 9,
     backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
@@ -286,13 +291,18 @@ const pr = StyleSheet.create({
   nameBtn: { flex: 1 },
   name: { fontSize: 14, color: colors.textPrimary },
   nameMe: { fontWeight: '700', color: colors.accent },
-  availChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
-  availTxt: { fontSize: 11, fontWeight: '600' },
-  noAvail: { fontSize: 12, color: colors.border, minWidth: 14, textAlign: 'right' },
+  pills: { flexDirection: 'row', gap: 5 },
+  pill: {
+    width: 44, paddingVertical: 6,
+    borderRadius: 8, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pillDisabled: { opacity: 0.5 },
+  pillTxt: { fontSize: 11, fontWeight: '700' },
 })
 
 // ---------------------------------------------------------------------------
-// Captain selection sheet
+// Captain selection sheet — two sections: team players + eligible others
 // ---------------------------------------------------------------------------
 function CaptainSelectionSheet({
   team,
@@ -301,19 +311,30 @@ function CaptainSelectionSheet({
   playersPerGame,
   getAvailability,
   initialSelection,
+  selectionData,
   onSave,
   onClose,
 }: {
   team: Team
   teamPlayers: Player[]
-  clubs: ReturnType<typeof useAppData>['clubs']
+  clubs: Club[]
   playersPerGame: number
   getAvailability: (pid: string) => AvailabilityStatus | undefined
   initialSelection: string[]
+  selectionData: SelectionData
   onSave: (playerIds: string[]) => void
   onClose: () => void
 }) {
   const [selection, setSelection] = useState<string[]>(initialSelection)
+  const { matchDayId, allClubPlayers, clubTeams, matchDays, games, gameSelections } = selectionData
+
+  const eligibleOthers = useMemo(() => {
+    const teamPlayerIds = new Set(teamPlayers.map((p) => p.id))
+    return allClubPlayers.filter((p) => {
+      if (teamPlayerIds.has(p.id)) return false
+      return isPlayerEligibleForTeam(p.id, team, clubTeams, matchDays, games, gameSelections, matchDayId)
+    })
+  }, [allClubPlayers, teamPlayers, team, clubTeams, matchDays, games, gameSelections, matchDayId])
 
   function toggle(pid: string) {
     setSelection((prev) => {
@@ -326,37 +347,48 @@ function CaptainSelectionSheet({
     })
   }
 
+  function renderPlayerRow(p: Player) {
+    const avail = getAvailability(p.id)
+    const picked = selection.includes(p.id)
+    const cfg = avail ? AVAIL[avail] : null
+    return (
+      <TouchableOpacity key={p.id} style={sel.playerRow} onPress={() => toggle(p.id)}>
+        <View style={[sel.check, picked && sel.checkActive]}>
+          {picked && <Text style={sel.checkMark}>✓</Text>}
+        </View>
+        <Text style={[sel.playerName, picked && sel.playerNamePicked]}>
+          {p.firstName} {p.lastName}
+        </Text>
+        {cfg ? (
+          <View style={[sel.availChip, { backgroundColor: cfg.bg }]}>
+            <Text style={[sel.availTxt, { color: cfg.color }]}>{cfg.short}</Text>
+          </View>
+        ) : (
+          <Text style={sel.noAvail}>—</Text>
+        )}
+      </TouchableOpacity>
+    )
+  }
+
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={sel.backdrop} onPress={onClose}>
-        <Pressable style={sel.sheet} onPress={() => {}}>
+        {/* View + onStartShouldSetResponder stops backdrop from closing when tapping
+            the sheet, without competing with nested TouchableOpacity rows */}
+        <View style={sel.sheet} onStartShouldSetResponder={() => true}>
           <View style={sel.handle} />
           <Text style={sel.title}>
             Sélection — {getTeamName(team, clubs)} ({selection.length}/{playersPerGame})
           </Text>
           <ScrollView style={sel.list} showsVerticalScrollIndicator={false}>
-            {teamPlayers.map((p) => {
-              const avail = getAvailability(p.id)
-              const picked = selection.includes(p.id)
-              const cfg = avail ? AVAIL[avail] : null
-              return (
-                <TouchableOpacity key={p.id} style={sel.playerRow} onPress={() => toggle(p.id)}>
-                  <View style={[sel.check, picked && sel.checkActive]}>
-                    {picked && <Text style={sel.checkMark}>✓</Text>}
-                  </View>
-                  <Text style={[sel.playerName, picked && sel.playerNamePicked]}>
-                    {p.firstName} {p.lastName}
-                  </Text>
-                  {cfg ? (
-                    <View style={[sel.availChip, { backgroundColor: cfg.bg }]}>
-                      <Text style={[sel.availTxt, { color: cfg.color }]}>{cfg.label}</Text>
-                    </View>
-                  ) : (
-                    <Text style={sel.noAvail}>—</Text>
-                  )}
-                </TouchableOpacity>
-              )
-            })}
+            <Text style={sel.sectionLabel}>Cette équipe</Text>
+            {teamPlayers.map(renderPlayerRow)}
+            {eligibleOthers.length > 0 && (
+              <>
+                <Text style={sel.sectionLabel}>Autres joueurs</Text>
+                {eligibleOthers.map(renderPlayerRow)}
+              </>
+            )}
           </ScrollView>
           <View style={sel.actions}>
             <TouchableOpacity style={sel.cancelBtn} onPress={onClose}>
@@ -366,7 +398,7 @@ function CaptainSelectionSheet({
               <Text style={sel.saveTxt}>Enregistrer</Text>
             </TouchableOpacity>
           </View>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   )
@@ -382,7 +414,11 @@ const sel = StyleSheet.create({
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12,
   },
-  title: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
+  title: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
+  sectionLabel: {
+    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4,
+  },
   list: { marginBottom: 16 },
   playerRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -413,10 +449,12 @@ const sel = StyleSheet.create({
 })
 
 // ---------------------------------------------------------------------------
-// Game card — upcoming (availability editing + optional captain selection)
+// Game card — handles both upcoming (full roster + pills) and past (selected
+// players only); captain always gets the › chevron to edit selection
 // ---------------------------------------------------------------------------
-function CurrentWeekGameCard({
+function GameCard({
   game,
+  matchDayNumber,
   matchDayDate,
   teamName,
   opponentName,
@@ -427,84 +465,108 @@ function CurrentWeekGameCard({
   playersPerGame,
   myPlayerId,
   isCaptain,
+  isPast,
+  selectedPlayers,
+  initialSelectionIds,
   getAvailability,
   getSelected,
   onPickAvailability,
   onPlayerPress,
   onSaveSelection,
+  selectionData,
 }: {
   game: { id: string; time?: string }
+  matchDayNumber: number
   matchDayDate: string
   teamName: string
   opponentName: string
   divisionLabel: string | undefined
   team: Team
   teamPlayers: Player[]
-  clubs: ReturnType<typeof useAppData>['clubs']
+  clubs: Club[]
   playersPerGame: number
   myPlayerId: string | undefined
   isCaptain: boolean
+  isPast: boolean
+  /** Pre-resolved selected players for past view (may include non-roster borrowed players). */
+  selectedPlayers: Player[]
+  /** All currently selected player IDs for this game — passed straight from the parent
+   *  so borrowed (non-roster) players are included in the selection sheet's initial state. */
+  initialSelectionIds: string[]
   getAvailability: (pid: string) => AvailabilityStatus | undefined
   getSelected: (pid: string) => boolean
   onPickAvailability: (pid: string, status: AvailabilityStatus) => void
   onPlayerPress: (p: Player) => void
   onSaveSelection: (playerIds: string[]) => void
+  selectionData: SelectionData
 }) {
   const today = todayIso()
   const gameDatePast = matchDayDate < today
-  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [showSelection, setShowSelection] = useState(false)
 
   const dateLabel = new Date(matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
 
-  function handleToggleExpand(pid: string) {
-    setExpandedPlayer((prev) => (prev === pid ? null : pid))
-  }
+  // Use the parent-supplied IDs so borrowed (non-roster) players stay checked
+  const initialSelection = initialSelectionIds
 
-  const initialSelection = teamPlayers.map((p) => p.id).filter((id) => getSelected(id))
+  const header = (
+    <View style={gc.header}>
+      <View style={gc.headerTop}>
+        <View style={gc.headerInfo}>
+          <Text style={gc.title}>{teamName} – {opponentName}</Text>
+          <Text style={gc.meta}>{dateLabel}{!isPast && game.time ? `  🕐 ${game.time}` : ''}</Text>
+          <View style={gc.badges}>
+            <Text style={gc.badge}>J{matchDayNumber}</Text>
+            {divisionLabel ? <Text style={gc.badge}>{divisionLabel}</Text> : null}
+          </View>
+        </View>
+        {isCaptain && (
+          <TouchableOpacity style={gc.chevronBtn} onPress={() => setShowSelection(true)}>
+            <Text style={gc.chevron}>›</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  )
 
   return (
     <View style={gc.container}>
-      <View style={gc.header}>
-        <View style={gc.headerTop}>
-          <View style={gc.headerInfo}>
-            <Text style={gc.title}>{teamName} – {opponentName}</Text>
-            <Text style={gc.meta}>{dateLabel}{game.time ? `  🕐 ${game.time}` : ''}</Text>
-            {divisionLabel && <Text style={gc.division}>{divisionLabel}</Text>}
-          </View>
-          {isCaptain && !gameDatePast && (
-            <TouchableOpacity style={gc.selBtn} onPress={() => setShowSelection(true)}>
-              <Text style={gc.selBtnTxt}>Sélection</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      {header}
 
-      <View style={gc.body}>
-        {teamPlayers.map((p) => {
-          const canEdit = isCaptain || p.id === myPlayerId
-          return (
-            <PlayerRow
-              key={p.id}
-              player={p}
-              availability={getAvailability(p.id)}
-              selected={getSelected(p.id)}
-              isMe={p.id === myPlayerId}
-              canEdit={canEdit}
-              gameDatePast={gameDatePast}
-              expanded={expandedPlayer === p.id}
-              onToggleExpand={() => handleToggleExpand(p.id)}
-              onPickAvailability={(status) => {
-                onPickAvailability(p.id, status)
-                setExpandedPlayer(null)
-              }}
-              onPressName={() => onPlayerPress(p)}
-            />
-          )
-        })}
-      </View>
+      {isPast ? (
+        // Past: show pre-resolved selected players (includes borrowed non-roster players)
+        selectedPlayers.length > 0 ? (
+          <View style={gc.body}>
+            {selectedPlayers.map((p) => (
+              <TouchableOpacity key={p.id} onPress={() => onPlayerPress(p)}>
+                <Text style={gc.pastPlayer}>{p.firstName} {p.lastName}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null
+      ) : (
+        // Upcoming: full roster with availability pills
+        <View style={gc.body}>
+          {teamPlayers.map((p) => {
+            const canEdit = isCaptain || p.id === myPlayerId
+            return (
+              <PlayerRow
+                key={p.id}
+                player={p}
+                availability={getAvailability(p.id)}
+                selected={getSelected(p.id)}
+                isMe={p.id === myPlayerId}
+                canEdit={canEdit}
+                gameDatePast={gameDatePast}
+                onPickAvailability={(status) => onPickAvailability(p.id, status)}
+                onPressName={() => onPlayerPress(p)}
+              />
+            )
+          })}
+        </View>
+      )}
 
       {showSelection && (
         <CaptainSelectionSheet
@@ -514,6 +576,7 @@ function CurrentWeekGameCard({
           playersPerGame={playersPerGame}
           getAvailability={getAvailability}
           initialSelection={initialSelection}
+          selectionData={selectionData}
           onSave={onSaveSelection}
           onClose={() => setShowSelection(false)}
         />
@@ -532,67 +595,16 @@ const gc = StyleSheet.create({
   headerInfo: { flex: 1, gap: 4 },
   title: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   meta: { fontSize: 13, color: colors.textSecondary },
-  division: {
-    alignSelf: 'flex-start', fontSize: 11, fontWeight: '600',
+  badges: { flexDirection: 'row', gap: 4, marginTop: 4 },
+  badge: {
+    fontSize: 11, fontWeight: '600',
     color: colors.accent, backgroundColor: '#eff6ff',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 2,
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
   },
-  selBtn: {
-    backgroundColor: colors.accent, paddingHorizontal: 12,
-    paddingVertical: 6, borderRadius: 8,
-  },
-  selBtnTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  body: { padding: 14, gap: 0 },
-})
-
-// ---------------------------------------------------------------------------
-// Past game card
-// ---------------------------------------------------------------------------
-function PastGameCard({
-  matchDayDate,
-  teamName,
-  opponentName,
-  selectedPlayers,
-  onPlayerPress,
-}: {
-  matchDayDate: string
-  teamName: string
-  opponentName: string
-  selectedPlayers: Player[]
-  onPlayerPress: (p: Player) => void
-}) {
-  const dateLabel = new Date(matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  })
-  return (
-    <View style={past.container}>
-      <View style={past.header}>
-        <Text style={past.title}>{teamName} – {opponentName}</Text>
-        <Text style={past.meta}>{dateLabel}</Text>
-      </View>
-      {selectedPlayers.length > 0 && (
-        <View style={past.body}>
-          {selectedPlayers.map((p) => (
-            <TouchableOpacity key={p.id} onPress={() => onPlayerPress(p)}>
-              <Text style={past.playerName}>{p.firstName} {p.lastName}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  )
-}
-
-const past = StyleSheet.create({
-  container: {
-    backgroundColor: colors.card, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: 10,
-  },
-  header: { padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 2 },
-  title: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-  meta: { fontSize: 13, color: colors.textSecondary },
-  body: { padding: 14, gap: 4 },
-  playerName: { fontSize: 14, color: colors.textSecondary, paddingVertical: 2 },
+  chevronBtn: { paddingHorizontal: 4, paddingVertical: 2 },
+  chevron: { fontSize: 28, color: colors.accent, lineHeight: 32 },
+  body: { padding: 14 },
+  pastPlayer: { fontSize: 14, color: colors.textSecondary, paddingVertical: 3 },
 })
 
 // ---------------------------------------------------------------------------
@@ -627,7 +639,7 @@ const sh = StyleSheet.create({
 // Home screen
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
-  const { user, displayName, roleLabel, logout } = useAuth()
+  const { user, displayName, logout } = useAuth()
   const {
     clubs, seasons, teams, players, matchDays, games,
     phases, divisions, groups,
@@ -643,7 +655,6 @@ export default function HomeScreen() {
 
   const myPlayerId = user?.playerId
 
-  // phaseId → team the player belongs to
   const myTeamByPhase = useMemo(() => {
     if (!myPlayerId) return new Map<string, Team>()
     const map = new Map<string, Team>()
@@ -657,7 +668,6 @@ export default function HomeScreen() {
   const myActiveTeam = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
   const isCaptain = !!(user && myActiveTeam && canManageTeam(user, myActiveTeam.id))
 
-  // Lookup maps
   const divMap = useMemo(() => new Map(divisions.map((d) => [d.id, d])), [divisions])
   const groupMap = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
   const mdMap = useMemo(() => new Map(matchDays.map((md) => [md.id, md])), [matchDays])
@@ -693,7 +703,6 @@ export default function HomeScreen() {
     return gameSelections.find((s) => s.teamId === teamId && s.gameId === gameId)?.playerIds ?? []
   }
 
-  // Upcoming games (current week + future)
   const upcomingGames = useMemo(() => {
     if (!myActiveTeam) return []
     return getTeamGames(myActiveTeam.id)
@@ -708,7 +717,6 @@ export default function HomeScreen() {
       })
   }, [myActiveTeam, games, mdMap, currentWeekMonday]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Past games in active phase
   const pastActiveGames = useMemo(() => {
     if (!myActiveTeam) return []
     return getTeamGames(myActiveTeam.id)
@@ -723,7 +731,6 @@ export default function HomeScreen() {
       })
   }, [myActiveTeam, games, mdMap, currentWeekMonday]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Previous phases
   const prevPhases = useMemo(
     () =>
       phases
@@ -753,21 +760,32 @@ export default function HomeScreen() {
     })
   }
 
-  // Player modal data
+  // Club teams in active phase (for brûlage eligibility)
+  const activeClubTeams = useMemo(() => {
+    if (!myActiveTeam || !activePhase) return []
+    return teams.filter((t) => t.clubId === myActiveTeam.clubId && t.phaseId === activePhase.id)
+  }, [teams, myActiveTeam, activePhase])
+
+  // All players from the same club (for "Autres joueurs" in selection sheet)
+  const allClubPlayers = useMemo(() => {
+    if (!myActiveTeam) return []
+    return players.filter((p) => p.clubId === myActiveTeam.clubId)
+  }, [players, myActiveTeam])
+
   function getPhasePoints(player: Player): string | undefined {
     const team = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
     return team?.rosterInitialPoints?.[player.id] ?? player.points
   }
 
-  function getGameHistoryForPlayer(player: Player): GameHistoryEntry[] {
-    // Find every team (across all phases) this player belongs to
+  function getGameHistoryForPlayer(player: Player, phaseId?: string): GameHistoryEntry[] {
     const entries: GameHistoryEntry[] = []
     for (const team of teams) {
-      if (!team.playerIds.includes(player.id)) continue
-      for (const game of getTeamGames(team.id)) {
-        const sel = getSelectedForGame(team.id, game.id)
-        if (!sel.includes(player.id)) continue // only games where they were selected
-        const md = mdMap.get(game.matchDayId)
+      if (team.clubId !== player.clubId) continue
+      if (phaseId && team.phaseId !== phaseId) continue
+      for (const g of getTeamGames(team.id)) {
+        const sel = getSelectedForGame(team.id, g.id)
+        if (!sel.includes(player.id)) continue
+        const md = mdMap.get(g.matchDayId)
         if (!md) continue
         entries.push({
           matchDayNumber: md.number,
@@ -781,8 +799,28 @@ export default function HomeScreen() {
   }
 
   function getGamesPlayedForPlayer(player: Player): number {
-    return getGameHistoryForPlayer(player).filter((e) => e.isPast).length
+    return getGameHistoryForPlayer(player, activePhase?.id).filter((e) => e.isPast).length
   }
+
+  // Player's registered team in the active phase
+  const selectedPlayerTeam = useMemo(() => {
+    if (!selectedPlayer || !activePhase) return null
+    return teams.find(
+      (t) => t.playerIds.includes(selectedPlayer.id) && t.phaseId === activePhase.id,
+    ) ?? null
+  }, [selectedPlayer, teams, activePhase])
+
+  // Brûlage for the selected player
+  const selectedPlayerBrulage = useMemo(() => {
+    if (!selectedPlayer || activeClubTeams.length === 0) return null
+    return computeBrulage(selectedPlayer.id, activeClubTeams, matchDays, games, gameSelections)
+  }, [selectedPlayer, activeClubTeams, matchDays, games, gameSelections])
+
+  // The team they are burned into (null = not burned)
+  const selectedPlayerBrulageTeam = useMemo(() => {
+    if (!selectedPlayerBrulage?.burnedIntoTeamId) return null
+    return teams.find((t) => t.id === selectedPlayerBrulage.burnedIntoTeamId) ?? null
+  }, [selectedPlayerBrulage, teams])
 
   const isPlayer = !!myPlayerId && !!myActiveTeam
   const activeSeason = seasons.find((s) => s.isActive)
@@ -791,12 +829,21 @@ export default function HomeScreen() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 3)
 
+  // Welcome card subtitle: team info or generic role label
+  const teamSubtitle = myActiveTeam
+    ? (user?.role === 'captain'
+        ? `Capitaine — Équipe ${myActiveTeam.number}`
+        : `Équipe ${myActiveTeam.number}`)
+    : null
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.welcomeCard}>
           <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
-          <Text style={styles.roleText}>{roleLabel}</Text>
+          {teamSubtitle ? (
+            <Text style={styles.roleText}>{teamSubtitle}</Text>
+          ) : null}
         </View>
 
         {/* ── Player dashboard ── */}
@@ -811,11 +858,12 @@ export default function HomeScreen() {
                 const teamPlayers = myActiveTeam.playerIds
                   .map((id) => playerMap.get(id))
                   .filter(Boolean) as Player[]
-                const selection = getSelectedForGame(myActiveTeam.id, game.id)
+                const selIds = getSelectedForGame(myActiveTeam.id, game.id)
                 return (
-                  <CurrentWeekGameCard
+                  <GameCard
                     key={game.id}
                     game={game}
+                    matchDayNumber={md.number}
                     matchDayDate={md.date}
                     teamName={getTeamName(myActiveTeam, clubs)}
                     opponentName={getOpponentName(game, myActiveTeam.id)}
@@ -826,11 +874,22 @@ export default function HomeScreen() {
                     playersPerGame={getPlayersPerGame(myActiveTeam)}
                     myPlayerId={myPlayerId}
                     isCaptain={isCaptain}
+                    isPast={false}
+                    selectedPlayers={selIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[]}
+                    initialSelectionIds={selIds}
                     getAvailability={(pid) => getAvailability(pid, game.id)}
-                    getSelected={(pid) => selection.includes(pid)}
+                    getSelected={(pid) => selIds.includes(pid)}
                     onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                     onPlayerPress={setSelectedPlayer}
                     onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
+                    selectionData={{
+                      matchDayId: game.matchDayId,
+                      allClubPlayers,
+                      clubTeams: activeClubTeams,
+                      matchDays,
+                      games,
+                      gameSelections,
+                    }}
                   />
                 )
               })
@@ -841,16 +900,41 @@ export default function HomeScreen() {
                 <SectionHeader title={`Matchs passés — ${activePhase?.displayName}`} />
                 {pastActiveGames.map((game) => {
                   const md = mdMap.get(game.matchDayId)!
-                  const sel = getSelectedForGame(myActiveTeam.id, game.id)
-                  const selectedPlayers = sel.map((id) => playerMap.get(id)).filter(Boolean) as Player[]
+                  const teamPlayers = myActiveTeam.playerIds
+                    .map((id) => playerMap.get(id))
+                    .filter(Boolean) as Player[]
+                  const selIds = getSelectedForGame(myActiveTeam.id, game.id)
                   return (
-                    <PastGameCard
+                    <GameCard
                       key={game.id}
+                      game={game}
+                      matchDayNumber={md.number}
                       matchDayDate={md.date}
                       teamName={getTeamName(myActiveTeam, clubs)}
                       opponentName={getOpponentName(game, myActiveTeam.id)}
-                      selectedPlayers={selectedPlayers}
+                      divisionLabel={getDivisionLabel(myActiveTeam)}
+                      team={myActiveTeam}
+                      teamPlayers={teamPlayers}
+                      clubs={clubs}
+                      playersPerGame={getPlayersPerGame(myActiveTeam)}
+                      myPlayerId={myPlayerId}
+                      isCaptain={isCaptain}
+                      isPast={true}
+                      selectedPlayers={selIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[]}
+                      initialSelectionIds={selIds}
+                      getAvailability={(pid) => getAvailability(pid, game.id)}
+                      getSelected={(pid) => selIds.includes(pid)}
+                      onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                       onPlayerPress={setSelectedPlayer}
+                      onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
+                      selectionData={{
+                        matchDayId: game.matchDayId,
+                        allClubPlayers,
+                        clubTeams: activeClubTeams,
+                        matchDays,
+                        games,
+                        gameSelections,
+                      }}
                     />
                   )
                 })}
@@ -861,6 +945,10 @@ export default function HomeScreen() {
               const team = myTeamByPhase.get(phase.id)!
               const phaseGames = getPrevPhaseGames(phase.id)
               const expanded = prevPhasesExpanded.has(phase.id)
+              const phaseClubTeams = teams.filter(
+                (t) => t.clubId === team.clubId && t.phaseId === phase.id,
+              )
+              const phasePlayers = players.filter((p) => p.clubId === team.clubId)
               return (
                 <View key={phase.id}>
                   <SectionHeader
@@ -869,16 +957,41 @@ export default function HomeScreen() {
                   />
                   {expanded && phaseGames.map((game) => {
                     const md = mdMap.get(game.matchDayId)!
-                    const sel = getSelectedForGame(team.id, game.id)
-                    const selectedPlayers = sel.map((id) => playerMap.get(id)).filter(Boolean) as Player[]
+                    const teamPlayers = team.playerIds
+                      .map((id) => playerMap.get(id))
+                      .filter(Boolean) as Player[]
+                    const selIds = getSelectedForGame(team.id, game.id)
                     return (
-                      <PastGameCard
+                      <GameCard
                         key={game.id}
+                        game={game}
+                        matchDayNumber={md.number}
                         matchDayDate={md.date}
                         teamName={getTeamName(team, clubs)}
                         opponentName={getOpponentName(game, team.id)}
-                        selectedPlayers={selectedPlayers}
+                        divisionLabel={getDivisionLabel(team)}
+                        team={team}
+                        teamPlayers={teamPlayers}
+                        clubs={clubs}
+                        playersPerGame={getPlayersPerGame(team)}
+                        myPlayerId={myPlayerId}
+                        isCaptain={!!(user && canManageTeam(user, team.id))}
+                        isPast={true}
+                        selectedPlayers={selIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[]}
+                        initialSelectionIds={selIds}
+                        getAvailability={(pid) => getAvailability(pid, game.id)}
+                        getSelected={(pid) => selIds.includes(pid)}
+                        onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                         onPlayerPress={setSelectedPlayer}
+                        onSaveSelection={(playerIds) => setGameSelection(team.id, game.id, playerIds)}
+                        selectionData={{
+                          matchDayId: game.matchDayId,
+                          allClubPlayers: phasePlayers,
+                          clubTeams: phaseClubTeams,
+                          matchDays,
+                          games,
+                          gameSelections,
+                        }}
                       />
                     )
                   })}
@@ -931,7 +1044,9 @@ export default function HomeScreen() {
           player={selectedPlayer}
           phasePoints={getPhasePoints(selectedPlayer)}
           phaseGamesPlayed={getGamesPlayedForPlayer(selectedPlayer)}
-          gameHistory={getGameHistoryForPlayer(selectedPlayer)}
+          gameHistory={getGameHistoryForPlayer(selectedPlayer, activePhase?.id)}
+          playerTeam={selectedPlayerTeam}
+          brulageTeam={selectedPlayerBrulageTeam}
           onClose={() => setSelectedPlayer(null)}
         />
       )}
