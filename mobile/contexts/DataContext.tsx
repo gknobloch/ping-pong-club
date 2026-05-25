@@ -109,12 +109,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const setAvailability = useCallback(
     async (playerId: string, gameId: string, status: AvailabilityStatus) => {
-      // Optimistic update always applies immediately
+      // Determine (or generate) the record ID before the state update so we
+      // can pass the same ID to the API call.
+      let recordId = `avail-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
       setState((prev) => {
         const existing = prev.gameAvailabilities.find(
           (a) => a.playerId === playerId && a.gameId === gameId,
         )
         if (existing) {
+          recordId = existing.id   // reuse the server-assigned ID for the upsert
           return {
             ...prev,
             gameAvailabilities: prev.gameAvailabilities.map((a) =>
@@ -126,16 +130,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           gameAvailabilities: [
             ...prev.gameAvailabilities,
-            { id: `avail-${Date.now()}`, playerId, gameId, status },
+            { id: recordId, playerId, gameId, status },
           ],
         }
       })
-      // Only persist to API when server was reachable at startup
+
       if (apiAvailable) {
-        fetch(apiUrl('/availability'), {
+        fetch(apiUrl('/game-availabilities/set'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId, gameId, status }),
+          body: JSON.stringify({ id: recordId, playerId, gameId, status }),
         }).catch(() => {})
       }
     },
@@ -144,6 +148,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const setGameSelection = useCallback(
     async (teamId: string, gameId: string, playerIds: string[]) => {
+      // Always generate an ID; the server uses it only when creating a new record
+      // (existing records are updated by their DB id).
+      const id = `sel-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
       setState((prev) => {
         const existing = prev.gameSelections.find(
           (s) => s.teamId === teamId && s.gameId === gameId,
@@ -162,15 +170,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           gameSelections: [
             ...prev.gameSelections,
-            { id: `sel-${Date.now()}`, teamId, gameId, playerIds },
+            { id, teamId, gameId, playerIds },
           ],
         }
       })
+
       if (apiAvailable) {
-        fetch(apiUrl('/game-selections'), {
+        fetch(apiUrl('/game-selections/set'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamId, gameId, playerIds }),
+          body: JSON.stringify({ id, teamId, gameId, playerIds }),
         }).catch(() => {})
       }
     },
