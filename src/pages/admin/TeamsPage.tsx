@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Team } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
+import { sortByName } from '@/lib/sortByName'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -115,8 +116,8 @@ export function TeamsPage() {
   }, [allTeams, form.phaseId, editing?.id])
 
   /** Players available to add: in club, not already in this team, not in another team in the same phase. */
-  const availablePlayersToAdd = playersInClub.filter(
-    (p) => !form.playerIds.includes(p.id) && !playerIdsInOtherTeams.has(p.id)
+  const availablePlayersToAdd = sortByName(
+    playersInClub.filter((p) => !form.playerIds.includes(p.id) && !playerIdsInOtherTeams.has(p.id)),
   )
 
   const openEdit = (team: Team) => {
@@ -172,9 +173,11 @@ export function TeamsPage() {
     setCreating(false)
   }
 
-  const rosterPlayers = form.playerIds
-    .map((id) => players.find((p) => p.id === id))
-    .filter(Boolean) as typeof playersInClub
+  const rosterPlayers = sortByName(
+    form.playerIds
+      .map((id) => players.find((p) => p.id === id))
+      .filter(Boolean) as typeof playersInClub,
+  )
   const captainForSave =
     form.playerIds.length === 0
       ? ''

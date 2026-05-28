@@ -4,6 +4,7 @@ import type { MatchDay, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
+import { sortByName } from '@/lib/sortByName'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
 function TeamSelect({
@@ -424,15 +425,15 @@ export function MatchDaysPage() {
   const otherPlayers = useMemo(() => {
     if (!user?.clubIds?.length) return []
     const inRoster = new Set(myClubTeamsInPhase.flatMap((t) => t.playerIds ?? []))
-    return players
-      .filter(
+    return sortByName(
+      players.filter(
         (p) =>
           p.clubId &&
           user!.clubIds!.includes(p.clubId) &&
           p.status === 'active' &&
-          !inRoster.has(p.id)
-      )
-      .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+          !inRoster.has(p.id),
+      ),
+    )
   }, [players, user?.clubIds, myClubTeamsInPhase])
 
   const [editingMatchDay, setEditingMatchDay] = useState<MatchDay | null>(null)
@@ -899,9 +900,11 @@ export function MatchDaysPage() {
         const offset = matchDayOffsetByTeamId[team.id] ?? 0
         const visibleMatchDays = groupMatchDays.slice(offset, offset + VISIBLE_MATCH_DAY_COUNT)
         const maxOffset = Math.max(0, groupMatchDays.length - VISIBLE_MATCH_DAY_COUNT)
-        const roster = (team.playerIds ?? [])
-          .map((pid) => players.find((p) => p.id === pid))
-          .filter((p): p is Player => p != null)
+        const roster = sortByName(
+          (team.playerIds ?? [])
+            .map((pid) => players.find((p) => p.id === pid))
+            .filter((p): p is Player => p != null),
+        )
 
         const teamGamesCount = groupMatchDays.filter((md) =>
           games.some(

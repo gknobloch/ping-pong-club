@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Player as PlayerType } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
+import { sortByName } from '@/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
@@ -12,6 +13,7 @@ const STATUS_LABELS: Record<PlayerType['status'], string> = {
 export function PlayersPage() {
   const { user } = useAuth()
   const { players: allPlayers, clubs, updatePlayer, addPlayer } = useAppData()
+  const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<PlayerType | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({
@@ -33,11 +35,22 @@ export function PlayersPage() {
   const adminClubIds = user?.clubIds ?? []
 
   const players = useMemo(() => {
-    if (hasClubScope && adminClubIds.length) {
-      return allPlayers.filter((p) => p.clubId && adminClubIds.includes(p.clubId))
-    }
-    return allPlayers
+    const list = hasClubScope && adminClubIds.length
+      ? allPlayers.filter((p) => p.clubId && adminClubIds.includes(p.clubId))
+      : allPlayers
+    return sortByName(list)
   }, [allPlayers, hasClubScope, adminClubIds])
+
+  const filteredPlayers = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return players
+    return players.filter(
+      (p) =>
+        p.lastName.toLowerCase().includes(q) ||
+        p.firstName.toLowerCase().includes(q) ||
+        p.email?.toLowerCase().includes(q),
+    )
+  }, [players, query])
 
   const clubsForSelect =
     hasClubScope && adminClubIds.length
@@ -141,6 +154,20 @@ export function PlayersPage() {
           </button>
         )}
       </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher par nom…"
+          className="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        {query && (
+          <span className="text-sm text-slate-500">
+            {filteredPlayers.length} résultat{filteredPlayers.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -171,7 +198,7 @@ export function PlayersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
-            {players.map((player) => (
+            {filteredPlayers.map((player) => (
               <tr key={player.id} className="hover:bg-slate-50/50">
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
                   {player.firstName} {player.lastName}
