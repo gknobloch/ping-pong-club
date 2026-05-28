@@ -10,7 +10,6 @@ import {
   Alert,
 } from 'react-native'
 import { useMemo, useState } from 'react'
-import { useRouter } from 'expo-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
@@ -642,7 +641,6 @@ const sh = StyleSheet.create({
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const { user, displayName, logout } = useAuth()
-  const router = useRouter()
   const {
     clubs, seasons, teams, players, matchDays, games,
     phases, divisions, groups,
@@ -842,11 +840,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <TouchableOpacity
-          style={styles.welcomeCard}
-          onPress={() => user?.playerId && router.push(`/(tabs)/joueurs/${user.playerId}`)}
-          activeOpacity={user?.playerId ? 0.7 : 1}
-        >
+        <View style={styles.welcomeCard}>
           <View style={styles.welcomeRow}>
             <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
             <TouchableOpacity onPress={logout} style={styles.switchBtn}>
@@ -856,10 +850,7 @@ export default function HomeScreen() {
           {teamSubtitle ? (
             <Text style={styles.roleText}>{teamSubtitle}</Text>
           ) : null}
-          {user?.playerId ? (
-            <Text style={styles.profileHint}>Voir mon profil →</Text>
-          ) : null}
-        </TouchableOpacity>
+        </View>
 
         {/* ── Player dashboard ── */}
         {isPlayer && myActiveTeam && (
@@ -1091,7 +1082,6 @@ const styles = StyleSheet.create({
   },
   switchBtnText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
-  profileHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,

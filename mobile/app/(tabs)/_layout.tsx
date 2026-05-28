@@ -52,7 +52,7 @@ export default function TabLayout() {
         options={{
           title: 'Joueurs',
           headerShown: false,
-          tabBarIcon: ({ focused }) => <TabIcon label="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon label="👥" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -62,6 +62,13 @@ export default function TabLayout() {
           headerShown: false,
           tabBarIcon: ({ focused }) => <TabIcon label="⚙️" focused={focused} />,
           href: isAdmin ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="compte"
+        options={{
+          title: 'Mon Compte',
+          tabBarIcon: ({ focused }) => <TabIcon label="👤" focused={focused} />,
         }}
       />
     </Tabs>
