@@ -1,8 +1,9 @@
-import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native'
+import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking } from 'react-native'
 import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
+import { getTeamName } from '@/utils/roles'
 
 const STATUS_LABELS = {
   active: 'Actif',
@@ -12,12 +13,20 @@ const STATUS_LABELS = {
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { players, teams, clubs } = useAppData()
+  const { players, teams, clubs, phases } = useAppData()
   const navigation = useNavigation()
 
   const player = players.find((p) => p.id === id)
-  const playerTeams = teams.filter((t) => t.playerIds?.includes(id ?? ''))
   const club = clubs.find((c) => c.id === player?.clubId)
+
+  const activePhase = phases.find((p) => p.isActive && !p.isArchived)
+  const playerTeams = teams.filter(
+    (t) => t.phaseId === activePhase?.id && t.playerIds?.includes(id ?? ''),
+  )
+
+  // Points at start of phase: taken from the team's rosterInitialPoints map
+  const activeTeam = playerTeams[0]
+  const phasePoints = activeTeam?.rosterInitialPoints?.[id ?? '']
 
   useEffect(() => {
     if (player)
@@ -53,19 +62,23 @@ export default function PlayerDetailScreen() {
         {/* Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informations</Text>
-          {player.email && <InfoRow label="Email" value={player.email} />}
           {club && <InfoRow label="Club" value={club.displayName} />}
           {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
+          {phasePoints && <InfoRow label="Points" value={phasePoints} />}
+          {player.email && <InfoRow label="Email" value={player.email} />}
+          {player.phone && (
+            <PhoneRow phone={player.phone} />
+          )}
         </View>
 
-        {/* Teams */}
+        {/* Active phase teams */}
         {playerTeams.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Équipes</Text>
+            <Text style={styles.sectionTitle}>Équipe</Text>
             {playerTeams.map((t) => (
               <View key={t.id} style={styles.teamRow}>
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
-                <Text style={styles.teamName}>{t.name}</Text>
+                <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
                 {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
               </View>
             ))}
@@ -81,6 +94,19 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  )
+}
+
+function PhoneRow({ phone }: { phone: string }) {
+  const digits = phone.replace(/[^\d+]/g, '')
+  const waUrl = `https://wa.me/${digits.startsWith('+') ? digits.slice(1) : digits}`
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>Téléphone</Text>
+      <TouchableOpacity onPress={() => Linking.openURL(waUrl)}>
+        <Text style={[styles.infoValue, styles.phoneLink]}>{phone}</Text>
+      </TouchableOpacity>
     </View>
   )
 }
@@ -128,6 +154,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   infoLabel: { fontSize: 14, color: colors.textSecondary },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  phoneLink: { color: '#25D366' },
   teamRow: {
     flexDirection: 'row',
     alignItems: 'center',
