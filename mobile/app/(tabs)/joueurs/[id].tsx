@@ -2,6 +2,7 @@ import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Lin
 import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
 
@@ -14,7 +15,9 @@ const STATUS_LABELS = {
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { players, teams, clubs, phases } = useAppData()
+  const { user, logout } = useAuth()
   const navigation = useNavigation()
+  const isOwnProfile = !!user?.playerId && user.playerId === id
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
@@ -83,6 +86,13 @@ export default function PlayerDetailScreen() {
               </View>
             ))}
           </View>
+        )}
+
+        {/* Logout — only shown on the user's own profile */}
+        {isOwnProfile && (
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <Text style={styles.logoutText}>Déconnexion</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -166,4 +176,15 @@ const styles = StyleSheet.create({
   colorDot: { width: 10, height: 10, borderRadius: 5 },
   teamName: { flex: 1, fontSize: 15, color: colors.textPrimary },
   cap: { fontSize: 11, fontWeight: '600', color: colors.accent },
+  logoutBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fff5f5',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  logoutText: { fontSize: 15, fontWeight: '600', color: '#dc2626' },
 })
