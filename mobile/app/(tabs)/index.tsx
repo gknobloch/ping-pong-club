@@ -841,7 +841,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
+          <View style={styles.welcomeRow}>
+            <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
+            <TouchableOpacity onPress={logout} style={styles.switchBtn}>
+              <Text style={styles.switchBtnText}>Changer</Text>
+            </TouchableOpacity>
+          </View>
           {teamSubtitle ? (
             <Text style={styles.roleText}>{teamSubtitle}</Text>
           ) : null}
@@ -1066,7 +1071,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
     borderWidth: 1, borderColor: colors.border, marginBottom: 16, gap: 4,
   },
-  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  welcomeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, flex: 1 },
+  switchBtn: {
+    backgroundColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginLeft: 8,
+  },
+  switchBtnText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
