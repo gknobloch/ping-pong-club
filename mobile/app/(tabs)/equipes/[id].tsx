@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { sortByName } from '@/utils/sortByName'
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -13,9 +14,11 @@ export default function TeamDetailScreen() {
   const team = teams.find((t) => t.id === id)
   const club = clubs.find((c) => c.id === team?.clubId)
   const captain = players.find((p) => p.id === team?.captainId)
-  const members = (team?.playerIds ?? [])
-    .map((pid) => players.find((p) => p.id === pid))
-    .filter(Boolean) as typeof players
+  const members = sortByName(
+    (team?.playerIds ?? [])
+      .map((pid) => players.find((p) => p.id === pid))
+      .filter(Boolean) as typeof players,
+  )
 
   useEffect(() => {
     if (team) navigation.setOptions({ title: getTeamName(team, clubs) })

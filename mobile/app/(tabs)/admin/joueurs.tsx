@@ -4,6 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
 import type { PlayerStatus } from '@shared/types'
+import { sortByName } from '@/utils/sortByName'
 
 const STATUS_LABELS: Record<PlayerStatus, string> = {
   active: 'Actif',
@@ -28,16 +29,18 @@ export default function AdminPlayersScreen() {
       ? players
       : players.filter((p) => user?.clubIds?.includes(p.clubId ?? ''))
 
-  const filtered = visiblePlayers.filter((p) => {
-    const q = query.toLowerCase()
-    const matchesQuery =
-      !q ||
-      p.firstName.toLowerCase().includes(q) ||
-      p.lastName.toLowerCase().includes(q) ||
-      p.email?.toLowerCase().includes(q)
-    const matchesStatus = filterStatus === 'all' || p.status === filterStatus
-    return matchesQuery && matchesStatus
-  })
+  const filtered = sortByName(
+    visiblePlayers.filter((p) => {
+      const q = query.toLowerCase()
+      const matchesQuery =
+        !q ||
+        p.firstName.toLowerCase().includes(q) ||
+        p.lastName.toLowerCase().includes(q) ||
+        p.email?.toLowerCase().includes(q)
+      const matchesStatus = filterStatus === 'all' || p.status === filterStatus
+      return matchesQuery && matchesStatus
+    }),
+  )
 
   return (
     <SafeAreaView style={styles.container}>

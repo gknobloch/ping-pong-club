@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Player as PlayerType } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
+import { sortByName } from '@/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
@@ -34,10 +35,10 @@ export function PlayersPage() {
   const adminClubIds = user?.clubIds ?? []
 
   const players = useMemo(() => {
-    if (hasClubScope && adminClubIds.length) {
-      return allPlayers.filter((p) => p.clubId && adminClubIds.includes(p.clubId))
-    }
-    return allPlayers
+    const list = hasClubScope && adminClubIds.length
+      ? allPlayers.filter((p) => p.clubId && adminClubIds.includes(p.clubId))
+      : allPlayers
+    return sortByName(list)
   }, [allPlayers, hasClubScope, adminClubIds])
 
   const filteredPlayers = useMemo(() => {

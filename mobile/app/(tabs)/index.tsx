@@ -15,6 +15,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/utils/brulage'
+import { sortByName } from '@/utils/sortByName'
 import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
 
 // ---------------------------------------------------------------------------
@@ -855,9 +856,11 @@ export default function HomeScreen() {
             ) : (
               upcomingGames.map((game) => {
                 const md = mdMap.get(game.matchDayId)!
-                const teamPlayers = myActiveTeam.playerIds
-                  .map((id) => playerMap.get(id))
-                  .filter(Boolean) as Player[]
+                const teamPlayers = sortByName(
+                  myActiveTeam.playerIds
+                    .map((id) => playerMap.get(id))
+                    .filter(Boolean) as Player[],
+                )
                 const selIds = getSelectedForGame(myActiveTeam.id, game.id)
                 return (
                   <GameCard
@@ -957,9 +960,11 @@ export default function HomeScreen() {
                   />
                   {expanded && phaseGames.map((game) => {
                     const md = mdMap.get(game.matchDayId)!
-                    const teamPlayers = team.playerIds
-                      .map((id) => playerMap.get(id))
-                      .filter(Boolean) as Player[]
+                    const teamPlayers = sortByName(
+                      team.playerIds
+                        .map((id) => playerMap.get(id))
+                        .filter(Boolean) as Player[],
+                    )
                     const selIds = getSelectedForGame(team.id, game.id)
                     return (
                       <GameCard
