@@ -1,11 +1,53 @@
-import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking, Alert } from 'react-native'
+import {
+  ScrollView, View, Text, StyleSheet, SafeAreaView,
+  TouchableOpacity, Linking, Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
+} from 'react-native'
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName, getRoleLabel } from '@/utils/roles'
+import type { Player } from '@shared/types'
+
+type EditableFields = Pick<Player, 'email' | 'phone' | 'birthDate' | 'birthPlace'>
 
 export default function MonCompteScreen() {
   const { user, logout } = useAuth()
+  const { players, teams, clubs, phases, updatePlayer } = useAppData()
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState<EditableFields>({ email: '', phone: '', birthDate: '', birthPlace: '' })
+
+  const player = user?.playerId ? players.find((p) => p.id === user.playerId) : null
+  const club = player ? clubs.find((c) => c.id === player.clubId) : null
+
+  const activePhase = phases.find((p) => p.isActive && !p.isArchived)
+  const playerTeams = player
+    ? teams.filter((t) => t.phaseId === activePhase?.id && t.playerIds?.includes(player.id))
+    : []
+  const activeTeam = playerTeams[0]
+  const phasePoints = player ? activeTeam?.rosterInitialPoints?.[player.id] : undefined
+
+  function openEdit() {
+    if (!player) return
+    setForm({
+      email: player.email ?? '',
+      phone: player.phone ?? '',
+      birthDate: player.birthDate ?? '',
+      birthPlace: player.birthPlace ?? '',
+    })
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    if (!player) return
+    const patch: Partial<EditableFields> = {}
+    if (form.email !== (player.email ?? '')) patch.email = form.email
+    if (form.phone !== (player.phone ?? '')) patch.phone = form.phone
+    if (form.birthDate !== (player.birthDate ?? '')) patch.birthDate = form.birthDate || undefined
+    if (form.birthPlace !== (player.birthPlace ?? '')) patch.birthPlace = form.birthPlace || undefined
+    if (Object.keys(patch).length > 0) await updatePlayer(player.id, patch)
+    setEditing(false)
+  }
 
   function confirmLogout() {
     Alert.alert(
@@ -17,17 +59,6 @@ export default function MonCompteScreen() {
       ],
     )
   }
-  const { players, teams, clubs, phases } = useAppData()
-
-  const player = user?.playerId ? players.find((p) => p.id === user.playerId) : null
-  const club = player ? clubs.find((c) => c.id === player.clubId) : null
-
-  const activePhase = phases.find((p) => p.isActive && !p.isArchived)
-  const playerTeams = player
-    ? teams.filter((t) => t.phaseId === activePhase?.id && t.playerIds?.includes(player.id))
-    : []
-  const activeTeam = playerTeams[0]
-  const phasePoints = player ? activeTeam?.rosterInitialPoints?.[player.id] : undefined
 
   return (
     <SafeAreaView style={styles.container}>
@@ -49,35 +80,42 @@ export default function MonCompteScreen() {
           </View>
         </View>
 
-        {/* Player info */}
+        {/* Coordonnées — editable by the player */}
         {player && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Informations</Text>
-            {club && <InfoRow label="Club" value={club.displayName} />}
-            {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
-            {phasePoints && <InfoRow label="Points" value={phasePoints} />}
-            {player.email && <InfoRow label="Email" value={player.email} />}
-            {player.phone && <PhoneRow phone={player.phone} />}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Coordonnées</Text>
+              <TouchableOpacity onPress={openEdit}>
+                <Text style={styles.editLink}>Modifier</Text>
+              </TouchableOpacity>
+            </View>
+            {player.email ? <InfoRow label="Email" value={player.email} /> : null}
+            {player.phone ? <PhoneRow phone={player.phone} /> : null}
+            {player.birthDate ? <InfoRow label="Date de naissance" value={player.birthDate} /> : null}
+            {player.birthPlace ? <InfoRow label="Lieu de naissance" value={player.birthPlace} /> : null}
           </View>
         )}
 
         {/* Admin: just show email */}
         {!player && user?.email && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Informations</Text>
+            <Text style={styles.sectionTitle}>Coordonnées</Text>
             <InfoRow label="Email" value={user.email} />
           </View>
         )}
 
-        {/* Active team */}
-        {playerTeams.length > 0 && (
+        {/* Profil — club/sports data, read-only */}
+        {player && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Équipe</Text>
+            <Text style={styles.sectionTitle}>Profil</Text>
+            {club && <InfoRow label="Club" value={club.displayName} />}
+            {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
+            {phasePoints && <InfoRow label="Points" value={phasePoints} />}
             {playerTeams.map((t) => (
               <View key={t.id} style={styles.teamRow}>
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
                 <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
-                {t.captainId === player?.id && <Text style={styles.cap}>Cap.</Text>}
+                {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
               </View>
             ))}
           </View>
@@ -88,9 +126,63 @@ export default function MonCompteScreen() {
           <Text style={styles.logoutText}>Déconnexion</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Edit modal */}
+      <Modal visible={editing} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setEditing(false)}>
+                <Text style={styles.modalCancel}>Annuler</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Modifier mon profil</Text>
+              <TouchableOpacity onPress={saveEdit}>
+                <Text style={styles.modalSave}>Enregistrer</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <Field
+                label="Email"
+                value={form.email}
+                onChangeText={(v) => setForm((f) => ({ ...f, email: v }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Field
+                label="Téléphone"
+                value={form.phone}
+                onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))}
+                keyboardType="phone-pad"
+              />
+              <Field
+                label="Date de naissance"
+                value={form.birthDate}
+                onChangeText={(v) => setForm((f) => ({ ...f, birthDate: v }))}
+                placeholder="JJ/MM/AAAA"
+              />
+              <Field
+                label="Lieu de naissance"
+                value={form.birthPlace}
+                onChangeText={(v) => setForm((f) => ({ ...f, birthPlace: v }))}
+                placeholder="Ville, Pays"
+                autoCapitalize="words"
+              />
+            </ScrollView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -114,6 +206,37 @@ function PhoneRow({ phone }: { phone: string }) {
   )
 }
 
+function Field({
+  label, value, onChangeText, keyboardType, autoCapitalize, placeholder,
+}: {
+  label: string
+  value: string
+  onChangeText: (v: string) => void
+  keyboardType?: 'default' | 'email-address' | 'phone-pad'
+  autoCapitalize?: 'none' | 'words' | 'sentences'
+  placeholder?: string
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={styles.fieldInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType ?? 'default'}
+        autoCapitalize={autoCapitalize ?? 'sentences'}
+        autoCorrect={false}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+      />
+    </View>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { gap: 12, paddingBottom: 40 },
@@ -133,10 +256,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, marginHorizontal: 16, borderRadius: 12,
     borderWidth: 1, borderColor: colors.border, padding: 16, gap: 8,
   },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: {
     fontSize: 12, fontWeight: '600', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
+  editLink: { fontSize: 13, fontWeight: '600', color: colors.accent },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   infoLabel: { fontSize: 14, color: colors.textSecondary },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
@@ -154,4 +279,21 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   logoutText: { fontSize: 15, fontWeight: '600', color: '#dc2626' },
+  // Modal
+  modalContainer: { flex: 1, backgroundColor: colors.bg },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
+  modalCancel: { fontSize: 15, color: colors.textSecondary },
+  modalSave: { fontSize: 15, fontWeight: '600', color: colors.accent },
+  modalScroll: { padding: 16, gap: 16 },
+  field: {
+    backgroundColor: colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border, padding: 14, gap: 6,
+  },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+  fieldInput: { fontSize: 16, color: colors.textPrimary },
 })
