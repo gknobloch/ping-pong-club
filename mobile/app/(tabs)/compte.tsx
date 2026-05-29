@@ -80,18 +80,15 @@ export default function MonCompteScreen() {
           </View>
         </View>
 
-        {/* Player info */}
+        {/* Coordonnées — editable by the player */}
         {player && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Informations</Text>
+              <Text style={styles.sectionTitle}>Coordonnées</Text>
               <TouchableOpacity onPress={openEdit}>
                 <Text style={styles.editLink}>Modifier</Text>
               </TouchableOpacity>
             </View>
-            {club && <InfoRow label="Club" value={club.displayName} />}
-            {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
-            {phasePoints && <InfoRow label="Points" value={phasePoints} />}
             {player.email ? <InfoRow label="Email" value={player.email} /> : null}
             {player.phone ? <PhoneRow phone={player.phone} /> : null}
             {player.birthDate ? <InfoRow label="Date de naissance" value={player.birthDate} /> : null}
@@ -102,20 +99,23 @@ export default function MonCompteScreen() {
         {/* Admin: just show email */}
         {!player && user?.email && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Informations</Text>
+            <Text style={styles.sectionTitle}>Coordonnées</Text>
             <InfoRow label="Email" value={user.email} />
           </View>
         )}
 
-        {/* Active team */}
-        {playerTeams.length > 0 && (
+        {/* Profil — club/sports data, read-only */}
+        {player && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Équipe</Text>
+            <Text style={styles.sectionTitle}>Profil</Text>
+            {club && <InfoRow label="Club" value={club.displayName} />}
+            {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
+            {phasePoints && <InfoRow label="Points" value={phasePoints} />}
             {playerTeams.map((t) => (
               <View key={t.id} style={styles.teamRow}>
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
                 <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
-                {t.captainId === player?.id && <Text style={styles.cap}>Cap.</Text>}
+                {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
               </View>
             ))}
           </View>
