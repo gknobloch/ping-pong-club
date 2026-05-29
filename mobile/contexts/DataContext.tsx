@@ -59,10 +59,13 @@ const emptyState: DataState = {
 // ---------------------------------------------------------------------------
 // Context value
 // ---------------------------------------------------------------------------
+type PlayerProfilePatch = Partial<Pick<Player, 'email' | 'phone' | 'birthDate' | 'birthPlace'>>
+
 interface DataContextValue extends DataState {
   loading: boolean
   error: string | null
   refresh: () => void
+  updatePlayer: (id: string, patch: PlayerProfilePatch) => Promise<void>
   setAvailability: (
     playerId: string,
     gameId: string,
@@ -106,6 +109,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     load()
   }, [load])
+
+  const updatePlayer = useCallback(
+    async (id: string, patch: PlayerProfilePatch) => {
+      setState((prev) => ({
+        ...prev,
+        players: prev.players.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      }))
+      if (apiAvailable) {
+        fetch(apiUrl(`/players/${id}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        }).catch(() => {})
+      }
+    },
+    [apiAvailable],
+  )
 
   const setAvailability = useCallback(
     async (playerId: string, gameId: string, status: AvailabilityStatus) => {
@@ -192,10 +212,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       error,
       refresh: load,
+      updatePlayer,
       setAvailability,
       setGameSelection,
     }),
-    [state, loading, error, load, setAvailability, setGameSelection],
+    [state, loading, error, load, updatePlayer, setAvailability, setGameSelection],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
