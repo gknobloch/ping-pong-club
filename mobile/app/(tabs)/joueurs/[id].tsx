@@ -84,6 +84,7 @@ export default function PlayerDetailScreen() {
             ))}
           </View>
         )}
+
       </ScrollView>
     </SafeAreaView>
   )
