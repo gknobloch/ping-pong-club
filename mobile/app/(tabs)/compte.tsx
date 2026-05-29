@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking } from 'react-native'
+import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking, Alert } from 'react-native'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
@@ -6,6 +6,17 @@ import { getTeamName, getRoleLabel } from '@/utils/roles'
 
 export default function MonCompteScreen() {
   const { user, logout } = useAuth()
+
+  function confirmLogout() {
+    Alert.alert(
+      'Déconnexion',
+      'Voulez-vous vraiment vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Déconnexion', style: 'destructive', onPress: logout },
+      ],
+    )
+  }
   const { players, teams, clubs, phases } = useAppData()
 
   const player = user?.playerId ? players.find((p) => p.id === user.playerId) : null
@@ -73,7 +84,7 @@ export default function MonCompteScreen() {
         )}
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={confirmLogout}>
           <Text style={styles.logoutText}>Déconnexion</Text>
         </TouchableOpacity>
       </ScrollView>
