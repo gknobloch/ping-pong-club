@@ -1,9 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
+import * as AppleAuthentication from 'expo-apple-authentication'
 import type { User, Player, Team } from '@shared/types'
 import { getDisplayName, getRoleLabel } from '@/utils/roles'
+import { fetchMe, logout as apiLogout, oauthLogin, requestEmailCode, verifyEmailCode } from '@/utils/api'
 
-const STORAGE_KEY = 'ping-pong-club-user-id'
+// Real session token (SecureStore) and the legacy dev user-id (AsyncStorage).
+const SESSION_KEY = 'pp-club-session'
+const DEV_USER_KEY = 'ping-pong-club-user-id'
+
+// Dev login ("pick any user") stays available in dev builds and when explicitly
+// enabled, so local dev / E2E don't need a real email or OAuth provider.
+export const DEV_LOGIN =
+  (typeof __DEV__ !== 'undefined' && __DEV__) || process.env.EXPO_PUBLIC_DEV_LOGIN === 'true'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,15 +22,19 @@ interface AuthContextValue {
   user: User | null
   displayName: string
   roleLabel: string
-  login: (userId: string) => void
-  logout: () => void
   isAuthenticated: boolean
+  loading: boolean
+  /** Real auth */
+  requestCode: (email: string) => Promise<{ devCode?: string }>
+  verifyCode: (email: string, code: string) => Promise<void>
+  loginWithIdToken: (provider: 'google' | 'apple', idToken: string) => Promise<void>
+  loginWithApple: () => Promise<void>
+  logout: () => Promise<void>
+  /** Dev login (gated by DEV_LOGIN) */
   availableUsers: User[]
+  devLoginAs: (userId: string) => Promise<void>
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 // ---------------------------------------------------------------------------
@@ -34,17 +48,45 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children, apiUsers = [], players = [], teams = [] }: AuthProviderProps) {
-  const [userId, setUserId] = useState<string | null>(null)
+  // Real authenticated session (email OTP / OAuth).
+  const [realUser, setRealUser] = useState<User | null>(null)
+  const [realToken, setRealToken] = useState<string | null>(null)
+  // Dev-login selection (no server session).
+  const [devUserId, setDevUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
+  // Restore a persisted session on mount.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
-      if (stored) setUserId(stored)
-    })
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = await SecureStore.getItemAsync(SESSION_KEY)
+        if (token) {
+          try {
+            const me = await fetchMe(token)
+            if (!cancelled) {
+              setRealUser(me)
+              setRealToken(token)
+            }
+            return
+          } catch {
+            await SecureStore.deleteItemAsync(SESSION_KEY) // expired / revoked
+          }
+        }
+        if (DEV_LOGIN) {
+          const stored = await AsyncStorage.getItem(DEV_USER_KEY)
+          if (stored && !cancelled) setDevUserId(stored)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const allPlayers = useMemo<Player[]>(() => players, [players])
-
-  // Build captain lookup: playerId → team IDs they captain
+  // --- Dev synthetic users (kept only for dev login) ---
   const captainTeamIdsByPlayer = useMemo(() => {
     const map = new Map<string, string[]>()
     for (const team of teams) {
@@ -56,10 +98,10 @@ export function AuthProvider({ children, apiUsers = [], players = [], teams = []
     return map
   }, [teams])
 
-  // Merge real DB users with synthetic users for every active player not already covered
   const allUsers = useMemo<User[]>(() => {
+    if (!DEV_LOGIN) return []
     const coveredPlayerIds = new Set(apiUsers.map((u) => u.playerId).filter(Boolean))
-    const synthetic: User[] = allPlayers
+    const synthetic: User[] = players
       .filter((p) => p.status === 'active' && !coveredPlayerIds.has(p.id))
       .map((p) => {
         const captainTeamIds = captainTeamIdsByPlayer.get(p.id) ?? []
@@ -73,34 +115,87 @@ export function AuthProvider({ children, apiUsers = [], players = [], teams = []
         } satisfies User
       })
     return [...apiUsers, ...synthetic]
-  }, [apiUsers, allPlayers, captainTeamIdsByPlayer])
+  }, [apiUsers, players, captainTeamIdsByPlayer])
 
-  const user = useMemo(
-    () => (userId ? (allUsers.find((u) => u.id === userId) ?? null) : null),
-    [userId, allUsers],
+  const devUser = useMemo(
+    () => (devUserId ? (allUsers.find((u) => u.id === devUserId) ?? null) : null),
+    [devUserId, allUsers],
   )
 
-  const login = useCallback(async (id: string) => {
-    setUserId(id)
-    await AsyncStorage.setItem(STORAGE_KEY, id)
+  const user = realUser ?? devUser
+
+  // --- Real auth actions ---
+  const applySession = useCallback(async (token: string, sessionUser: User) => {
+    await SecureStore.setItemAsync(SESSION_KEY, token)
+    setRealToken(token)
+    setRealUser(sessionUser)
+    setDevUserId(null)
   }, [])
 
+  const requestCode = useCallback(async (email: string) => {
+    const { devCode } = await requestEmailCode(email)
+    return { devCode }
+  }, [])
+
+  const verifyCode = useCallback(
+    async (email: string, code: string) => {
+      const session = await verifyEmailCode(email, code)
+      await applySession(session.token, session.user)
+    },
+    [applySession],
+  )
+
+  const loginWithIdToken = useCallback(
+    async (provider: 'google' | 'apple', idToken: string) => {
+      const session = await oauthLogin(provider, idToken)
+      await applySession(session.token, session.user)
+    },
+    [applySession],
+  )
+
+  const loginWithApple = useCallback(async () => {
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    })
+    if (!credential.identityToken) throw new Error('apple_no_token')
+    await loginWithIdToken('apple', credential.identityToken)
+  }, [loginWithIdToken])
+
   const logout = useCallback(async () => {
-    setUserId(null)
-    await AsyncStorage.removeItem(STORAGE_KEY)
+    if (realToken) await apiLogout(realToken)
+    await SecureStore.deleteItemAsync(SESSION_KEY)
+    await AsyncStorage.removeItem(DEV_USER_KEY)
+    setRealUser(null)
+    setRealToken(null)
+    setDevUserId(null)
+  }, [realToken])
+
+  // --- Dev login ---
+  const devLoginAs = useCallback(async (userId: string) => {
+    if (!DEV_LOGIN) return
+    setDevUserId(userId)
+    await AsyncStorage.setItem(DEV_USER_KEY, userId)
   }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      displayName: user ? getDisplayName(user, allPlayers) : '',
+      displayName: user ? getDisplayName(user, players) : '',
       roleLabel: user ? getRoleLabel(user.role) : '',
-      login,
-      logout,
       isAuthenticated: !!user,
-      availableUsers: allUsers,
+      loading,
+      requestCode,
+      verifyCode,
+      loginWithIdToken,
+      loginWithApple,
+      logout,
+      availableUsers: DEV_LOGIN ? allUsers : [],
+      devLoginAs,
     }),
-    [user, allPlayers, allUsers, login, logout],
+    [user, players, loading, allUsers, requestCode, verifyCode, loginWithIdToken, loginWithApple, logout, devLoginAs],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

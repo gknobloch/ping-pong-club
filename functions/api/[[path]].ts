@@ -1,9 +1,15 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
-
-type Env = { Bindings: { DB: D1Database } }
+import { authApp, type Env } from './auth'
 
 const app = new Hono<Env>().basePath('/api')
+
+// Authentication (email OTP + Google/Apple OAuth). Sessions are validated
+// here; the existing data/mutation routes below are intentionally left open
+// for now so the web app keeps working.
+// TODO(#8 web-auth): require a valid session on /data and mutations once the
+// web app also sends a Bearer token.
+app.route('/auth', authApp)
 
 // --- Helpers ---
 const bool = (v: unknown) => v === 1 || v === true

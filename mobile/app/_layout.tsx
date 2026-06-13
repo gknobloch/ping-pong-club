@@ -8,18 +8,19 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 // Auth guard — redirects unauthenticated users to /login
 // ---------------------------------------------------------------------------
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
   const segments = useSegments()
   const router = useRouter()
 
   useEffect(() => {
+    if (loading) return // wait for the persisted session to restore
     const inLoginScreen = segments[0] === 'login'
     if (!isAuthenticated && !inLoginScreen) {
       router.replace('/login')
     } else if (isAuthenticated && inLoginScreen) {
       router.replace('/(tabs)')
     }
-  }, [isAuthenticated, segments, router])
+  }, [isAuthenticated, loading, segments, router])
 
   return <>{children}</>
 }
