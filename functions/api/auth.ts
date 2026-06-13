@@ -1,0 +1,368 @@
+import { Hono } from 'hono'
+
+// Shared environment for the whole API. Secrets/vars are configured as
+// Cloudflare Pages bindings (see wrangler.toml notes).
+export type Env = {
+  Bindings: {
+    DB: D1Database
+    RESEND_API_KEY?: string
+    RESEND_FROM?: string
+    GOOGLE_CLIENT_IDS?: string // comma-separated accepted audiences
+    APPLE_CLIENT_IDS?: string // comma-separated accepted audiences
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const OTP_TTL_MS = 10 * 60 * 1000 // 10 minutes
+const OTP_MAX_ATTEMPTS = 5
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+
+const OAUTH_PROVIDERS = {
+  google: {
+    jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
+    issuers: ['accounts.google.com', 'https://accounts.google.com'],
+    audEnv: 'GOOGLE_CLIENT_IDS' as const,
+  },
+  apple: {
+    jwksUrl: 'https://appleid.apple.com/auth/keys',
+    issuers: ['https://appleid.apple.com'],
+    audEnv: 'APPLE_CLIENT_IDS' as const,
+  },
+}
+type Provider = keyof typeof OAUTH_PROVIDERS
+
+// ---------------------------------------------------------------------------
+// Crypto / encoding helpers
+// ---------------------------------------------------------------------------
+const enc = new TextEncoder()
+
+function toHex(buf: ArrayBuffer): string {
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  return toHex(await crypto.subtle.digest('SHA-256', enc.encode(input)))
+}
+
+function randomToken(bytes = 32): string {
+  const arr = new Uint8Array(bytes)
+  crypto.getRandomValues(arr)
+  return [...arr].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** 6-digit numeric one-time code, zero-padded. */
+export function genOtp(): string {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000
+  return String(n).padStart(6, '0')
+}
+
+/** Hash an OTP bound to the email so codes are not interchangeable across users. */
+export function hashOtp(email: string, code: string): Promise<string> {
+  return sha256Hex(`${email.toLowerCase()}:${code}`)
+}
+
+function base64UrlDecode(input: string): Uint8Array {
+  const b64 = input.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(input.length / 4) * 4, '=')
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+function decodeJwtPart(part: string): Record<string, unknown> {
+  return JSON.parse(new TextDecoder().decode(base64UrlDecode(part)))
+}
+
+// ---------------------------------------------------------------------------
+// OIDC ID-token verification (Google / Apple) — RS256 via Web Crypto, no deps
+// ---------------------------------------------------------------------------
+interface Jwk {
+  kid: string
+  kty: string
+  alg?: string
+  use?: string
+  n: string
+  e: string
+}
+
+export interface OidcClaims {
+  sub: string
+  email?: string
+  email_verified?: boolean | string
+  [k: string]: unknown
+}
+
+interface VerifyOpts {
+  jwksUrl: string
+  issuers: string[]
+  audiences: string[]
+  fetchJwks?: (url: string) => Promise<{ keys: Jwk[] }>
+  now?: number
+}
+
+/**
+ * Verify a signed OIDC ID token (RS256) and return its claims.
+ * Checks signature against the provider JWKS, plus iss / aud / exp.
+ * Throws on any failure.
+ */
+export async function verifyOidcJwt(idToken: string, opts: VerifyOpts): Promise<OidcClaims> {
+  const parts = idToken.split('.')
+  if (parts.length !== 3) throw new Error('malformed token')
+  const [headerB64, payloadB64, sigB64] = parts
+
+  const header = decodeJwtPart(headerB64) as { kid?: string; alg?: string }
+  if (header.alg !== 'RS256') throw new Error('unsupported alg')
+
+  const fetchJwks =
+    opts.fetchJwks ??
+    (async (url: string) => {
+      const r = await fetch(url)
+      if (!r.ok) throw new Error('jwks fetch failed')
+      return (await r.json()) as { keys: Jwk[] }
+    })
+  const { keys } = await fetchJwks(opts.jwksUrl)
+  const jwk = keys.find((k) => k.kid === header.kid)
+  if (!jwk) throw new Error('signing key not found')
+
+  const key = await crypto.subtle.importKey(
+    'jwk',
+    { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  )
+  const valid = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    key,
+    base64UrlDecode(sigB64),
+    enc.encode(`${headerB64}.${payloadB64}`),
+  )
+  if (!valid) throw new Error('bad signature')
+
+  const claims = decodeJwtPart(payloadB64) as OidcClaims & { iss?: string; aud?: string | string[]; exp?: number }
+  const now = opts.now ?? Date.now()
+  if (!claims.iss || !opts.issuers.includes(claims.iss)) throw new Error('bad issuer')
+  const auds = Array.isArray(claims.aud) ? claims.aud : claims.aud ? [claims.aud] : []
+  if (!auds.some((a) => opts.audiences.includes(a))) throw new Error('bad audience')
+  if (!claims.exp || claims.exp * 1000 <= now) throw new Error('token expired')
+
+  return claims
+}
+
+// ---------------------------------------------------------------------------
+// Email (Resend)
+// ---------------------------------------------------------------------------
+/**
+ * Send the OTP code by email. When RESEND_API_KEY is absent (local dev), the
+ * code is logged instead of sent — callers also surface it as `devCode`.
+ */
+async function sendOtpEmail(env: Env['Bindings'], to: string, code: string): Promise<void> {
+  if (!env.RESEND_API_KEY) {
+    console.log(`[auth] OTP for ${to}: ${code}`)
+    return
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: env.RESEND_FROM ?? 'Ping-Pong Club <onboarding@resend.dev>',
+      to: [to],
+      subject: `Votre code de connexion : ${code}`,
+      text: `Votre code de connexion Ping-Pong Club est : ${code}\n\nIl expire dans 10 minutes.`,
+    }),
+  })
+  if (!res.ok) {
+    console.error('[auth] Resend send failed', res.status, await res.text())
+    throw new Error('email_send_failed')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Users / sessions
+// ---------------------------------------------------------------------------
+type UserRow = {
+  id: string
+  email: string
+  role: string
+  player_id: string | null
+  club_ids: string
+  captain_team_ids: string
+}
+
+function serializeUser(r: UserRow) {
+  const jsonParse = (v: string): unknown => {
+    try {
+      return JSON.parse(v)
+    } catch {
+      return []
+    }
+  }
+  return {
+    id: r.id,
+    email: r.email,
+    role: r.role,
+    ...(r.player_id ? { playerId: r.player_id } : {}),
+    clubIds: jsonParse(r.club_ids),
+    captainTeamIds: jsonParse(r.captain_team_ids),
+  }
+}
+
+async function userByEmail(db: D1Database, email: string): Promise<UserRow | null> {
+  return db
+    .prepare('SELECT * FROM users WHERE lower(email) = lower(?)')
+    .bind(email)
+    .first<UserRow>()
+}
+
+async function createSession(db: D1Database, userId: string): Promise<string> {
+  const token = randomToken()
+  const now = Date.now()
+  await db
+    .prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
+    .bind(token, userId, now, now + SESSION_TTL_MS)
+    .run()
+  return token
+}
+
+function bearer(authHeader: string | undefined | null): string | null {
+  if (!authHeader) return null
+  const m = /^Bearer\s+(.+)$/i.exec(authHeader.trim())
+  return m ? m[1] : null
+}
+
+async function userFromToken(db: D1Database, token: string): Promise<UserRow | null> {
+  const session = await db
+    .prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?')
+    .bind(token)
+    .first<{ user_id: string; expires_at: number }>()
+  if (!session) return null
+  if (session.expires_at <= Date.now()) {
+    await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run()
+    return null
+  }
+  return db.prepare('SELECT * FROM users WHERE id = ?').bind(session.user_id).first<UserRow>()
+}
+
+// ---------------------------------------------------------------------------
+// Routes (mounted at /api/auth)
+// ---------------------------------------------------------------------------
+export const authApp = new Hono<Env>()
+
+// Request an email OTP. Always returns ok (don't leak account existence).
+authApp.post('/email/request', async (c) => {
+  const { email } = await c.req.json<{ email?: string }>()
+  if (!email || !email.includes('@')) return c.json({ error: 'invalid_email' }, 400)
+
+  const user = await userByEmail(c.env.DB, email)
+  // Only generate/send a code when an account exists, but respond identically.
+  if (!user) return c.json({ ok: true })
+
+  const code = genOtp()
+  const codeHash = await hashOtp(email, code)
+  await c.env.DB.prepare(
+    `INSERT INTO auth_otp (email, code_hash, expires_at, attempts)
+     VALUES (lower(?), ?, ?, 0)
+     ON CONFLICT(email) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0`,
+  )
+    .bind(email, codeHash, Date.now() + OTP_TTL_MS)
+    .run()
+
+  await sendOtpEmail(c.env, email, code)
+
+  // In local dev (no Resend key) return the code so the flow is testable.
+  return c.json(c.env.RESEND_API_KEY ? { ok: true } : { ok: true, devCode: code })
+})
+
+// Verify an email OTP and create a session.
+authApp.post('/email/verify', async (c) => {
+  const { email, code } = await c.req.json<{ email?: string; code?: string }>()
+  if (!email || !code) return c.json({ error: 'invalid_request' }, 400)
+
+  const row = await c.env.DB.prepare(
+    'SELECT code_hash, expires_at, attempts FROM auth_otp WHERE email = lower(?)',
+  )
+    .bind(email)
+    .first<{ code_hash: string; expires_at: number; attempts: number }>()
+
+  if (!row || row.expires_at <= Date.now()) return c.json({ error: 'invalid_code' }, 401)
+  if (row.attempts >= OTP_MAX_ATTEMPTS) return c.json({ error: 'too_many_attempts' }, 429)
+
+  const codeHash = await hashOtp(email, code)
+  if (codeHash !== row.code_hash) {
+    await c.env.DB.prepare('UPDATE auth_otp SET attempts = attempts + 1 WHERE email = lower(?)')
+      .bind(email)
+      .run()
+    return c.json({ error: 'invalid_code' }, 401)
+  }
+
+  const user = await userByEmail(c.env.DB, email)
+  if (!user) return c.json({ error: 'no_account' }, 403)
+
+  await c.env.DB.prepare('DELETE FROM auth_otp WHERE email = lower(?)').bind(email).run()
+  const token = await createSession(c.env.DB, user.id)
+  return c.json({ token, user: serializeUser(user) })
+})
+
+// Sign in with a Google/Apple ID token.
+authApp.post('/oauth', async (c) => {
+  const { provider, idToken } = await c.req.json<{ provider?: string; idToken?: string }>()
+  if (!provider || !idToken || !(provider in OAUTH_PROVIDERS)) {
+    return c.json({ error: 'invalid_request' }, 400)
+  }
+  const cfg = OAUTH_PROVIDERS[provider as Provider]
+  const audiences = (c.env[cfg.audEnv] ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  if (audiences.length === 0) return c.json({ error: 'provider_not_configured' }, 500)
+
+  let claims: OidcClaims
+  try {
+    claims = await verifyOidcJwt(idToken, { jwksUrl: cfg.jwksUrl, issuers: cfg.issuers, audiences })
+  } catch (e) {
+    console.error('[auth] oauth verify failed', (e as Error).message)
+    return c.json({ error: 'invalid_token' }, 401)
+  }
+
+  const db = c.env.DB
+  // Prefer an existing identity link, else match by email.
+  const link = await db
+    .prepare('SELECT user_id FROM auth_identities WHERE provider = ? AND subject = ?')
+    .bind(provider, claims.sub)
+    .first<{ user_id: string }>()
+
+  let user: UserRow | null = null
+  if (link) {
+    user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(link.user_id).first<UserRow>()
+  } else if (claims.email) {
+    user = await userByEmail(db, claims.email)
+    if (user) {
+      await db
+        .prepare('INSERT OR IGNORE INTO auth_identities (provider, subject, user_id) VALUES (?, ?, ?)')
+        .bind(provider, claims.sub, user.id)
+        .run()
+    }
+  }
+
+  if (!user) return c.json({ error: 'no_account' }, 403)
+  const token = await createSession(db, user.id)
+  return c.json({ token, user: serializeUser(user) })
+})
+
+// Current user from a Bearer token.
+authApp.get('/me', async (c) => {
+  const token = bearer(c.req.header('Authorization'))
+  if (!token) return c.json({ error: 'unauthorized' }, 401)
+  const user = await userFromToken(c.env.DB, token)
+  if (!user) return c.json({ error: 'unauthorized' }, 401)
+  return c.json({ user: serializeUser(user) })
+})
+
+// Revoke the current session.
+authApp.post('/logout', async (c) => {
+  const token = bearer(c.req.header('Authorization'))
+  if (token) await c.env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run()
+  return c.json({ ok: true })
+})
