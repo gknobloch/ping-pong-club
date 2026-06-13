@@ -1,19 +1,47 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { User } from '@/types'
 import { mockUsers, mockPlayers, mockTeams, getDisplayNameForUser, getRoleLabel } from '@/mock/data'
+import { fetchMe, logout as apiLogout, oauthLogin, requestEmailCode, verifyEmailCode } from '@/lib/authApi'
 
-const STORAGE_KEY = 'ping-pong-club-dev-user-id'
+const SESSION_KEY = 'pp-club-session'
+const DEV_USER_KEY = 'ping-pong-club-dev-user-id'
 
-/**
- * Build a User for any player not in mockUsers.
- * Assigns 'player' role with their club access.
- */
+// Defensive localStorage access (guards SSR and test environments without a
+// working Storage implementation).
+const storage = {
+  get(key: string): string | null {
+    try {
+      return window.localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  set(key: string, value: string) {
+    try {
+      window.localStorage.setItem(key, value)
+    } catch {
+      /* ignore */
+    }
+  },
+  remove(key: string) {
+    try {
+      window.localStorage.removeItem(key)
+    } catch {
+      /* ignore */
+    }
+  },
+}
+
+// Dev login ("pick any user") stays available in dev builds / E2E (the E2E
+// server runs `vite dev` with no backend, so real auth can't be exercised there).
+// eslint-disable-next-line react-refresh/only-export-components
+export const DEV_LOGIN = import.meta.env.DEV || import.meta.env.VITE_DEV_LOGIN === 'true'
+
+/** Build a User for any player not in mockUsers (dev login only). */
 function buildAdHocUser(playerId: string): User | null {
   const player = mockPlayers.find((p) => p.id === playerId)
   if (!player || !player.clubId) return null
-  const captainTeamIds = mockTeams
-    .filter((t) => t.captainId === playerId)
-    .map((t) => t.id)
+  const captainTeamIds = mockTeams.filter((t) => t.captainId === playerId).map((t) => t.id)
   return {
     id: `adhoc-${playerId}`,
     email: player.email,
@@ -24,7 +52,7 @@ function buildAdHocUser(playerId: string): User | null {
   }
 }
 
-/** All selectable users: explicit mock users + ad-hoc users for remaining players. */
+/** All selectable dev users: explicit mock users + ad-hoc users for remaining players. */
 const allSelectableUsers: User[] = (() => {
   const coveredPlayerIds = new Set(mockUsers.map((u) => u.playerId).filter(Boolean))
   const adHoc = mockPlayers
@@ -38,49 +66,126 @@ interface AuthContextValue {
   user: User | null
   displayName: string
   roleLabel: string
-  login: (userId: string) => void
-  logout: () => void
   isAuthenticated: boolean
+  loading: boolean
+  /** Real auth */
+  requestCode: (email: string) => Promise<{ devCode?: string }>
+  verifyCode: (email: string, code: string) => Promise<void>
+  loginWithIdToken: (provider: 'google' | 'apple', idToken: string) => Promise<void>
+  logout: () => void
+  /** Dev login (gated by DEV_LOGIN) */
   mockUsers: User[]
+  devLoginAs: (userId: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return window.localStorage.getItem(STORAGE_KEY)
-  })
+  // Real authenticated session (email OTP / OAuth).
+  const [realUser, setRealUser] = useState<User | null>(null)
+  const [realToken, setRealToken] = useState<string | null>(null)
+  // Dev-login selection (no server session).
+  const [devUserId, setDevUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const user = useMemo(() => {
-    if (!userId) return null
-    // Check explicit mock users first, then ad-hoc
-    return allSelectableUsers.find((u) => u.id === userId) ?? null
-  }, [userId])
-
-  const login = useCallback((id: string) => {
-    setUserId(id)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, id)
+  // Restore a persisted session on mount.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = storage.get(SESSION_KEY)
+        if (token) {
+          try {
+            const me = await fetchMe(token)
+            if (!cancelled) {
+              setRealUser(me)
+              setRealToken(token)
+            }
+            return
+          } catch {
+            storage.remove(SESSION_KEY) // expired / revoked
+          }
+        }
+        if (DEV_LOGIN) {
+          const stored = storage.get(DEV_USER_KEY)
+          if (stored && !cancelled) setDevUserId(stored)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
+
+  const devUser = useMemo(
+    () => (devUserId ? (allSelectableUsers.find((u) => u.id === devUserId) ?? null) : null),
+    [devUserId],
+  )
+
+  const user = realUser ?? devUser
+
+  const applySession = useCallback((token: string, sessionUser: User) => {
+    storage.set(SESSION_KEY, token)
+    storage.remove(DEV_USER_KEY)
+    setRealToken(token)
+    setRealUser(sessionUser)
+    setDevUserId(null)
+  }, [])
+
+  const requestCode = useCallback(async (email: string) => {
+    const { devCode } = await requestEmailCode(email)
+    return { devCode }
+  }, [])
+
+  const verifyCode = useCallback(
+    async (email: string, code: string) => {
+      const session = await verifyEmailCode(email, code)
+      applySession(session.token, session.user)
+    },
+    [applySession],
+  )
+
+  const loginWithIdToken = useCallback(
+    async (provider: 'google' | 'apple', idToken: string) => {
+      const session = await oauthLogin(provider, idToken)
+      applySession(session.token, session.user)
+    },
+    [applySession],
+  )
 
   const logout = useCallback(() => {
-    setUserId(null)
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(STORAGE_KEY)
-    }
+    if (realToken) apiLogout(realToken)
+    storage.remove(SESSION_KEY)
+    storage.remove(DEV_USER_KEY)
+    setRealUser(null)
+    setRealToken(null)
+    setDevUserId(null)
+  }, [realToken])
+
+  const devLoginAs = useCallback((userId: string) => {
+    if (!DEV_LOGIN) return
+    setDevUserId(userId)
+    storage.set(DEV_USER_KEY, userId)
   }, [])
 
-  const value = useMemo<AuthContextValue>(() => ({
-    user,
-    displayName: user ? getDisplayNameForUser(user) : '',
-    roleLabel: user ? getRoleLabel(user.role) : '',
-    login,
-    logout,
-    isAuthenticated: !!user,
-    mockUsers: allSelectableUsers,
-  }), [user, login, logout])
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      displayName: user ? getDisplayNameForUser(user) : '',
+      roleLabel: user ? getRoleLabel(user.role) : '',
+      isAuthenticated: !!user,
+      loading,
+      requestCode,
+      verifyCode,
+      loginWithIdToken,
+      logout,
+      mockUsers: DEV_LOGIN ? allSelectableUsers : [],
+      devLoginAs,
+    }),
+    [user, loading, requestCode, verifyCode, loginWithIdToken, logout, devLoginAs],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
