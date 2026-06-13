@@ -15,8 +15,17 @@ import { PlayersPage } from '@/pages/admin/PlayersPage'
 import { MatchDaysPage } from '@/pages/admin/MatchDaysPage'
 import { MyClubPage } from '@/pages/MyClubPage'
 
+function AuthLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-500">
+      Chargement…
+    </div>
+  )
+}
+
 function ProtectedLayout() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
+  if (loading) return <AuthLoading />
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
@@ -24,7 +33,8 @@ function ProtectedLayout() {
 }
 
 function PublicRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
+  if (loading) return <AuthLoading />
   if (isAuthenticated) {
     return <Navigate to="/" replace />
   }
