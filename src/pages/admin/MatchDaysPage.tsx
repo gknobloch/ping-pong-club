@@ -393,9 +393,9 @@ export function MatchDaysPage() {
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
   const myClubTeamsInPhase = useMemo(() => {
-    if (!selectedPhaseId || !user?.clubIds?.length) return []
+    if (!selectedPhaseId || !user?.clubId) return []
     return teams
-      .filter((t) => t.phaseId === selectedPhaseId && user!.clubIds!.includes(t.clubId))
+      .filter((t) => t.phaseId === selectedPhaseId && t.clubId === user!.clubId)
       .sort((a, b) => {
         const clubA = clubs.find((c) => c.id === a.clubId)?.displayName ?? a.clubId
         const clubB = clubs.find((c) => c.id === b.clubId)?.displayName ?? b.clubId
@@ -403,7 +403,7 @@ export function MatchDaysPage() {
         const nameB = `${clubB} ${b.number}`
         return nameA.localeCompare(nameB)
       })
-  }, [teams, selectedPhaseId, user?.clubIds])
+  }, [teams, selectedPhaseId, user?.clubId])
 
   /** Match-days for a given team (its group). */
   const getMatchDaysForTeam = (teamId: string) => {
@@ -423,18 +423,17 @@ export function MatchDaysPage() {
 
   /** Club players (active) not in any of the phase's team rosters; for "Other players" section. */
   const otherPlayers = useMemo(() => {
-    if (!user?.clubIds?.length) return []
+    if (!user?.clubId) return []
     const inRoster = new Set(myClubTeamsInPhase.flatMap((t) => t.playerIds ?? []))
     return sortByName(
       players.filter(
         (p) =>
-          p.clubId &&
-          user!.clubIds!.includes(p.clubId) &&
+          p.clubId === user!.clubId &&
           p.status === 'active' &&
           !inRoster.has(p.id),
       ),
     )
-  }, [players, user?.clubIds, myClubTeamsInPhase])
+  }, [players, user?.clubId, myClubTeamsInPhase])
 
   const [editingMatchDay, setEditingMatchDay] = useState<MatchDay | null>(null)
   const [creatingMatchDay, setCreatingMatchDay] = useState(false)
@@ -562,9 +561,9 @@ export function MatchDaysPage() {
     if (!user) return false
     const team = teams.find((t) => t.id === teamId)
     if (!team) return false
-    const isOwn = user.playerId === playerId
-    const isCaptain = user.captainTeamIds.includes(teamId)
-    const isClubAdminForTeam = user.role === 'club_admin' && user.clubIds.includes(team.clubId)
+    const isOwn = user.id === playerId
+    const isCaptain = team.captainId === user.id
+    const isClubAdminForTeam = user.role === 'club_admin' && team.clubId === user.clubId
     return isOwn || isCaptain || isClubAdminForTeam
   }
 
@@ -572,9 +571,9 @@ export function MatchDaysPage() {
     if (!user) return undefined
     const team = teams.find((t) => t.id === teamId)
     if (!team) return undefined
-    if (user.playerId === playerId) return undefined
-    if (user.captainTeamIds.includes(teamId)) return 'captain'
-    if (user.role === 'club_admin' && user.clubIds.includes(team.clubId)) return 'club_admin'
+    if (user.id === playerId) return undefined
+    if (team.captainId === user.id) return 'captain'
+    if (user.role === 'club_admin' && team.clubId === user.clubId) return 'club_admin'
     return undefined
   }
 
@@ -583,8 +582,8 @@ export function MatchDaysPage() {
     if (!user) return false
     const team = teams.find((t) => t.id === teamId)
     if (!team) return false
-    const isCaptain = user.captainTeamIds.includes(teamId)
-    const isClubAdminForTeam = user.role === 'club_admin' && user.clubIds.includes(team.clubId)
+    const isCaptain = team.captainId === user.id
+    const isClubAdminForTeam = user.role === 'club_admin' && team.clubId === user.clubId
     return isCaptain || isClubAdminForTeam
   }
 
@@ -774,8 +773,8 @@ export function MatchDaysPage() {
   useEffect(() => {
     const hash = window.location.hash.slice(1)
     let target = hash
-    if (!target && user?.playerId) {
-      const userTeam = myClubTeamsInPhase.find((t) => t.playerIds?.includes(user.playerId!))
+    if (!target && user?.isPlayer) {
+      const userTeam = myClubTeamsInPhase.find((t) => t.playerIds?.includes(user.id))
       if (userTeam) target = `team-${userTeam.id}`
     }
     if (!target) return
@@ -1131,7 +1130,7 @@ export function MatchDaysPage() {
                               <span className={`block font-medium ${player.id === team.captainId ? 'font-bold' : ''}`}>
                                 {player.firstName} {player.lastName}
                                 {(() => {
-                                  const pts = team.rosterInitialPoints?.[player.id] ?? player.points
+                                  const pts = team.rosterInitialPoints?.[player.id]
                                   return pts ? <span className="ml-1 text-slate-500 font-normal">({pts})</span> : null
                                 })()}
                               </span>
@@ -1171,10 +1170,8 @@ export function MatchDaysPage() {
                                 const ourClubTeamsThisDay = [
                                   ...new Set(
                                     dayGames.flatMap((g) =>
-                                      [g.homeTeamId, g.awayTeamId].filter((tid) =>
-                                        user?.clubIds?.includes(
-                                          teams.find((t) => t.id === tid)?.clubId ?? ''
-                                        )
+                                      [g.homeTeamId, g.awayTeamId].filter(
+                                        (tid) => teams.find((t) => t.id === tid)?.clubId === user?.clubId
                                       )
                                     )
                                   ),
@@ -1431,7 +1428,6 @@ export function MatchDaysPage() {
                     <td className="px-3 py-1.5 text-slate-800">
                       <span className="block font-medium">
                         {player.firstName} {player.lastName}
-                        {player.points ? <span className="ml-1 text-slate-500 font-normal">({player.points})</span> : null}
                       </span>
                       {player.licenseNumber && (
                         <span className="block text-xs text-slate-400">{player.licenseNumber}</span>
@@ -1464,10 +1460,8 @@ export function MatchDaysPage() {
                         const ourClubTeamsThisDay = [
                           ...new Set(
                             dayGames.flatMap((g) =>
-                              [g.homeTeamId, g.awayTeamId].filter((tid) =>
-                                user?.clubIds?.includes(
-                                  teams.find((t) => t.id === tid)?.clubId ?? ''
-                                )
+                              [g.homeTeamId, g.awayTeamId].filter(
+                                (tid) => teams.find((t) => t.id === tid)?.clubId === user?.clubId
                               )
                             )
                           ),

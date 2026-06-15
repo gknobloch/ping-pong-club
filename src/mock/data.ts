@@ -70,60 +70,60 @@ export const mockDivisions: Division[] = [
 // ---------------------------------------------------------------------------
 export const mockPlayers: Player[] = [
   // Equipe 1
-  { id: 'p2-player-5', firstName: 'Joris', lastName: 'Szulc', licenseNumber: '686910', email: 'joris.szulc@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1887' },
-  { id: 'p2-player-1', firstName: 'Grégory', lastName: 'Canaque', licenseNumber: '425881', email: 'gregory.canaque@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1763' },
-  { id: 'p2-player-2', firstName: 'Quentin', lastName: 'Colle', licenseNumber: '8810008', email: 'quentin.colle@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1665' },
-  { id: 'p2-player-3', firstName: 'Stéphane', lastName: 'Lach', licenseNumber: '681364', email: 'stephane.lach@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1647' },
-  { id: 'p2-player-4', firstName: 'Enzo', lastName: 'Lotz', licenseNumber: '6716966', email: 'enzo.lotz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1566' },
+  { id: 'p2-player-5', firstName: 'Joris', lastName: 'Szulc', licenseNumber: '686910', email: 'joris.szulc@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-1', firstName: 'Grégory', lastName: 'Canaque', licenseNumber: '425881', email: 'gregory.canaque@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-2', firstName: 'Quentin', lastName: 'Colle', licenseNumber: '8810008', email: 'quentin.colle@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-3', firstName: 'Stéphane', lastName: 'Lach', licenseNumber: '681364', email: 'stephane.lach@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-4', firstName: 'Enzo', lastName: 'Lotz', licenseNumber: '6716966', email: 'enzo.lotz@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 2
-  { id: 'p2-player-6', firstName: 'Christian', lastName: 'Buchi', licenseNumber: '6815117', email: 'christian.buchi@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1791' },
-  { id: 'p2-player-10', firstName: 'Olivier', lastName: 'Philippe', licenseNumber: '683975', email: 'olivier.philippe@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1661' },
-  { id: 'p2-player-7', firstName: 'Hervé', lastName: 'Ceroni', licenseNumber: '684545', email: 'herve.ceroni@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1500' },
-  { id: 'p2-player-9', firstName: 'Fabrice', lastName: 'Dangelser', licenseNumber: '682480', email: 'fabrice.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
-  { id: 'p2-player-8', firstName: 'Cédric', lastName: 'Cunin', licenseNumber: '6810711', email: 'cedric.cunin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1301' },
+  { id: 'p2-player-6', firstName: 'Christian', lastName: 'Buchi', licenseNumber: '6815117', email: 'christian.buchi@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-10', firstName: 'Olivier', lastName: 'Philippe', licenseNumber: '683975', email: 'olivier.philippe@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-7', firstName: 'Hervé', lastName: 'Ceroni', licenseNumber: '684545', email: 'herve.ceroni@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-9', firstName: 'Fabrice', lastName: 'Dangelser', licenseNumber: '682480', email: 'fabrice.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-8', firstName: 'Cédric', lastName: 'Cunin', licenseNumber: '6810711', email: 'cedric.cunin@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 3
-  { id: 'p2-player-12', firstName: 'Sébastien', lastName: 'Rentz', licenseNumber: '687433', email: 'sebastien.rentz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1356' },
-  { id: 'p2-player-13', firstName: 'Sébastien', lastName: 'Schatt', licenseNumber: '685143', email: 'sebastien.schatt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1267' },
-  { id: 'p2-player-14', firstName: 'Yannick', lastName: 'Schill', licenseNumber: '6814304', email: 'yannick.schill@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1198' },
-  { id: 'p2-player-11', firstName: 'Nello', lastName: 'Cristini', licenseNumber: '683787', email: 'nello.cristini@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1186' },
-  { id: 'p2-player-17', firstName: 'Bastien', lastName: 'Dangelser', licenseNumber: '684113', email: 'bastien.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1', points: '754' },
+  { id: 'p2-player-12', firstName: 'Sébastien', lastName: 'Rentz', licenseNumber: '687433', email: 'sebastien.rentz@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-13', firstName: 'Sébastien', lastName: 'Schatt', licenseNumber: '685143', email: 'sebastien.schatt@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-14', firstName: 'Yannick', lastName: 'Schill', licenseNumber: '6814304', email: 'yannick.schill@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-11', firstName: 'Nello', lastName: 'Cristini', licenseNumber: '683787', email: 'nello.cristini@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-17', firstName: 'Bastien', lastName: 'Dangelser', licenseNumber: '684113', email: 'bastien.dangelser@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 4
-  { id: 'p2-player-16', firstName: 'Didier', lastName: 'Clément', licenseNumber: '392885', email: 'didier.clement@example.com', phone: '', status: 'active', clubId: 'club-1', points: '889' },
-  { id: 'p2-player-19', firstName: 'Mathieu', lastName: 'Mougey', licenseNumber: '6810243', email: 'mathieu.mougey@example.com', phone: '', status: 'active', clubId: 'club-1', points: '728' },
-  { id: 'p2-player-18', firstName: 'Bertrand', lastName: 'De Coatpont', licenseNumber: '6813454', email: 'bertrand.decoatpont@example.com', phone: '', status: 'active', clubId: 'club-1', points: '727' },
-  { id: 'p2-player-15', firstName: 'Nicolas', lastName: 'Broglin', licenseNumber: '6815877', email: 'nicolas.broglin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '713' },
-  { id: 'p2-player-20', firstName: 'David', lastName: 'Schmitt', licenseNumber: '6815675', email: 'david.schmitt@example.com', phone: '', status: 'active', clubId: 'club-1', points: '704' },
+  { id: 'p2-player-16', firstName: 'Didier', lastName: 'Clément', licenseNumber: '392885', email: 'didier.clement@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-19', firstName: 'Mathieu', lastName: 'Mougey', licenseNumber: '6810243', email: 'mathieu.mougey@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-18', firstName: 'Bertrand', lastName: 'De Coatpont', licenseNumber: '6813454', email: 'bertrand.decoatpont@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-15', firstName: 'Nicolas', lastName: 'Broglin', licenseNumber: '6815877', email: 'nicolas.broglin@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-20', firstName: 'David', lastName: 'Schmitt', licenseNumber: '6815675', email: 'david.schmitt@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 5
-  { id: 'p2-player-22', firstName: 'Patricia', lastName: 'De Pauli', licenseNumber: '6812597', email: 'patricia.depauli@example.com', phone: '', status: 'active', clubId: 'club-1', points: '735' },
-  { id: 'p2-player-24', firstName: 'Gilles', lastName: 'Knobloch', licenseNumber: '6814428', email: 'gilles.knobloch@example.com', phone: '', status: 'active', clubId: 'club-1', points: '701' },
-  { id: 'p2-player-21', firstName: 'Abdelaziz', lastName: 'Arif', licenseNumber: '9131446', email: 'abdelaziz.arif@example.com', phone: '', status: 'active', clubId: 'club-1', points: '702' },
-  { id: 'p2-player-23', firstName: 'Christophe', lastName: 'Heurtin', licenseNumber: '6816317', email: 'christophe.heurtin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1050' },
-  { id: 'p2-player-26', firstName: 'Frédéric', lastName: 'Zilbermann', licenseNumber: '689768', email: 'frederic.zilbermann@example.com', phone: '', status: 'active', clubId: 'club-1', points: '707' },
+  { id: 'p2-player-22', firstName: 'Patricia', lastName: 'De Pauli', licenseNumber: '6812597', email: 'patricia.depauli@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-24', firstName: 'Gilles', lastName: 'Knobloch', licenseNumber: '6814428', email: 'gilles.knobloch@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-21', firstName: 'Abdelaziz', lastName: 'Arif', licenseNumber: '9131446', email: 'abdelaziz.arif@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-23', firstName: 'Christophe', lastName: 'Heurtin', licenseNumber: '6816317', email: 'christophe.heurtin@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-26', firstName: 'Frédéric', lastName: 'Zilbermann', licenseNumber: '689768', email: 'frederic.zilbermann@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 6
-  { id: 'p2-player-29', firstName: 'Christophe', lastName: 'Hueber', licenseNumber: '686956', email: 'christophe.hueber@example.com', phone: '', status: 'active', clubId: 'club-1', points: '632' },
-  { id: 'p2-player-39', firstName: 'Samuel', lastName: 'Canemolla', licenseNumber: '6816075', email: 'samuel.canemolla@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-40', firstName: 'Yvan', lastName: 'Meyer', licenseNumber: '6815960', email: 'yvan.meyer@example.com', phone: '', status: 'active', clubId: 'club-1', points: '503' },
-  { id: 'p2-player-41', firstName: 'Nathan', lastName: 'Moreau', licenseNumber: '6816100', email: 'nathan.moreau@example.com', phone: '', status: 'active', clubId: 'club-1', points: '561' },
-  { id: 'p2-player-42', firstName: 'Sacha', lastName: 'Pent', licenseNumber: '6816097', email: 'sacha.pent@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-38', firstName: 'Quentin', lastName: 'Broglin', licenseNumber: '6816118', email: 'quentin.broglin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-43', firstName: 'Léo', lastName: 'Remetter', licenseNumber: '6815965', email: 'leo.remetter@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-44', firstName: 'Mathéo', lastName: 'Scremin', licenseNumber: '6816084', email: 'matheo.scremin@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-29', firstName: 'Christophe', lastName: 'Hueber', licenseNumber: '686956', email: 'christophe.hueber@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-39', firstName: 'Samuel', lastName: 'Canemolla', licenseNumber: '6816075', email: 'samuel.canemolla@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-40', firstName: 'Yvan', lastName: 'Meyer', licenseNumber: '6815960', email: 'yvan.meyer@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-41', firstName: 'Nathan', lastName: 'Moreau', licenseNumber: '6816100', email: 'nathan.moreau@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-42', firstName: 'Sacha', lastName: 'Pent', licenseNumber: '6816097', email: 'sacha.pent@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-38', firstName: 'Quentin', lastName: 'Broglin', licenseNumber: '6816118', email: 'quentin.broglin@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-43', firstName: 'Léo', lastName: 'Remetter', licenseNumber: '6815965', email: 'leo.remetter@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-44', firstName: 'Mathéo', lastName: 'Scremin', licenseNumber: '6816084', email: 'matheo.scremin@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 7
-  { id: 'p2-player-33', firstName: 'Eric', lastName: 'Cavasino', licenseNumber: '6815606', email: 'eric.cavasino@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-35', firstName: 'Luc', lastName: 'Guehl', licenseNumber: '6816152', email: 'luc.guehl@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-34', firstName: 'Boris', lastName: 'Fessler', licenseNumber: '6816176', email: 'boris.fessler@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-36', firstName: 'Bruno', lastName: 'Lafont', licenseNumber: '6816419', email: 'bruno.lafont@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-37', firstName: 'Alain', lastName: 'Schillinger', licenseNumber: '6816418', email: 'alain.schillinger@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-33', firstName: 'Eric', lastName: 'Cavasino', licenseNumber: '6815606', email: 'eric.cavasino@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-35', firstName: 'Luc', lastName: 'Guehl', licenseNumber: '6816152', email: 'luc.guehl@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-34', firstName: 'Boris', lastName: 'Fessler', licenseNumber: '6816176', email: 'boris.fessler@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-36', firstName: 'Bruno', lastName: 'Lafont', licenseNumber: '6816419', email: 'bruno.lafont@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-37', firstName: 'Alain', lastName: 'Schillinger', licenseNumber: '6816418', email: 'alain.schillinger@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 8
-  { id: 'p2-player-32', firstName: 'Vincent', lastName: 'Rambeau', licenseNumber: '6815464', email: 'vincent.rambeau@example.com', phone: '', status: 'active', clubId: 'club-1', points: '607' },
-  { id: 'p2-player-27', firstName: 'Jacky', lastName: 'Antony', licenseNumber: '6815563', email: 'jacky.antony@example.com', phone: '', status: 'active', clubId: 'club-1', points: '501' },
-  { id: 'p2-player-28', firstName: 'Stéphane', lastName: 'Donditz', licenseNumber: '6816101', email: 'stephane.donditz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-30', firstName: 'Jean-Claude', lastName: 'Laffuge', licenseNumber: '68357', email: 'jeanclaude.laffuge@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
-  { id: 'p2-player-31', firstName: 'Gilles', lastName: 'Metz', licenseNumber: '6816164', email: 'gilles.metz@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-32', firstName: 'Vincent', lastName: 'Rambeau', licenseNumber: '6815464', email: 'vincent.rambeau@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-27', firstName: 'Jacky', lastName: 'Antony', licenseNumber: '6815563', email: 'jacky.antony@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-28', firstName: 'Stéphane', lastName: 'Donditz', licenseNumber: '6816101', email: 'stephane.donditz@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-30', firstName: 'Jean-Claude', lastName: 'Laffuge', licenseNumber: '68357', email: 'jeanclaude.laffuge@example.com', phone: '', status: 'active', clubId: 'club-1' },
+  { id: 'p2-player-31', firstName: 'Gilles', lastName: 'Metz', licenseNumber: '6816164', email: 'gilles.metz@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Remplaçante (unassigned)
-  { id: 'p2-player-45', firstName: 'Marie-Line', lastName: 'Wertenschlag', licenseNumber: '686416', email: 'marieline.wertenschlag@example.com', phone: '', status: 'active', clubId: 'club-1', points: '1287' },
+  { id: 'p2-player-45', firstName: 'Marie-Line', lastName: 'Wertenschlag', licenseNumber: '686416', email: 'marieline.wertenschlag@example.com', phone: '', status: 'active', clubId: 'club-1' },
   // Equipe 5 extra
-  { id: 'p2-player-25', firstName: 'Jordan', lastName: 'Pesenti', licenseNumber: '6718937', email: 'jordan.pesenti@example.com', phone: '', status: 'active', clubId: 'club-1', points: '500' },
+  { id: 'p2-player-25', firstName: 'Jordan', lastName: 'Pesenti', licenseNumber: '6718937', email: 'jordan.pesenti@example.com', phone: '', status: 'active', clubId: 'club-1' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -397,21 +397,35 @@ export const mockGameSelections: GameSelection[] = []
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
+// Every player is a user (is_player). Plus two admin-only users.
 export const mockUsers: User[] = [
-  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', clubIds: [], captainTeamIds: [] },
-  { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-3', email: 'joris.szulc@example.com', role: 'player', playerId: 'p2-player-5', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-4', email: 'christophe.heurtin@example.com', role: 'player', playerId: 'p2-player-23', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-5', email: 'gilles.knobloch@example.com', role: 'player', playerId: 'p2-player-24', clubIds: ['club-1'], captainTeamIds: [] },
-  { id: 'user-6', email: 'sebastien.rentz@example.com', role: 'player', playerId: 'p2-player-12', clubIds: ['club-1'], captainTeamIds: [] },
+  { id: 'user-1', email: 'admin@example.com', role: 'general_admin', isPlayer: false },
+  { id: 'user-2', email: 'club.admin@example.com', role: 'club_admin', isPlayer: false, clubId: 'club-1' },
+  ...mockPlayers.map(
+    (p): User => ({
+      id: p.id,
+      email: p.email,
+      role: 'player',
+      isPlayer: true,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      licenseNumber: p.licenseNumber,
+      phone: p.phone,
+      ...(p.birthDate ? { birthDate: p.birthDate } : {}),
+      ...(p.birthPlace ? { birthPlace: p.birthPlace } : {}),
+      status: p.status,
+      clubId: p.clubId,
+    }),
+  ),
 ]
 
 // ---------------------------------------------------------------------------
 // Utility functions
 // ---------------------------------------------------------------------------
 export function getDisplayNameForUser(user: User): string {
-  const player = mockPlayers.find((p) => p.id === user.playerId)
-  if (player) return `${player.firstName} ${player.lastName}`
+  if (user.firstName || user.lastName) {
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+  }
   return user.email
 }
 
@@ -419,7 +433,6 @@ export function getRoleLabel(role: User['role']): string {
   const labels: Record<User['role'], string> = {
     general_admin: 'Administrateur général',
     club_admin: 'Administrateur de club',
-    captain: 'Capitaine',
     player: 'Joueur',
   }
   return labels[role]

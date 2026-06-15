@@ -4,11 +4,9 @@ import { useAppData } from '@/contexts/DataContext'
 export function HomePage() {
   const { user, displayName, roleLabel } = useAuth()
   const { clubs } = useAppData()
-  const adminClubNames =
-    user?.clubIds
-      ?.map((id) => clubs.find((c) => c.id === id)?.displayName)
-      .filter(Boolean)
-      .join(', ') ?? ''
+  const adminClubNames = user?.clubId
+    ? (clubs.find((c) => c.id === user.clubId)?.displayName ?? '')
+    : ''
 
   return (
     <div className="space-y-6">

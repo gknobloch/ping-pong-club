@@ -25,8 +25,8 @@ export function AppShell() {
   const { clubs } = useAppData()
   const isGeneralAdmin = user?.role === 'general_admin'
   const isClubAdmin = user?.role === 'club_admin'
-  const clubLabel = !isGeneralAdmin && user?.clubIds?.length
-    ? clubs.filter((c) => user.clubIds.includes(c.id)).map((c) => c.displayName).join(', ')
+  const clubLabel = !isGeneralAdmin && user?.clubId
+    ? (clubs.find((c) => c.id === user.clubId)?.displayName ?? null)
     : null
 
   const handleLogout = () => {
@@ -73,9 +73,9 @@ export function AppShell() {
                 </Link>
               </>
             )}
-            {(isClubAdmin || user?.role === 'captain' || user?.role === 'player') && !isGeneralAdmin && (
+            {(isClubAdmin || user?.role === 'player') && !isGeneralAdmin && (
               <>
-                {user?.clubIds?.length ? (
+                {user?.clubId ? (
                   <Link to="/mon-club" className={navLinkClass(location.pathname === '/mon-club')}>
                     Mon club
                   </Link>

@@ -14,7 +14,7 @@ export default function EquipesScreen() {
   const visibleTeams =
     user?.role === 'general_admin'
       ? teams
-      : teams.filter((t) => user?.clubIds?.includes(t.clubId ?? ''))
+      : teams.filter((t) => t.clubId === user?.clubId)
 
   return (
     <SafeAreaView style={styles.container}>

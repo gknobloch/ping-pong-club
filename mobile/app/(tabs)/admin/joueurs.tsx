@@ -27,7 +27,7 @@ export default function AdminPlayersScreen() {
   const visiblePlayers =
     user?.role === 'general_admin'
       ? players
-      : players.filter((p) => user?.clubIds?.includes(p.clubId ?? ''))
+      : players.filter((p) => p.clubId === user?.clubId)
 
   const filtered = sortByName(
     visiblePlayers.filter((p) => {

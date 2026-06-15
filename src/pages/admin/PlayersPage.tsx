@@ -30,9 +30,8 @@ export function PlayersPage() {
 
   const isClubAdmin = user?.role === 'club_admin'
   const hasClubScope =
-    (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') &&
-    (user?.clubIds?.length ?? 0) > 0
-  const adminClubIds = user?.clubIds ?? []
+    (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
+  const adminClubIds = user?.clubId ? [user.clubId] : []
 
   const players = useMemo(() => {
     const list = hasClubScope && adminClubIds.length

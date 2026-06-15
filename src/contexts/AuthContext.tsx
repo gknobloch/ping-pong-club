@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { User } from '@/types'
-import { mockUsers, mockPlayers, mockTeams, getDisplayNameForUser, getRoleLabel } from '@/mock/data'
+import { mockUsers, getDisplayNameForUser, getRoleLabel } from '@/mock/data'
 import { fetchMe, logout as apiLogout, oauthLogin, requestEmailCode, verifyEmailCode } from '@/lib/authApi'
 
 const SESSION_KEY = 'pp-club-session'
@@ -37,30 +37,8 @@ const storage = {
 // eslint-disable-next-line react-refresh/only-export-components
 export const DEV_LOGIN = import.meta.env.DEV || import.meta.env.VITE_DEV_LOGIN === 'true'
 
-/** Build a User for any player not in mockUsers (dev login only). */
-function buildAdHocUser(playerId: string): User | null {
-  const player = mockPlayers.find((p) => p.id === playerId)
-  if (!player || !player.clubId) return null
-  const captainTeamIds = mockTeams.filter((t) => t.captainId === playerId).map((t) => t.id)
-  return {
-    id: `adhoc-${playerId}`,
-    email: player.email,
-    role: captainTeamIds.length > 0 ? 'captain' : 'player',
-    playerId: player.id,
-    clubIds: [player.clubId],
-    captainTeamIds,
-  }
-}
-
-/** All selectable dev users: explicit mock users + ad-hoc users for remaining players. */
-const allSelectableUsers: User[] = (() => {
-  const coveredPlayerIds = new Set(mockUsers.map((u) => u.playerId).filter(Boolean))
-  const adHoc = mockPlayers
-    .filter((p) => p.clubId && !coveredPlayerIds.has(p.id))
-    .map((p) => buildAdHocUser(p.id)!)
-    .filter(Boolean)
-  return [...mockUsers, ...adHoc]
-})()
+// Every player is now a user, so mockUsers already covers all selectable accounts.
+const allSelectableUsers: User[] = mockUsers
 
 interface AuthContextValue {
   user: User | null

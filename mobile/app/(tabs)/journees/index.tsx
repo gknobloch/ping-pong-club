@@ -101,7 +101,7 @@ export default function JourneesScreen() {
 
               {isExpanded &&
                 weeks.map((mon) => {
-                  const mds = weekMap.get(mon) ?? []
+                  const mds: { id: string }[] = weekMap.get(mon) ?? []
                   const cnt = games.filter((g) => mds.some((md) => md.id === g.matchDayId)).length
                   const isPast = getSundayOf(mon) < now
 

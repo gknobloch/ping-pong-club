@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
 import * as AppleAuthentication from 'expo-apple-authentication'
-import type { User, Player, Team } from '@shared/types'
+import type { User } from '@shared/types'
 import { getDisplayName, getRoleLabel } from '@/utils/roles'
 import { fetchMe, logout as apiLogout, oauthLogin, requestEmailCode, verifyEmailCode } from '@/utils/api'
 
@@ -43,11 +43,9 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 interface AuthProviderProps {
   children: React.ReactNode
   apiUsers?: User[]
-  players?: Player[]
-  teams?: Team[]
 }
 
-export function AuthProvider({ children, apiUsers = [], players = [], teams = [] }: AuthProviderProps) {
+export function AuthProvider({ children, apiUsers = [] }: AuthProviderProps) {
   // Real authenticated session (email OTP / OAuth).
   const [realUser, setRealUser] = useState<User | null>(null)
   const [realToken, setRealToken] = useState<string | null>(null)
@@ -86,36 +84,8 @@ export function AuthProvider({ children, apiUsers = [], players = [], teams = []
     }
   }, [])
 
-  // --- Dev synthetic users (kept only for dev login) ---
-  const captainTeamIdsByPlayer = useMemo(() => {
-    const map = new Map<string, string[]>()
-    for (const team of teams) {
-      if (team.captainId) {
-        const existing = map.get(team.captainId) ?? []
-        map.set(team.captainId, [...existing, team.id])
-      }
-    }
-    return map
-  }, [teams])
-
-  const allUsers = useMemo<User[]>(() => {
-    if (!DEV_LOGIN) return []
-    const coveredPlayerIds = new Set(apiUsers.map((u) => u.playerId).filter(Boolean))
-    const synthetic: User[] = players
-      .filter((p) => p.status === 'active' && !coveredPlayerIds.has(p.id))
-      .map((p) => {
-        const captainTeamIds = captainTeamIdsByPlayer.get(p.id) ?? []
-        return {
-          id: `synthetic-${p.id}`,
-          email: p.email,
-          role: captainTeamIds.length > 0 ? 'captain' : 'player',
-          playerId: p.id,
-          clubIds: p.clubId ? [p.clubId] : [],
-          captainTeamIds,
-        } satisfies User
-      })
-    return [...apiUsers, ...synthetic]
-  }, [apiUsers, players, captainTeamIdsByPlayer])
+  // Every player is now a user, so the API user list already covers all accounts.
+  const allUsers = useMemo<User[]>(() => (DEV_LOGIN ? apiUsers : []), [apiUsers])
 
   const devUser = useMemo(
     () => (devUserId ? (allUsers.find((u) => u.id === devUserId) ?? null) : null),
@@ -183,7 +153,7 @@ export function AuthProvider({ children, apiUsers = [], players = [], teams = []
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      displayName: user ? getDisplayName(user, players) : '',
+      displayName: user ? getDisplayName(user) : '',
       roleLabel: user ? getRoleLabel(user.role) : '',
       isAuthenticated: !!user,
       loading,
@@ -195,7 +165,7 @@ export function AuthProvider({ children, apiUsers = [], players = [], teams = []
       availableUsers: DEV_LOGIN ? allUsers : [],
       devLoginAs,
     }),
-    [user, players, loading, allUsers, requestCode, verifyCode, loginWithIdToken, loginWithApple, logout, devLoginAs],
+    [user, loading, allUsers, requestCode, verifyCode, loginWithIdToken, loginWithApple, logout, devLoginAs],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

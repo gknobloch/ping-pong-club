@@ -654,7 +654,7 @@ export default function HomeScreen() {
   const today = todayIso()
   const currentWeekMonday = getMondayOf(today)
 
-  const myPlayerId = user?.playerId
+  const myPlayerId = user?.isPlayer ? user.id : undefined
 
   const myTeamByPhase = useMemo(() => {
     if (!myPlayerId) return new Map<string, Team>()
@@ -667,7 +667,7 @@ export default function HomeScreen() {
 
   const activePhase = phases.find((p) => p.isActive)
   const myActiveTeam = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
-  const isCaptain = !!(user && myActiveTeam && canManageTeam(user, myActiveTeam.id))
+  const isCaptain = !!(user && myActiveTeam && canManageTeam(user, myActiveTeam))
 
   const divMap = useMemo(() => new Map(divisions.map((d) => [d.id, d])), [divisions])
   const groupMap = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
@@ -775,7 +775,7 @@ export default function HomeScreen() {
 
   function getPhasePoints(player: Player): string | undefined {
     const team = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
-    return team?.rosterInitialPoints?.[player.id] ?? player.points
+    return team?.rosterInitialPoints?.[player.id]
   }
 
   function getGameHistoryForPlayer(player: Player, phaseId?: string): GameHistoryEntry[] {
@@ -832,7 +832,7 @@ export default function HomeScreen() {
 
   // Welcome card subtitle: team info or generic role label
   const teamSubtitle = myActiveTeam
-    ? (user?.role === 'captain'
+    ? (isCaptain
         ? `Capitaine — Équipe ${myActiveTeam.number}`
         : `Équipe ${myActiveTeam.number}`)
     : null
@@ -985,7 +985,7 @@ export default function HomeScreen() {
                         clubs={clubs}
                         playersPerGame={getPlayersPerGame(team)}
                         myPlayerId={myPlayerId}
-                        isCaptain={!!(user && canManageTeam(user, team.id))}
+                        isCaptain={!!(user && canManageTeam(user, team))}
                         isPast={true}
                         selectedPlayers={selIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[]}
                         initialSelectionIds={selIds}

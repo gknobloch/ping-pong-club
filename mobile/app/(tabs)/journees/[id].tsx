@@ -234,10 +234,10 @@ export default function WeekDetailScreen() {
 
           // Which teams the current user can manage
           const manageableTeams = [homeTeam, awayTeam].filter(
-            (t) => t && user && canManageTeam(user, t.id),
+            (t) => t && user && canManageTeam(user, t),
           )
 
-          const myPlayerId = user?.playerId
+          const myPlayerId = user?.isPlayer ? user.id : undefined
           const myAvail = myPlayerId ? getAvailability(myPlayerId, game.id) : undefined
           const userIsInThisGame =
             myPlayerId &&

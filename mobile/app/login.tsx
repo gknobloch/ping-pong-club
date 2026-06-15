@@ -15,7 +15,6 @@ import Constants from 'expo-constants'
 import * as WebBrowser from 'expo-web-browser'
 import * as Google from 'expo-auth-session/providers/google'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
-import { useAppData } from '@/contexts/DataContext'
 import { getRoleLabel, getDisplayName } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
 import { colors } from '@/constants/colors'
@@ -240,7 +239,6 @@ export default function LoginScreen() {
 // ---------------------------------------------------------------------------
 function DevLogin() {
   const { availableUsers, devLoginAs } = useAuth()
-  const { players } = useAppData()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selecting, setSelecting] = useState<string | null>(null)
@@ -249,20 +247,16 @@ function DevLogin() {
     const q = query.trim().toLowerCase()
     const all = q
       ? availableUsers.filter((u) => {
-          const name = getDisplayName(u, players).toLowerCase()
+          const name = getDisplayName(u).toLowerCase()
           return name.includes(q) || u.email.toLowerCase().includes(q)
         })
       : availableUsers
-    const adminRoles = new Set(['general_admin', 'club_admin'])
-    const admins = all.filter((u) => adminRoles.has(u.role))
+    const admins = all.filter((u) => !u.isPlayer)
     const withPlayers = all
-      .filter((u) => !adminRoles.has(u.role) && u.playerId)
-      .map((u) => {
-        const p = players.find((pl) => pl.id === u.playerId)
-        return { user: u, lastName: p?.lastName ?? '', firstName: p?.firstName ?? '' }
-      })
+      .filter((u) => u.isPlayer)
+      .map((u) => ({ user: u, lastName: u.lastName ?? '', firstName: u.firstName ?? '' }))
     return [...admins, ...sortByName(withPlayers).map((x) => x.user)]
-  }, [availableUsers, players, query])
+  }, [availableUsers, query])
 
   async function handleSelect(user: User) {
     setSelecting(user.id)
@@ -294,7 +288,7 @@ function DevLogin() {
               disabled={selecting === user.id}
             >
               <View style={styles.cardBody}>
-                <Text style={styles.name}>{getDisplayName(user, players)}</Text>
+                <Text style={styles.name}>{getDisplayName(user)}</Text>
                 <Text style={styles.role}>{getRoleLabel(user.role)}</Text>
               </View>
               {selecting === user.id && <ActivityIndicator size="small" color={colors.accent} />}

@@ -17,7 +17,7 @@ export default function MonCompteScreen() {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<EditableFields>({ email: '', phone: '', birthDate: '', birthPlace: '' })
 
-  const player = user?.playerId ? players.find((p) => p.id === user.playerId) : null
+  const player = user?.isPlayer ? players.find((p) => p.id === user.id) : null
   const club = player ? clubs.find((c) => c.id === player.clubId) : null
 
   const activePhase = phases.find((p) => p.isActive && !p.isArchived)
@@ -161,13 +161,13 @@ export default function MonCompteScreen() {
               />
               <Field
                 label="Date de naissance"
-                value={form.birthDate}
+                value={form.birthDate ?? ''}
                 onChangeText={(v) => setForm((f) => ({ ...f, birthDate: v }))}
                 placeholder="JJ/MM/AAAA"
               />
               <Field
                 label="Lieu de naissance"
-                value={form.birthPlace}
+                value={form.birthPlace ?? ''}
                 onChangeText={(v) => setForm((f) => ({ ...f, birthPlace: v }))}
                 placeholder="Ville, Pays"
                 autoCapitalize="words"
