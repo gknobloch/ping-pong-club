@@ -1,4 +1,5 @@
-export type Role = 'general_admin' | 'club_admin' | 'captain' | 'player'
+// Captaincy is per-team (see Team.captainId), so it is NOT a role — it's derived.
+export type Role = 'general_admin' | 'club_admin' | 'player'
 
 export type PlayerStatus = 'active' | 'pending_validation' | 'archived'
 
@@ -52,6 +53,11 @@ export interface Group {
   isArchived: boolean
 }
 
+/**
+ * Player = the "person" projection of a User where isPlayer is true. These
+ * fields are guaranteed populated for players, so player-facing UI can rely on
+ * them. Derived from `users` by the data contexts.
+ */
 export interface Player {
   id: string
   firstName: string
@@ -63,8 +69,6 @@ export interface Player {
   birthPlace?: string
   status: PlayerStatus
   clubId: string
-  /** Display points (e.g. ranking); optional. */
-  points?: string
 }
 
 export interface Team {
@@ -125,11 +129,22 @@ export interface GameSelection {
   playerIds: string[]
 }
 
+/**
+ * A person in the system. Every player is a user (isPlayer = true); some users
+ * (admins) are not players. Person fields are populated when isPlayer is true.
+ */
 export interface User {
   id: string
   email: string
   role: Role
-  playerId?: string
-  clubIds: string[]
-  captainTeamIds: string[]
+  isPlayer: boolean
+  firstName?: string
+  lastName?: string
+  licenseNumber?: string
+  phone?: string
+  birthDate?: string
+  birthPlace?: string
+  status?: PlayerStatus
+  /** The person's club (players have one; club_admins administer it). */
+  clubId?: string
 }

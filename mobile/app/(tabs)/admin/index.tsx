@@ -28,13 +28,13 @@ export default function AdminScreen() {
 
   const myClubs = isGenAdmin
     ? clubs
-    : clubs.filter((c) => user?.clubIds?.includes(c.id))
+    : clubs.filter((c) => c.id === user?.clubId)
   const myTeams = isGenAdmin
     ? teams
-    : teams.filter((t) => user?.clubIds?.includes(t.clubId ?? ''))
+    : teams.filter((t) => t.clubId === user?.clubId)
   const myPlayers = isGenAdmin
     ? players
-    : players.filter((p) => user?.clubIds?.includes(p.clubId ?? ''))
+    : players.filter((p) => p.clubId === user?.clubId)
 
   return (
     <SafeAreaView style={styles.container}>

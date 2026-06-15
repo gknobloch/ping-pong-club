@@ -1,8 +1,9 @@
-import type { User, Player, Team, Club } from '@shared/types'
+import type { User, Team, Club } from '@shared/types'
 
-export function getDisplayName(user: User, players: Player[]): string {
-  const player = players.find((p) => p.id === user.playerId)
-  if (player) return `${player.firstName} ${player.lastName}`
+export function getDisplayName(user: User): string {
+  if (user.firstName || user.lastName) {
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+  }
   return user.email
 }
 
@@ -10,17 +11,16 @@ export function getRoleLabel(role: User['role']): string {
   const labels: Record<User['role'], string> = {
     general_admin: 'Administrateur général',
     club_admin: 'Administrateur de club',
-    captain: 'Capitaine',
     player: 'Joueur',
   }
   return labels[role]
 }
 
-export function canManageTeam(user: User, teamId: string): boolean {
+/** Captaincy is per-team (team.captainId), so it's derived from the team. */
+export function canManageTeam(user: User, team: Team): boolean {
   if (user.role === 'general_admin') return true
   if (user.role === 'club_admin') return true
-  if (user.role === 'captain') return user.captainTeamIds?.includes(teamId) ?? false
-  return false
+  return team.captainId === user.id
 }
 
 export function getTeamName(team: Team, clubs: Club[]): string {
@@ -30,6 +30,6 @@ export function getTeamName(team: Team, clubs: Club[]): string {
 
 export function canManageClub(user: User, clubId: string): boolean {
   if (user.role === 'general_admin') return true
-  if (user.role === 'club_admin') return user.clubIds?.includes(clubId) ?? false
+  if (user.role === 'club_admin') return user.clubId === clubId
   return false
 }

@@ -189,26 +189,31 @@ type UserRow = {
   id: string
   email: string
   role: string
-  player_id: string | null
-  club_ids: string
-  captain_team_ids: string
+  is_player: number
+  first_name: string | null
+  last_name: string | null
+  license_number: string | null
+  phone: string | null
+  birth_date: string | null
+  birth_place: string | null
+  status: string | null
+  club_id: string | null
 }
 
 function serializeUser(r: UserRow) {
-  const jsonParse = (v: string): unknown => {
-    try {
-      return JSON.parse(v)
-    } catch {
-      return []
-    }
-  }
   return {
     id: r.id,
     email: r.email,
     role: r.role,
-    ...(r.player_id ? { playerId: r.player_id } : {}),
-    clubIds: jsonParse(r.club_ids),
-    captainTeamIds: jsonParse(r.captain_team_ids),
+    isPlayer: r.is_player === 1,
+    ...(r.first_name ? { firstName: r.first_name } : {}),
+    ...(r.last_name ? { lastName: r.last_name } : {}),
+    ...(r.license_number ? { licenseNumber: r.license_number } : {}),
+    ...(r.phone ? { phone: r.phone } : {}),
+    ...(r.birth_date ? { birthDate: r.birth_date } : {}),
+    ...(r.birth_place ? { birthPlace: r.birth_place } : {}),
+    ...(r.status ? { status: r.status } : {}),
+    ...(r.club_id ? { clubId: r.club_id } : {}),
   }
 }
 

@@ -22,25 +22,25 @@ export function TeamsPage() {
 
   const isClubAdmin = user?.role === 'club_admin'
   const isAdmin = user?.role === 'general_admin' || isClubAdmin
-  const hasClubScope = (user?.role === 'club_admin' || user?.role === 'captain' || user?.role === 'player') && (user?.clubIds?.length ?? 0) > 0
+  const hasClubScope = (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
 
   const [showArchived, setShowArchived] = useState(false)
 
   const allVisibleTeams = useMemo(() => {
     let t = allTeams
-    if (hasClubScope && user?.clubIds?.length) {
-      t = t.filter((team) => user.clubIds.includes(team.clubId))
+    if (hasClubScope && user?.clubId) {
+      t = t.filter((team) => team.clubId === user.clubId)
     }
     return t
-  }, [allTeams, hasClubScope, user?.clubIds])
+  }, [allTeams, hasClubScope, user?.clubId])
 
   const activeTeams = useMemo(() => allVisibleTeams.filter((t) => !t.isArchived), [allVisibleTeams])
   const archivedTeams = useMemo(() => allVisibleTeams.filter((t) => t.isArchived), [allVisibleTeams])
   const teams = showArchived ? allVisibleTeams : activeTeams
 
   const clubsForSelect =
-    hasClubScope && user?.clubIds?.length
-      ? clubs.filter((c) => user.clubIds.includes(c.id))
+    hasClubScope && user?.clubId
+      ? clubs.filter((c) => c.id === user.clubId)
       : clubs
   const [editing, setEditing] = useState<Team | null>(null)
   const [creating, setCreating] = useState(false)
@@ -126,7 +126,7 @@ export function TeamsPage() {
     const rosterIds = team.playerIds ?? []
     const initialPoints: Record<string, string> = {}
     rosterIds.forEach((pid) => {
-      initialPoints[pid] = team.rosterInitialPoints?.[pid] ?? players.find((p) => p.id === pid)?.points ?? ''
+      initialPoints[pid] = team.rosterInitialPoints?.[pid] ?? ''
     })
     setForm({
       clubId: team.clubId,
@@ -600,11 +600,10 @@ export function TeamsPage() {
                       onChange={(e) => {
                         const id = e.target.value
                         if (id && !form.playerIds.includes(id)) {
-                          const p = players.find((x) => x.id === id)
                           setForm((f) => ({
                             ...f,
                             playerIds: [...f.playerIds, id],
-                            initialPoints: { ...f.initialPoints, [id]: p?.points ?? '' },
+                            initialPoints: { ...f.initialPoints, [id]: '' },
                           }))
                         }
                         e.target.value = ''
@@ -614,7 +613,7 @@ export function TeamsPage() {
                       <option value="">+ Ajouter un joueur</option>
                       {availablePlayersToAdd.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName}{p.points ? ` (${p.points})` : ''}
+                          {p.firstName} {p.lastName}
                         </option>
                       ))}
                     </select>

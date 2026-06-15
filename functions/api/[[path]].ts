@@ -24,7 +24,7 @@ app.get('/data', async (c) => {
   const db = c.env.DB
   const [
     seasonsR, phasesR, divisionsR, clubsR, addressesR,
-    groupsR, playersR, teamsR, matchDaysR, gamesR,
+    groupsR, teamsR, matchDaysR, gamesR,
     availsR, selectionsR, usersR,
   ] = await Promise.all([
     db.prepare('SELECT * FROM seasons').all(),
@@ -33,7 +33,6 @@ app.get('/data', async (c) => {
     db.prepare('SELECT * FROM clubs').all(),
     db.prepare('SELECT * FROM club_addresses').all(),
     db.prepare('SELECT * FROM groups_tbl').all(),
-    db.prepare('SELECT * FROM players').all(),
     db.prepare('SELECT * FROM teams').all(),
     db.prepare('SELECT * FROM match_days').all(),
     db.prepare('SELECT * FROM games').all(),
@@ -75,13 +74,13 @@ app.get('/data', async (c) => {
       id: r.id, divisionId: r.division_id, number: r.number, teamIds: jsonParse(r.team_ids),
       isArchived: bool(r.is_archived),
     })),
-    players: playersR.results.map(r => ({
+    // Players are the projection of users where is_player = 1.
+    players: usersR.results.filter(r => bool(r.is_player)).map(r => ({
       id: r.id, firstName: r.first_name, lastName: r.last_name,
-      licenseNumber: r.license_number, email: r.email, phone: r.phone,
+      licenseNumber: r.license_number, email: r.email, phone: r.phone ?? '',
       ...(r.birth_date ? { birthDate: r.birth_date } : {}),
       ...(r.birth_place ? { birthPlace: r.birth_place } : {}),
-      status: r.status, clubId: r.club_id,
-      ...(r.points ? { points: r.points } : {}),
+      status: r.status, clubId: r.club_id ?? '',
     })),
     teams: teamsR.results.map(r => ({
       id: r.id, clubId: r.club_id, phaseId: r.phase_id, number: r.number,
@@ -108,9 +107,15 @@ app.get('/data', async (c) => {
       id: r.id, gameId: r.game_id, teamId: r.team_id, playerIds: jsonParse(r.player_ids),
     })),
     users: usersR.results.map(r => ({
-      id: r.id, email: r.email, role: r.role,
-      ...(r.player_id ? { playerId: r.player_id } : {}),
-      clubIds: jsonParse(r.club_ids), captainTeamIds: jsonParse(r.captain_team_ids),
+      id: r.id, email: r.email, role: r.role, isPlayer: bool(r.is_player),
+      ...(r.first_name ? { firstName: r.first_name } : {}),
+      ...(r.last_name ? { lastName: r.last_name } : {}),
+      ...(r.license_number ? { licenseNumber: r.license_number } : {}),
+      ...(r.phone ? { phone: r.phone } : {}),
+      ...(r.birth_date ? { birthDate: r.birth_date } : {}),
+      ...(r.birth_place ? { birthPlace: r.birth_place } : {}),
+      ...(r.status ? { status: r.status } : {}),
+      ...(r.club_id ? { clubId: r.club_id } : {}),
     })),
   })
 })
@@ -433,11 +438,13 @@ app.delete('/groups/:id', async (c) => {
 })
 
 // --- Players ---
+// Players are users with is_player = 1 (see #105). These routes manage that row.
 app.post('/players', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    'INSERT INTO players (id, first_name, last_name, license_number, email, phone, birth_date, birth_place, status, club_id, points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(d.id, d.firstName, d.lastName, d.licenseNumber, d.email, d.phone ?? '', d.birthDate ?? null, d.birthPlace ?? null, d.status, d.clubId, d.points ?? null).run()
+    `INSERT INTO users (id, email, role, is_player, first_name, last_name, license_number, phone, birth_date, birth_place, status, club_id)
+     VALUES (?, ?, 'player', 1, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(d.id, d.email, d.firstName, d.lastName, d.licenseNumber, d.phone ?? '', d.birthDate ?? null, d.birthPlace ?? null, d.status, d.clubId).run()
   return c.json({ ok: true })
 })
 
@@ -454,8 +461,7 @@ app.patch('/players/:id', async (c) => {
   if ('birthPlace' in p) { s.push('birth_place = ?'); v.push(p.birthPlace ?? null) }
   if ('status' in p) { s.push('status = ?'); v.push(p.status) }
   if ('clubId' in p) { s.push('club_id = ?'); v.push(p.clubId) }
-  if ('points' in p) { s.push('points = ?'); v.push(p.points ?? null) }
-  if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE players SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE users SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
   return c.json({ ok: true })
 })
 

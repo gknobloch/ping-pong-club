@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
-import { getDisplayNameForUser, mockPlayers, mockClubs } from '@/mock/data'
+import { getDisplayNameForUser, mockClubs } from '@/mock/data'
 import { appleConfigured, appleSignIn, googleConfigured, mountGoogleButton } from '@/lib/webOAuth'
 import type { ApiError } from '@/lib/authApi'
 import type { User } from '@/types'
@@ -286,8 +286,7 @@ function DevLogin() {
                   <span className="font-medium text-slate-900">{getDisplayNameForUser(user)}</span>
                   <span className="block text-sm text-slate-500">
                     {(() => {
-                      const player = mockPlayers.find((p) => p.id === user.playerId)
-                      const club = player?.clubId ? mockClubs.find((c) => c.id === player.clubId) : null
+                      const club = user.clubId ? mockClubs.find((c) => c.id === user.clubId) : null
                       return club?.displayName ?? user.email
                     })()}
                   </span>

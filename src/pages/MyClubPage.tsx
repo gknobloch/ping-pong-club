@@ -7,14 +7,13 @@ export function MyClubPage() {
   const { user } = useAuth()
   const { clubs } = useAppData()
 
-  const clubId =
-    user && user.clubIds && user.clubIds.length > 0 ? user.clubIds[0] : null
+  const clubId = user?.clubId ?? null
   const currentClub = clubId
     ? (clubs.find((c) => c.id === clubId) ?? null)
     : null
   const canEdit = user !== null && user.role === 'club_admin'
 
-  if (!user?.clubIds?.length || !clubId) {
+  if (!clubId) {
     return <Navigate to="/" replace />
   }
 

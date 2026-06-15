@@ -29,10 +29,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 // Inner layout — has access to DataContext
 // ---------------------------------------------------------------------------
 function InnerLayout() {
-  const { users, players, teams } = useAppData()
+  const { users } = useAppData()
 
   return (
-    <AuthProvider apiUsers={users} players={players} teams={teams}>
+    <AuthProvider apiUsers={users}>
       <AuthGuard>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />
