@@ -19,3 +19,9 @@ GOOGLE_CLIENT_IDS=
 # Apple: include the web Service ID *and* the native app bundle id
 # (com.ppclub.app), since their id_tokens carry different `aud` values.
 APPLE_CLIENT_IDS=
+
+# --- Session guard (#98) ---
+# Set to 'true' LOCALLY ONLY so the dev "pick any user" login (which has no
+# server session) can still read/write the API. NEVER set this in production —
+# keep it out of wrangler.toml. Real logins (email OTP / OAuth) work regardless.
+AUTH_GUARD_DISABLED=true

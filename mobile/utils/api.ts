@@ -2,6 +2,39 @@ import type { User } from '@shared/types'
 import { apiUrl } from '@/constants/api'
 
 // ---------------------------------------------------------------------------
+// Session token holder — AuthContext sets it; DataContext reads it for the
+// Authorization header and subscribes to changes to refetch after login.
+// (DataProvider wraps AuthProvider, so a module holder decouples them.)
+// ---------------------------------------------------------------------------
+let currentToken: string | null = null
+const tokenListeners = new Set<() => void>()
+
+export function setSessionToken(token: string | null): void {
+  if (token === currentToken) return
+  currentToken = token
+  tokenListeners.forEach((l) => l())
+}
+
+export function getSessionToken(): string | null {
+  return currentToken
+}
+
+export function onSessionTokenChange(listener: () => void): () => void {
+  tokenListeners.add(listener)
+  return () => {
+    tokenListeners.delete(listener)
+  }
+}
+
+/** Headers for data/mutation requests, including the session token when set. */
+export function dataHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
+    ...(extra ?? {}),
+    ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {}),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Low-level helpers
 // ---------------------------------------------------------------------------
 export interface ApiError extends Error {

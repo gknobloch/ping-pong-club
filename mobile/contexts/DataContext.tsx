@@ -22,6 +22,7 @@ import type {
   User,
 } from '@shared/types'
 import { apiUrl } from '@/constants/api'
+import { dataHeaders, onSessionTokenChange } from '@/utils/api'
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -93,7 +94,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(apiUrl('/data'))
+      const res = await fetch(apiUrl('/data'), { headers: dataHeaders() })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: DataState = await res.json()
       setState(data)
@@ -108,6 +109,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     load()
+    // Refetch when the session token changes (e.g. after login/logout).
+    return onSessionTokenChange(load)
   }, [load])
 
   const updatePlayer = useCallback(
@@ -119,7 +122,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (apiAvailable) {
         fetch(apiUrl(`/players/${id}`), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: dataHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(patch),
         }).catch(() => {})
       }
@@ -158,7 +161,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (apiAvailable) {
         fetch(apiUrl('/game-availabilities/set'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: dataHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ id: recordId, playerId, gameId, status }),
         }).catch(() => {})
       }
@@ -198,7 +201,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (apiAvailable) {
         fetch(apiUrl('/game-selections/set'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: dataHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ id, teamId, gameId, playerIds }),
         }).catch(() => {})
       }

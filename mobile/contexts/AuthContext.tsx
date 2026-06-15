@@ -4,7 +4,14 @@ import * as SecureStore from 'expo-secure-store'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import type { User } from '@shared/types'
 import { getDisplayName, getRoleLabel } from '@/utils/roles'
-import { fetchMe, logout as apiLogout, oauthLogin, requestEmailCode, verifyEmailCode } from '@/utils/api'
+import {
+  fetchMe,
+  logout as apiLogout,
+  oauthLogin,
+  requestEmailCode,
+  setSessionToken,
+  verifyEmailCode,
+} from '@/utils/api'
 
 // Real session token (SecureStore) and the legacy dev user-id (AsyncStorage).
 const SESSION_KEY = 'pp-club-session'
@@ -60,6 +67,7 @@ export function AuthProvider({ children, apiUsers = [] }: AuthProviderProps) {
       try {
         const token = await SecureStore.getItemAsync(SESSION_KEY)
         if (token) {
+          setSessionToken(token) // let DataContext authenticate its fetch
           try {
             const me = await fetchMe(token)
             if (!cancelled) {
@@ -68,6 +76,7 @@ export function AuthProvider({ children, apiUsers = [] }: AuthProviderProps) {
             }
             return
           } catch {
+            setSessionToken(null)
             await SecureStore.deleteItemAsync(SESSION_KEY) // expired / revoked
           }
         }
@@ -97,6 +106,7 @@ export function AuthProvider({ children, apiUsers = [] }: AuthProviderProps) {
   // --- Real auth actions ---
   const applySession = useCallback(async (token: string, sessionUser: User) => {
     await SecureStore.setItemAsync(SESSION_KEY, token)
+    setSessionToken(token) // triggers a DataContext refetch with the session
     setRealToken(token)
     setRealUser(sessionUser)
     setDevUserId(null)
@@ -136,6 +146,7 @@ export function AuthProvider({ children, apiUsers = [] }: AuthProviderProps) {
 
   const logout = useCallback(async () => {
     if (realToken) await apiLogout(realToken)
+    setSessionToken(null)
     await SecureStore.deleteItemAsync(SESSION_KEY)
     await AsyncStorage.removeItem(DEV_USER_KEY)
     setRealUser(null)

@@ -42,6 +42,8 @@ const allSelectableUsers: User[] = mockUsers
 
 interface AuthContextValue {
   user: User | null
+  /** Session token for the real auth session (null for dev login). */
+  token: string | null
   displayName: string
   roleLabel: string
   isAuthenticated: boolean
@@ -151,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      token: realToken,
       displayName: user ? getDisplayNameForUser(user) : '',
       roleLabel: user ? getRoleLabel(user.role) : '',
       isAuthenticated: !!user,
@@ -162,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mockUsers: DEV_LOGIN ? allSelectableUsers : [],
       devLoginAs,
     }),
-    [user, loading, requestCode, verifyCode, loginWithIdToken, logout, devLoginAs],
+    [user, realToken, loading, requestCode, verifyCode, loginWithIdToken, logout, devLoginAs],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
