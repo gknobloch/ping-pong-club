@@ -9,6 +9,12 @@ export type Env = {
     RESEND_FROM?: string
     GOOGLE_CLIENT_IDS?: string // comma-separated accepted audiences
     APPLE_CLIENT_IDS?: string // comma-separated accepted audiences
+    // When 'true', the session guard is bypassed (local dev only — set in
+    // .dev.vars so the dev user-picker login works without a real session).
+    AUTH_GUARD_DISABLED?: string
+  }
+  Variables: {
+    user: UserRow
   }
 }
 
@@ -234,13 +240,13 @@ async function createSession(db: D1Database, userId: string): Promise<string> {
   return token
 }
 
-function bearer(authHeader: string | undefined | null): string | null {
+export function bearer(authHeader: string | undefined | null): string | null {
   if (!authHeader) return null
   const m = /^Bearer\s+(.+)$/i.exec(authHeader.trim())
   return m ? m[1] : null
 }
 
-async function userFromToken(db: D1Database, token: string): Promise<UserRow | null> {
+export async function userFromToken(db: D1Database, token: string): Promise<UserRow | null> {
   const session = await db
     .prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?')
     .bind(token)

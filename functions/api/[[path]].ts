@@ -1,14 +1,26 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
-import { authApp, type Env } from './auth'
+import { authApp, bearer, userFromToken, type Env } from './auth'
 
 const app = new Hono<Env>().basePath('/api')
 
-// Authentication (email OTP + Google/Apple OAuth). Sessions are validated
-// here; the existing data/mutation routes below are intentionally left open
-// for now so the web app keeps working.
-// TODO(#8 web-auth): require a valid session on /data and mutations once the
-// web app also sends a Bearer token.
+// Public endpoints that must work without a session (you're not logged in yet).
+const PUBLIC_PATH = /^\/api\/auth\/(email\/|oauth$)/
+
+// Session guard (#98): every /api route except the public auth endpoints
+// requires a valid Bearer session. Bypassed locally via AUTH_GUARD_DISABLED so
+// the dev user-picker login (no server session) still works in development.
+app.use('*', async (c, next) => {
+  const path = new URL(c.req.url).pathname
+  if (PUBLIC_PATH.test(path) || c.env.AUTH_GUARD_DISABLED === 'true') return next()
+  const token = bearer(c.req.header('Authorization'))
+  const user = token ? await userFromToken(c.env.DB, token) : null
+  if (!user) return c.json({ error: 'unauthorized' }, 401)
+  c.set('user', user)
+  return next()
+})
+
+// Authentication (email OTP + Google/Apple OAuth).
 app.route('/auth', authApp)
 
 // --- Helpers ---

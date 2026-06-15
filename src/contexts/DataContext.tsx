@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Division } from '@/types'
 import type {
   Address,
@@ -57,9 +58,27 @@ function nextId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
+// Read the current session token (set by AuthContext) for the Authorization
+// header. Read at call time so mutations always use the latest token.
+function sessionToken(): string | null {
+  try {
+    return window.localStorage.getItem('pp-club-session')
+  } catch {
+    return null
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = sessionToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
 function api(path: string, options?: RequestInit) {
   return fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     ...options,
   }).catch(console.error)
 }
@@ -126,6 +145,7 @@ interface DataProviderProps {
 }
 
 export function DataProvider({ children, initialData }: DataProviderProps) {
+  const { token } = useAuth()
   const [divisions, setDivisions] = useState<Division[]>(initialData?.divisions ?? [])
   const [clubs, setClubs] = useState<Club[]>(initialData?.clubs ?? [])
   const [seasons, setSeasons] = useState<Season[]>(initialData?.seasons ?? [])
@@ -173,7 +193,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       })
     }
 
-    fetch('/api/data')
+    fetch('/api/data', { headers: authHeaders() })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -181,7 +201,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       .then((data: DataState) => applyData(data))
       .catch(() => fallbackToMock())
       .finally(() => setLoading(false))
-  }, [initialData])
+    // Refetch when the session token changes (e.g. after login).
+  }, [initialData, token])
 
   // --- Seasons ---
   const updateSeason = useCallback((id: string, patch: Partial<Season>) => {
