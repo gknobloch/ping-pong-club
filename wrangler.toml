@@ -7,10 +7,14 @@ binding = "DB"
 database_name = "ping-pong-club-db"
 database_id = "11b715a2-d479-4bdd-9474-8ba49ce74c6c"
 
-# Auth bindings (see docs/AUTH_SETUP.md). Configured per-environment on
-# Cloudflare Pages, NOT committed here:
-#   RESEND_API_KEY    secret  — Resend API key (omit -> OTP logged, not emailed)
-#   RESEND_FROM       var     — verified sender, e.g. "Ping-Pong Club <no-reply@yourdomain>"
-#   GOOGLE_CLIENT_IDS var     — comma-separated accepted Google audiences (web,iOS,Android)
-#   APPLE_CLIENT_IDS  var     — comma-separated accepted Apple audiences (web Service ID, native bundle id)
-# Locally these come from `.dev.vars` (see .dev.vars.example).
+# Auth config (see docs/AUTH_SETUP.md).
+# This project manages plain vars through wrangler.toml (the Cloudflare dashboard
+# only accepts Secrets), so non-secret auth values live in [vars] below.
+# The one real secret, RESEND_API_KEY, is set as a Pages Secret in the dashboard
+# (or `wrangler pages secret put RESEND_API_KEY`) — never committed.
+# Locally, all of these come from `.dev.vars` (see .dev.vars.example).
+[vars]
+RESEND_FROM = "Ping-Pong Club <no-reply@mail.leskno.fr>"
+# Comma-separated accepted OIDC audiences — fill in once OAuth clients exist (#100):
+#   GOOGLE_CLIENT_IDS = "web-id,ios-id,android-id"
+#   APPLE_CLIENT_IDS  = "com.ppclub.web,com.ppclub.app"

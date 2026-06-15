@@ -87,12 +87,18 @@ Then place the values:
 
 ## D. Where each value lives
 
+> **Cloudflare Pages + wrangler.toml:** because this project ships a
+> `wrangler.toml`, plain (non-secret) env vars are managed **only** in
+> `wrangler.toml` `[vars]` — the dashboard refuses them and accepts **Secrets
+> only**. So `RESEND_API_KEY` (the lone secret) goes in the dashboard, and every
+> other backend value goes in `[vars]`.
+
 | Value | Secret? | Local | Production |
 | --- | --- | --- | --- |
-| `RESEND_API_KEY` | **yes** | `.dev.vars` | Pages → Settings → Variables → **Secret** |
-| `RESEND_FROM` | no | `.dev.vars` | Pages env var |
-| `GOOGLE_CLIENT_IDS` | no | `.dev.vars` | Pages env var |
-| `APPLE_CLIENT_IDS` | no | `.dev.vars` | Pages env var |
+| `RESEND_API_KEY` | **yes** | `.dev.vars` | Pages dashboard → **Secret** (or `wrangler pages secret put`) |
+| `RESEND_FROM` | no | `.dev.vars` | `wrangler.toml` `[vars]` |
+| `GOOGLE_CLIENT_IDS` | no | `.dev.vars` | `wrangler.toml` `[vars]` |
+| `APPLE_CLIENT_IDS` | no | `.dev.vars` | `wrangler.toml` `[vars]` |
 | `VITE_GOOGLE_CLIENT_ID` | no | web `.env.local` | Pages **build** env var |
 | `VITE_APPLE_CLIENT_ID` / `VITE_APPLE_REDIRECT_URI` | no | web `.env.local` | Pages build env var |
 | `googleIosClientId` / `googleAndroidClientId` | no | `mobile/app.json` `expo.extra` | same (in the build) |
@@ -100,11 +106,9 @@ Then place the values:
 Templates: [`.dev.vars.example`](../.dev.vars.example),
 [`.env.example`](../.env.example), [`mobile/.env.example`](../mobile/.env.example).
 
-Production secrets/vars can also be set from the CLI:
-
 ```bash
-npx wrangler pages secret put RESEND_API_KEY        # secret (prompts for value)
-# non-secret vars are set in the Pages dashboard, or committed as [vars] in wrangler.toml
+npx wrangler pages secret put RESEND_API_KEY        # the secret (prompts for value)
+# non-secret backend vars -> wrangler.toml [vars] (committed)
 ```
 
 ---
