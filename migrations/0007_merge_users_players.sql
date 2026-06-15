@@ -33,17 +33,28 @@ CREATE TABLE users (
 
 -- Players become users (is_player = 1). When an old users row links to the
 -- player, its auth email/role win (email '©' typo repaired); else the player's.
+-- email must be UNIQUE, but real data has empty/duplicate player emails — those
+-- get a stable per-id placeholder (they were never usable logins anyway). A
+-- player with a unique real email keeps it.
 INSERT INTO users
   (id, email, role, is_player, first_name, last_name, license_number, phone, birth_date, birth_place, status, club_id)
 SELECT
-  p.id,
-  REPLACE(COALESCE(NULLIF(u.email, ''), p.email), '©', '@'),
-  CASE WHEN u.role IS NULL OR u.role = 'captain' THEN 'player' ELSE u.role END,
-  1,
-  p.first_name, p.last_name, p.license_number, p.phone, p.birth_date, p.birth_place, p.status,
-  NULLIF(p.club_id, '')
-FROM players_old p
-LEFT JOIN users_old u ON u.player_id = p.id;
+  id,
+  CASE WHEN raw_email = '' OR cnt > 1 THEN 'noemail-' || id || '@ppclub.invalid' ELSE raw_email END,
+  role, 1, first_name, last_name, license_number, phone, birth_date, birth_place, status, club_id
+FROM (
+  SELECT m.*, COUNT(*) OVER (PARTITION BY raw_email) AS cnt
+  FROM (
+    SELECT
+      p.id AS id,
+      REPLACE(COALESCE(NULLIF(u.email, ''), NULLIF(p.email, ''), ''), '©', '@') AS raw_email,
+      CASE WHEN u.role IS NULL OR u.role = 'captain' THEN 'player' ELSE u.role END AS role,
+      p.first_name, p.last_name, p.license_number, p.phone, p.birth_date, p.birth_place, p.status,
+      NULLIF(p.club_id, '') AS club_id
+    FROM players_old p
+    LEFT JOIN users_old u ON u.player_id = p.id
+  ) m
+);
 
 -- Admin-only users (no linked player) become non-player users.
 INSERT INTO users (id, email, role, is_player, club_id)
