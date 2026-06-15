@@ -13,6 +13,11 @@ playwright/.cache
 
 # Cloudflare
 .wrangler
+.dev.vars
+
+# Env (local secrets / overrides — *.local also covers .env.local)
+.env
+!.env.example
 
 # Claude Code
 .claude
