@@ -17,7 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient'
 import Constants from 'expo-constants'
 
 // Welcome background. Swap this file to change the image (see issue #113).
-// Photo: Pexels (free license, no attribution required).
+// Photo: Pexels (free license, no attribution required). require() is the
+// standard way to bundle a static image asset in React Native.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const welcomeBg = require('../assets/welcome-bg.jpg')
 import * as WebBrowser from 'expo-web-browser'
 import * as Google from 'expo-auth-session/providers/google'
