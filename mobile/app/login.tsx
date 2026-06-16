@@ -372,6 +372,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: colors.textPrimary,
+    // iOS renders TextInput placeholders with stray letter-spacing unless an
+    // explicit value is set; pin it to 0 so placeholders track normally (#118).
+    letterSpacing: 0,
   },
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   devCode: { color: colors.textSecondary, fontSize: 13 },
