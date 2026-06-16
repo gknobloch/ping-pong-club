@@ -12,15 +12,19 @@ import {
   setSessionToken,
   verifyEmailCode,
 } from '@/utils/api'
+import { IS_DEPLOYED_API } from '@/constants/api'
 
 // Real session token (SecureStore) and the legacy dev user-id (AsyncStorage).
 const SESSION_KEY = 'pp-club-session'
 const DEV_USER_KEY = 'ping-pong-club-user-id'
 
-// Dev login ("pick any user") stays available in dev builds and when explicitly
-// enabled, so local dev / E2E don't need a real email or OAuth provider.
+// Dev login ("pick any user") is available in dev builds (or when explicitly
+// enabled) so local dev doesn't need a real email/OAuth — but NEVER when the
+// app targets the deployed backend, where it can't work anyway (the API guard
+// rejects sessionless dev logins) and would only be confusing.
 export const DEV_LOGIN =
-  (typeof __DEV__ !== 'undefined' && __DEV__) || process.env.EXPO_PUBLIC_DEV_LOGIN === 'true'
+  !IS_DEPLOYED_API &&
+  ((typeof __DEV__ !== 'undefined' && __DEV__) || process.env.EXPO_PUBLIC_DEV_LOGIN === 'true')
 
 // ---------------------------------------------------------------------------
 // Types
