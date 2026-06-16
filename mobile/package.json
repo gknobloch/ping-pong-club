@@ -15,6 +15,7 @@
     "expo-auth-session": "~55.0.16",
     "expo-constants": "~55.0.16",
     "expo-crypto": "~55.0.15",
+    "expo-linear-gradient": "~55.0.14",
     "expo-router": "~55.0.14",
     "expo-secure-store": "~55.0.14",
     "expo-splash-screen": "~55.0.20",

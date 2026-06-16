@@ -10,8 +10,20 @@ import {
   ScrollView,
   Platform,
   Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import Constants from 'expo-constants'
+
+// Welcome background. Swap this file to change the image (see issue #113).
+// Photo: Pexels (free license, no attribution required). require() is the
+// standard way to bundle a static image asset in React Native.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const welcomeBg = require('../assets/welcome-bg.jpg')
+
+// Paddle-red accent for the primary action, matching the rubber in the photo.
+const PADDLE_RED = '#e23b3b'
 import * as WebBrowser from 'expo-web-browser'
 import * as Google from 'expo-auth-session/providers/google'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
@@ -131,106 +143,126 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.title}>Ping-Pong Club</Text>
-          <Text style={styles.subtitle}>
-            {step === 'email' ? 'Connectez-vous pour continuer' : `Code envoyé à ${email}`}
-          </Text>
-        </View>
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        {step === 'email' ? (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Adresse e-mail"
-              placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              editable={!busy}
-            />
-            <TouchableOpacity
-              style={[styles.primaryBtn, busy && styles.btnDisabled]}
-              onPress={handleRequestCode}
-              disabled={busy}
-            >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Recevoir un code</Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>ou</Text>
-              <View style={styles.divider} />
+    <ImageBackground source={welcomeBg} style={styles.container} resizeMode="cover">
+      <LinearGradient
+        colors={['rgba(10,15,28,0.55)', 'rgba(10,15,28,0.25)', 'rgba(10,15,28,0.65)']}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          style={styles.safe}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.brandBlock}>
+              <Text style={styles.brand}>Ping-Pong Club</Text>
+              <Text style={styles.tagline}>
+                {step === 'email' ? 'Connectez-vous pour continuer' : `Code envoyé à ${email}`}
+              </Text>
             </View>
 
-            <TouchableOpacity style={styles.oauthBtn} onPress={handleGoogle} disabled={busy}>
-              <Text style={styles.oauthBtnText}>Continuer avec Google</Text>
-            </TouchableOpacity>
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity style={[styles.oauthBtn, styles.appleBtn]} onPress={handleApple} disabled={busy}>
-                <Text style={[styles.oauthBtnText, styles.appleBtnText]}>Continuer avec Apple</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : (
-          <>
-            <TextInput
-              style={[styles.input, styles.codeInput]}
-              placeholder="123456"
-              placeholderTextColor={colors.textSecondary}
-              value={code}
-              onChangeText={setCode}
-              keyboardType="number-pad"
-              maxLength={6}
-              textContentType="oneTimeCode"
-              autoFocus
-              editable={!busy}
-            />
-            {devCode && <Text style={styles.devCode}>Code (dev) : {devCode}</Text>}
-            <TouchableOpacity
-              style={[styles.primaryBtn, (busy || code.length < 6) && styles.btnDisabled]}
-              onPress={handleVerify}
-              disabled={busy || code.length < 6}
-            >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Se connecter</Text>
-              )}
-            </TouchableOpacity>
-            <View style={styles.linkRow}>
-              <TouchableOpacity onPress={handleRequestCode} disabled={busy}>
-                <Text style={styles.link}>Renvoyer le code</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setStep('email')
-                  setCode('')
-                  setDevCode(null)
-                  setError(null)
-                }}
-                disabled={busy}
-              >
-                <Text style={styles.link}>Modifier l’e-mail</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+            <View style={styles.spacer} />
 
-        {DEV_LOGIN && <DevLogin />}
-      </ScrollView>
-    </SafeAreaView>
+            <View style={styles.formCard}>
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              {step === 'email' ? (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Adresse e-mail"
+                    placeholderTextColor={colors.textSecondary}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    editable={!busy}
+                  />
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, busy && styles.btnDisabled]}
+                    onPress={handleRequestCode}
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.primaryBtnText}>Recevoir un code</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.dividerRow}>
+                    <View style={styles.divider} />
+                    <Text style={styles.dividerText}>ou</Text>
+                    <View style={styles.divider} />
+                  </View>
+
+                  <TouchableOpacity style={styles.oauthBtn} onPress={handleGoogle} disabled={busy}>
+                    <Text style={styles.oauthBtnText}>Continuer avec Google</Text>
+                  </TouchableOpacity>
+                  {Platform.OS === 'ios' && (
+                    <TouchableOpacity style={[styles.oauthBtn, styles.appleBtn]} onPress={handleApple} disabled={busy}>
+                      <Text style={[styles.oauthBtnText, styles.appleBtnText]}>Continuer avec Apple</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <>
+                  <TextInput
+                    style={[styles.input, styles.codeInput]}
+                    placeholder="123456"
+                    placeholderTextColor={colors.textSecondary}
+                    value={code}
+                    onChangeText={setCode}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    textContentType="oneTimeCode"
+                    autoFocus
+                    editable={!busy}
+                  />
+                  {devCode && <Text style={styles.devCode}>Code (dev) : {devCode}</Text>}
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, (busy || code.length < 6) && styles.btnDisabled]}
+                    onPress={handleVerify}
+                    disabled={busy || code.length < 6}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.primaryBtnText}>Se connecter</Text>
+                    )}
+                  </TouchableOpacity>
+                  <View style={styles.linkRow}>
+                    <TouchableOpacity onPress={handleRequestCode} disabled={busy}>
+                      <Text style={styles.link}>Renvoyer le code</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setStep('email')
+                        setCode('')
+                        setDevCode(null)
+                        setError(null)
+                      }}
+                      disabled={busy}
+                    >
+                      <Text style={styles.link}>Modifier l’e-mail</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {DEV_LOGIN && <DevLogin />}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ImageBackground>
   )
 }
 
@@ -301,11 +333,38 @@ function DevLogin() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingHorizontal: 24, paddingTop: 48, paddingBottom: 40, gap: 12 },
-  header: { marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
-  subtitle: { fontSize: 16, color: colors.textSecondary, marginTop: 6 },
+  container: { flex: 1, backgroundColor: colors.primary },
+  safe: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 64, paddingBottom: 24 },
+  brandBlock: { paddingHorizontal: 6 },
+  brand: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  tagline: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.88)',
+    marginTop: 6,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  spacer: { flex: 1, minHeight: 24 },
+  formCard: {
+    backgroundColor: 'rgba(255,255,255,0.80)',
+    borderRadius: 20,
+    padding: 18,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
   error: { color: colors.danger, fontSize: 14, fontWeight: '500' },
   input: {
     backgroundColor: colors.card,
@@ -320,7 +379,7 @@ const styles = StyleSheet.create({
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   devCode: { color: colors.textSecondary, fontSize: 13 },
   primaryBtn: {
-    backgroundColor: colors.accent,
+    backgroundColor: PADDLE_RED,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
