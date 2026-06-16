@@ -295,5 +295,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, padding: 14, gap: 6,
   },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
-  fieldInput: { fontSize: 16, color: colors.textPrimary },
+  // letterSpacing pinned to 0 so iOS placeholders track normally (#118).
+  fieldInput: { fontSize: 16, color: colors.textPrimary, letterSpacing: 0 },
 })

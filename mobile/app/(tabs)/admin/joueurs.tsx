@@ -110,6 +110,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     color: colors.textPrimary,
+    // iOS renders TextInput placeholders with stray letter-spacing unless an
+    // explicit value is set; pin it to 0 so placeholders track normally (#118).
+    letterSpacing: 0,
   },
   filters: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   filterChip: {
