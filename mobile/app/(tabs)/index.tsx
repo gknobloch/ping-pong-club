@@ -76,7 +76,7 @@ function hexToRgba(hex: string, alpha: number): string {
     if (isNaN(r) || isNaN(g) || isNaN(b)) throw new Error('bad hex')
     return `rgba(${r},${g},${b},${alpha})`
   } catch {
-    return `rgba(59,130,246,${alpha})`
+    return `rgba(226,59,59,${alpha})`
   }
 }
 

@@ -21,9 +21,6 @@ import Constants from 'expo-constants'
 // standard way to bundle a static image asset in React Native.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const welcomeBg = require('../assets/welcome-bg.jpg')
-
-// Paddle-red accent for the primary action, matching the rubber in the photo.
-const PADDLE_RED = '#e23b3b'
 import * as WebBrowser from 'expo-web-browser'
 import * as Google from 'expo-auth-session/providers/google'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
@@ -379,7 +376,7 @@ const styles = StyleSheet.create({
   codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   devCode: { color: colors.textSecondary, fontSize: 13 },
   primaryBtn: {
-    backgroundColor: PADDLE_RED,
+    backgroundColor: colors.accent,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
