@@ -640,7 +640,7 @@ const sh = StyleSheet.create({
 // Home screen
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
-  const { user, displayName, logout } = useAuth()
+  const { user, displayName } = useAuth()
   const {
     clubs, seasons, teams, players, matchDays, games,
     phases, divisions, groups,
@@ -650,6 +650,7 @@ export default function HomeScreen() {
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
   const [prevPhasesExpanded, setPrevPhasesExpanded] = useState<Set<string>>(new Set())
+  const [activePastExpanded, setActivePastExpanded] = useState(true)
 
   const today = todayIso()
   const currentWeekMonday = getMondayOf(today)
@@ -841,12 +842,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.welcomeCard}>
-          <View style={styles.welcomeRow}>
-            <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
-            <TouchableOpacity onPress={logout} style={styles.switchBtn}>
-              <Text style={styles.switchBtnText}>Changer</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
           {teamSubtitle ? (
             <Text style={styles.roleText}>{teamSubtitle}</Text>
           ) : null}
@@ -905,8 +901,13 @@ export default function HomeScreen() {
 
             {pastActiveGames.length > 0 && (
               <>
-                <SectionHeader title={`Matchs passés — ${activePhase?.displayName}`} />
-                {pastActiveGames.map((game) => {
+                <SectionHeader
+                  title={`Matchs passés — ${activePhase?.displayName}`}
+                  collapsible
+                  expanded={activePastExpanded}
+                  onToggle={() => setActivePastExpanded((v) => !v)}
+                />
+                {activePastExpanded && pastActiveGames.map((game) => {
                   const md = mdMap.get(game.matchDayId)!
                   const teamPlayers = myActiveTeam.playerIds
                     .map((id) => playerMap.get(id))
@@ -1044,9 +1045,6 @@ export default function HomeScreen() {
           </>
         )}
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Text style={styles.logoutText}>Se déconnecter</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {selectedPlayer && (
@@ -1071,16 +1069,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
     borderWidth: 1, borderColor: colors.border, marginBottom: 16, gap: 4,
   },
-  welcomeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, flex: 1 },
-  switchBtn: {
-    backgroundColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginLeft: 8,
-  },
-  switchBtnText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
@@ -1099,9 +1088,4 @@ const styles = StyleSheet.create({
   matchDayName: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   matchDayDate: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   matchCount: { fontSize: 13, color: colors.textSecondary },
-  logoutBtn: {
-    backgroundColor: colors.card, borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center', marginTop: 8,
-  },
-  logoutText: { fontSize: 15, color: colors.danger, fontWeight: '600' },
 })
