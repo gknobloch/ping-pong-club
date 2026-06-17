@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { GameSummary } from '@/components/GameSummary'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/utils/brulage'
 import { sortByName } from '@/utils/sortByName'
 import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
@@ -515,14 +516,14 @@ function GameCard({
   const header = (
     <View style={gc.header}>
       <View style={gc.headerTop}>
-        <View style={gc.headerInfo}>
-          <Text style={gc.title}>{teamName} – {opponentName}</Text>
-          <Text style={gc.meta}>{dateLabel}{!isPast && game.time ? `  🕐 ${game.time}` : ''}</Text>
-          <View style={gc.badges}>
-            <Text style={gc.badge}>J{matchDayNumber}</Text>
-            {divisionLabel ? <Text style={gc.badge}>{divisionLabel}</Text> : null}
-          </View>
-        </View>
+        <GameSummary
+          style={gc.headerInfo}
+          title={`${teamName} – ${opponentName}`}
+          dateLabel={dateLabel}
+          time={game.time}
+          matchDayNumber={matchDayNumber}
+          divisionLabel={divisionLabel}
+        />
         {isCaptain && (
           <TouchableOpacity style={gc.chevronBtn} onPress={() => setShowSelection(true)}>
             <Text style={gc.chevron}>›</Text>
@@ -593,15 +594,7 @@ const gc = StyleSheet.create({
   },
   header: { padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  headerInfo: { flex: 1, gap: 4 },
-  title: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-  meta: { fontSize: 13, color: colors.textSecondary },
-  badges: { flexDirection: 'row', gap: 4, marginTop: 4 },
-  badge: {
-    fontSize: 11, fontWeight: '600',
-    color: colors.accent, backgroundColor: '#eff6ff',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
-  },
+  headerInfo: { flex: 1 },
   chevronBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   chevron: { fontSize: 28, color: colors.accent, lineHeight: 32 },
   body: { padding: 14 },

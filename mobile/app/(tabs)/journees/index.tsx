@@ -39,6 +39,8 @@ export default function JourneesScreen() {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(
     () => new Set(activePhase ? [activePhase.id] : []),
   )
+  // Past weeks are collapsed by default so upcoming weeks stay front-and-center.
+  const [pastExpandedPhases, setPastExpandedPhases] = useState<Set<string>>(new Set())
 
   const sortedPhases = useMemo(
     () =>
@@ -80,48 +82,105 @@ export default function JourneesScreen() {
     })
   }
 
+  function togglePastWeeks(id: string) {
+    setPastExpandedPhases((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Renders a single tappable week as a card (matches the Accueil match cards).
+  function renderWeekCard(mon: string, weekMap: Map<string, typeof matchDays>) {
+    const mds = weekMap.get(mon) ?? []
+    const cnt = games.filter((g) => mds.some((md) => md.id === g.matchDayId)).length
+    // Journée number(s) for the week — usually one, shown as a "J7" badge like
+    // the Accueil match cards.
+    const numbers = [...new Set(mds.map((md) => md.number))].sort((a, b) => a - b)
+    return (
+      <TouchableOpacity
+        key={mon}
+        style={styles.weekCard}
+        onPress={() => router.push(`/(tabs)/journees/${mon}`)}
+      >
+        <View style={styles.weekBody}>
+          <View style={styles.weekTopRow}>
+            <Text style={styles.weekRange}>{formatWeekRange(mon)}</Text>
+            <Text style={styles.weekMeta}>
+              {cnt} match{cnt !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          {numbers.length > 0 && (
+            <View style={styles.badges}>
+              {numbers.map((n) => (
+                <Text key={n} style={styles.badge}>J{n}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+        <Text style={styles.rowChevron}>›</Text>
+      </TouchableOpacity>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {sortedPhases.map((phase) => {
           const weekMap = phaseWeeks.get(phase.id) ?? new Map()
-          const weeks = [...weekMap.keys()].sort()
+          const allWeeks = [...weekMap.keys()]
+          // Upcoming weeks: closest → furthest. Past weeks: most recent first.
+          const upcoming = allWeeks.filter((mon) => getSundayOf(mon) >= now).sort()
+          const past = allWeeks.filter((mon) => getSundayOf(mon) < now).sort().reverse()
           const isExpanded = expandedPhases.has(phase.id)
+          const pastExpanded = pastExpandedPhases.has(phase.id)
+          // Only the active phase advertises an (empty) "à venir" section.
+          const showUpcoming = phase.isActive || upcoming.length > 0
 
           return (
-            <View key={phase.id} style={styles.phaseSection}>
+            <View key={phase.id} style={styles.phaseBlock}>
               <TouchableOpacity style={styles.phaseHeader} onPress={() => togglePhase(phase.id)}>
                 <View style={styles.phaseLeft}>
                   {phase.isActive && <View style={styles.activeBadge} />}
                   <Text style={styles.phaseTitle}>{phase.displayName}</Text>
-                  <Text style={styles.weekCount}>{weeks.length} semaine{weeks.length !== 1 ? 's' : ''}</Text>
                 </View>
                 <Text style={styles.phaseChevron}>{isExpanded ? '▾' : '▸'}</Text>
               </TouchableOpacity>
 
-              {isExpanded &&
-                weeks.map((mon) => {
-                  const mds: { id: string }[] = weekMap.get(mon) ?? []
-                  const cnt = games.filter((g) => mds.some((md) => md.id === g.matchDayId)).length
-                  const isPast = getSundayOf(mon) < now
-
-                  return (
-                    <TouchableOpacity
-                      key={mon}
-                      style={styles.weekRow}
-                      onPress={() => router.push(`/(tabs)/journees/${mon}`)}
-                    >
-                      <View style={[styles.dot, isPast ? styles.dotPast : styles.dotFuture]} />
-                      <View style={styles.weekBody}>
-                        <Text style={styles.weekRange}>{formatWeekRange(mon)}</Text>
-                        <Text style={styles.weekMeta}>
-                          {cnt} match{cnt !== 1 ? 's' : ''}
-                        </Text>
+              {isExpanded && (
+                <>
+                  {showUpcoming && (
+                    <>
+                      <View style={styles.groupLabelRow}>
+                        <Text style={styles.groupLabel}>Prochaines journées</Text>
                       </View>
-                      <Text style={styles.rowChevron}>›</Text>
-                    </TouchableOpacity>
-                  )
-                })}
+                      {upcoming.length > 0 ? (
+                        upcoming.map((mon) => renderWeekCard(mon, weekMap))
+                      ) : (
+                        <Text style={styles.empty}>Pas de prochaine journée.</Text>
+                      )}
+                    </>
+                  )}
+
+                  {past.length > 0 && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.groupLabelRow}
+                        onPress={() => togglePastWeeks(phase.id)}
+                      >
+                        <Text style={styles.groupLabel}>Journées passées</Text>
+                        <Text style={styles.groupChevron}>{pastExpanded ? '▾' : '▸'}</Text>
+                      </TouchableOpacity>
+                      {pastExpanded && past.map((mon) => renderWeekCard(mon, weekMap))}
+                    </>
+                  )}
+
+                  {!showUpcoming && past.length === 0 && (
+                    <Text style={styles.empty}>Aucune journée.</Text>
+                  )}
+                </>
+              )}
             </View>
           )
         })}
@@ -132,46 +191,68 @@ export default function JourneesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: 16, gap: 12 },
+  scroll: { padding: 16 },
 
-  phaseSection: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
+  phaseBlock: { marginBottom: 8 },
   phaseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
+    paddingVertical: 8,
   },
   phaseLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  activeBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-  phaseTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-  weekCount: { fontSize: 12, color: colors.textSecondary },
+  activeBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  phaseTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   phaseChevron: { fontSize: 16, color: colors.textSecondary },
 
-  weekRow: {
+  // Section labels ("Prochaines journées" / "Journées passées"), Accueil style.
+  groupLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  groupLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  groupChevron: { fontSize: 16, color: colors.textSecondary },
+  empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
+
+  weekCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    marginBottom: 8,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  dotFuture: { backgroundColor: colors.accent },
-  dotPast: { backgroundColor: colors.border },
   weekBody: { flex: 1 },
-  weekRange: { fontSize: 14, fontWeight: '500', color: colors.textPrimary },
-  weekMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  weekTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  weekRange: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  weekMeta: { fontSize: 13, color: colors.textSecondary },
+  badges: { flexDirection: 'row', gap: 4, marginTop: 6 },
+  badge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.accent,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
   rowChevron: { fontSize: 22, color: colors.textSecondary },
 })

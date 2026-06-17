@@ -5,6 +5,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { GameSummary } from '@/components/GameSummary'
 import { formatWeekRange } from './index'
 import type { AvailabilityStatus } from '@shared/types'
 
@@ -251,16 +252,13 @@ export default function WeekDetailScreen() {
               {/* Game header */}
               <View style={styles.gameHeader}>
                 {roundLabel && <Text style={styles.teamLabel}>{roundLabel}</Text>}
-                <Text style={styles.gameTitle}>
-                  {homeTeamName} – {awayTeamName}
-                </Text>
-                <View style={styles.gameMeta}>
-                  {gameDate && <Text style={styles.gameMetaText}>{gameDate}</Text>}
-                  {game.time && <Text style={styles.gameMetaText}>🕐 {game.time}</Text>}
-                </View>
-                {division && (
-                  <Text style={styles.divisionLabel}>{division.displayName}</Text>
-                )}
+                <GameSummary
+                  title={`${homeTeamName} – ${awayTeamName}`}
+                  dateLabel={gameDate ?? undefined}
+                  time={game.time}
+                  matchDayNumber={matchDay?.number}
+                  divisionLabel={division?.displayName}
+                />
               </View>
 
               {/* My availability (only if user is on this team's roster) */}
@@ -372,20 +370,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
-  },
-  gameTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  gameMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  gameMetaText: { fontSize: 13, color: colors.textSecondary },
-  divisionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.accent,
-    backgroundColor: '#eff6ff',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 2,
   },
 
   section: { padding: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 8 },
