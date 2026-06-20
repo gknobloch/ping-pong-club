@@ -67,6 +67,7 @@ const emptyState: DataState = {
 // Context value
 // ---------------------------------------------------------------------------
 type PlayerProfilePatch = Partial<Pick<Player, 'email' | 'phone' | 'birthDate' | 'birthPlace'>>
+type TeamPatch = { playerIds?: string[]; whatsappLink?: string | null }
 
 interface DataContextValue extends DataState {
   loading: boolean
@@ -74,6 +75,7 @@ interface DataContextValue extends DataState {
   error: string | null
   refresh: () => void
   updatePlayer: (id: string, patch: PlayerProfilePatch) => Promise<void>
+  updateTeam: (id: string, patch: TeamPatch) => void
   setAvailability: (
     playerId: string,
     gameId: string,
@@ -154,6 +156,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }))
       if (apiAvailable) {
         fetch(apiUrl(`/players/${id}`), {
+          method: 'PATCH',
+          headers: dataHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(patch),
+        }).catch(() => {})
+      }
+    },
+    [apiAvailable],
+  )
+
+  const updateTeam = useCallback(
+    (id: string, patch: TeamPatch) => {
+      setState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((t) => {
+          if (t.id !== id) return t
+          const next = { ...t }
+          if (patch.playerIds !== undefined) next.playerIds = patch.playerIds
+          if ('whatsappLink' in patch) next.whatsappLink = patch.whatsappLink ?? undefined
+          return next
+        }),
+      }))
+      if (apiAvailable) {
+        fetch(apiUrl(`/teams/${id}`), {
           method: 'PATCH',
           headers: dataHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(patch),
@@ -287,12 +312,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       error,
       refresh,
       updatePlayer,
+      updateTeam,
       setAvailability,
       setGameSelection,
       setAvatar,
       removeAvatar,
     }),
-    [state, loading, refreshing, error, refresh, updatePlayer, setAvailability, setGameSelection, setAvatar, removeAvatar],
+    [state, loading, refreshing, error, refresh, updatePlayer, updateTeam, setAvailability, setGameSelection, setAvatar, removeAvatar],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

@@ -5,8 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Modal,
-  Pressable,
   Alert,
   RefreshControl,
 } from 'react-native'
@@ -17,6 +15,8 @@ import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { GameSummary } from '@/components/GameSummary'
+import { PlayerSheet } from '@/components/PlayerSheet'
+import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/utils/brulage'
 import { sortByName } from '@/utils/sortByName'
 import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
@@ -51,7 +51,9 @@ const AVAIL: Record<AvailabilityStatus, { short: string; color: string; bg: stri
 // ---------------------------------------------------------------------------
 interface GameHistoryEntry {
   matchDayNumber: number
-  teamNumber: number
+  team: Team
+  isHome: boolean
+  opponentName: string
   matchDayDate: string
   isPast: boolean
 }
@@ -65,159 +67,6 @@ interface SelectionData {
   gameSelections: GameSelection[]
 }
 
-// ---------------------------------------------------------------------------
-// Color helper — converts #rrggbb to rgba() for semi-transparent backgrounds
-// ---------------------------------------------------------------------------
-function hexToRgba(hex: string, alpha: number): string {
-  try {
-    const h = hex.startsWith('#') && hex.length === 4
-      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-      : hex
-    const r = parseInt(h.slice(1, 3), 16)
-    const g = parseInt(h.slice(3, 5), 16)
-    const b = parseInt(h.slice(5, 7), 16)
-    if (isNaN(r) || isNaN(g) || isNaN(b)) throw new Error('bad hex')
-    return `rgba(${r},${g},${b},${alpha})`
-  } catch {
-    return `rgba(226,59,59,${alpha})`
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Player info modal
-// ---------------------------------------------------------------------------
-function PlayerModal({
-  player,
-  phaseGamesPlayed,
-  phasePoints,
-  gameHistory,
-  playerTeam,
-  brulageTeam,
-  onClose,
-}: {
-  player: Player
-  phaseGamesPlayed: number
-  phasePoints: string | undefined
-  gameHistory: GameHistoryEntry[]
-  /** The team the player is registered with in the active phase. */
-  playerTeam: Team | null
-  /** The team the player is brûlé into (null = not burned). */
-  brulageTeam: Team | null
-  onClose: () => void
-}) {
-  return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={modal.backdrop} onPress={onClose}>
-        <View style={modal.sheet} onStartShouldSetResponder={() => true}>
-          <View style={modal.handle} />
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={modal.name}>{player.firstName} {player.lastName}</Text>
-            <View style={modal.rows}>
-              <ModalRow label="Licence" value={player.licenseNumber} />
-              {phasePoints ? <ModalRow label="Points (phase)" value={phasePoints} /> : null}
-              <ModalRow label="Matchs joués" value={String(phaseGamesPlayed)} />
-              {playerTeam ? <ModalTeamRow label="Équipe" team={playerTeam} /> : null}
-              {brulageTeam ? <ModalTeamRow label="Brûlage" team={brulageTeam} burned /> : null}
-              {player.phone ? <ModalRow label="Téléphone" value={player.phone} /> : null}
-              {player.email ? <ModalRow label="Email" value={player.email} /> : null}
-            </View>
-
-            {gameHistory.length > 0 && (
-              <View style={modal.historySection}>
-                <Text style={modal.historyTitle}>Historique (phase en cours)</Text>
-                {gameHistory.map((entry, i) => {
-                  const date = new Date(entry.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
-                    day: 'numeric', month: 'short',
-                  })
-                  return (
-                    <View key={i} style={modal.historyRow}>
-                      <Text style={[modal.historyText, entry.isPast && modal.historyPast]}>
-                        J{entry.matchDayNumber} · Équipe {entry.teamNumber}
-                      </Text>
-                      <Text style={[modal.historyDate, entry.isPast && modal.historyPast]}>
-                        {date}
-                      </Text>
-                    </View>
-                  )
-                })}
-              </View>
-            )}
-
-            <TouchableOpacity style={modal.closeBtn} onPress={onClose}>
-              <Text style={modal.closeTxt}>Fermer</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Pressable>
-    </Modal>
-  )
-}
-
-function ModalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={modal.row}>
-      <Text style={modal.label}>{label}</Text>
-      <Text style={modal.value}>{value}</Text>
-    </View>
-  )
-}
-
-function ModalTeamRow({ label, team, burned = false }: { label: string; team: Team; burned?: boolean }) {
-  const tc = team.color ?? colors.accent
-  const bg = hexToRgba(tc, 0.1)
-  const teamLabel = burned ? `Brûlé — Équipe ${team.number}` : `Équipe ${team.number}`
-  return (
-    <View style={modal.row}>
-      <Text style={modal.label}>{label}</Text>
-      <View style={[modal.teamBadge, { borderColor: tc, backgroundColor: bg }]}>
-        <View style={[modal.teamDot, { backgroundColor: tc }]} />
-        <Text style={[modal.teamBadgeTxt, { color: tc }]}>{teamLabel}</Text>
-      </View>
-    </View>
-  )
-}
-
-const modal = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
-    maxHeight: '80%',
-  },
-  handle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12,
-  },
-  name: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
-  rows: { gap: 10 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 14, color: colors.textSecondary },
-  value: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, flexShrink: 1, textAlign: 'right' },
-  historySection: { marginTop: 20, gap: 6 },
-  historyTitle: {
-    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
-  },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  historyText: { fontSize: 14, color: colors.textPrimary },
-  historyDate: { fontSize: 13, color: colors.textSecondary },
-  historyPast: { color: '#94a3b8' },
-  teamBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 3,
-  },
-  teamDot: { width: 7, height: 7, borderRadius: 4 },
-  teamBadgeTxt: { fontSize: 13, fontWeight: '600' },
-  closeBtn: {
-    backgroundColor: colors.bg, borderRadius: 10,
-    padding: 14, alignItems: 'center', marginTop: 20,
-  },
-  closeTxt: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-})
 
 // ---------------------------------------------------------------------------
 // Player row — always-visible compact OUI/PE/NON pills
@@ -852,9 +701,13 @@ export default function HomeScreen() {
         if (!sel.includes(player.id)) continue
         const md = mdMap.get(g.matchDayId)
         if (!md) continue
+        const isHome = g.homeTeamId === team.id
+        const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
         entries.push({
           matchDayNumber: md.number,
-          teamNumber: team.number,
+          team,
+          isHome,
+          opponentName: oppTeam ? getTeamName(oppTeam, clubs) : '—',
           matchDayDate: md.date,
           isPast: md.date < today,
         })
@@ -1120,14 +973,31 @@ export default function HomeScreen() {
       </ScrollView>
 
       {selectedPlayer && (
-        <PlayerModal
+        <PlayerSheet
           player={selectedPlayer}
+          phaseLabel={activePhase ? `Saison ${activePhase.displayName}` : undefined}
           phasePoints={getPhasePoints(selectedPlayer)}
-          phaseGamesPlayed={getGamesPlayedForPlayer(selectedPlayer)}
-          gameHistory={getGameHistoryForPlayer(selectedPlayer, activePhase?.id)}
-          playerTeam={selectedPlayerTeam}
+          gamesPlayed={getGamesPlayedForPlayer(selectedPlayer)}
+          team={selectedPlayerTeam}
           brulageTeam={selectedPlayerBrulageTeam}
+          history={getGameHistoryForPlayer(selectedPlayer, activePhase?.id).map(
+            (e): PlayerHistoryEntry => ({
+              jNumber: e.matchDayNumber,
+              icon: e.isHome ? 'home' : 'paper-plane-outline',
+              text: e.opponentName,
+              team: e.team,
+              date: new Date(e.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
+                day: 'numeric', month: 'short',
+              }),
+              isPast: e.isPast,
+            }),
+          )}
           onClose={() => setSelectedPlayer(null)}
+          onProfile={() => {
+            const id = selectedPlayer.id
+            setSelectedPlayer(null)
+            router.push(`/(tabs)/joueurs/${id}`)
+          }}
         />
       )}
     </SafeAreaView>

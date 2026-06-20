@@ -1,24 +1,96 @@
-import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native'
-import { useLocalSearchParams, useNavigation } from 'expo-router'
-import { useEffect } from 'react'
+import {
+  ScrollView, View, Text, StyleSheet, SafeAreaView,
+  TouchableOpacity, Modal, FlatList, Linking, TextInput,
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppData } from '@/contexts/DataContext'
-import { getTeamName } from '@/utils/roles'
-import { colors } from '@/constants/colors'
+import { useAuth } from '@/contexts/AuthContext'
+import { getTeamName, canManageTeam } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
+import { colors } from '@/constants/colors'
+import type { Game, MatchDay, Player } from '@shared/types'
+
+type GameEntry = Game & { matchDay?: MatchDay }
+
+type PhaseEntry = {
+  teamId: string
+  label: string  // e.g. "Saison 2025/2026 Phase 2"
+  isActive: boolean
+  games: GameEntry[]
+}
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { teams, players, clubs } = useAppData()
+  const { teams, players, clubs, phases, divisions, matchDays, games, updateTeam } = useAppData()
+  const { user } = useAuth()
   const navigation = useNavigation()
+  const router = useRouter()
+  const [showRosterPicker, setShowRosterPicker] = useState(false)
+  const [editingWhatsApp, setEditingWhatsApp] = useState(false)
+  const [whatsappDraft, setWhatsappDraft] = useState('')
 
   const team = teams.find((t) => t.id === id)
-  const club = clubs.find((c) => c.id === team?.clubId)
-  const captain = players.find((p) => p.id === team?.captainId)
-  const members = sortByName(
-    (team?.playerIds ?? [])
-      .map((pid) => players.find((p) => p.id === pid))
-      .filter(Boolean) as typeof players,
+  const division = divisions.find((d) => d.id === team?.divisionId)
+  const isCaptain = !!(user && team && canManageTeam(user, team))
+
+  const members = useMemo(
+    () =>
+      sortByName(
+        (team?.playerIds ?? [])
+          .map((pid) => players.find((p) => p.id === pid))
+          .filter(Boolean) as Player[],
+      ),
+    [team, players],
   )
+
+  // One entry per phase this team (by club+number) has participated in
+  const phaseEntries = useMemo<PhaseEntry[]>(() => {
+    if (!team) return []
+    return teams
+      .filter((t) => t.clubId === team.clubId && t.number === team.number)
+      .map((t) => {
+        const ph = phases.find((p) => p.id === t.phaseId)
+        const mdInGroup = new Set(
+          matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
+        )
+        const phaseGames: GameEntry[] = games
+          .filter(
+            (g) =>
+              (g.homeTeamId === t.id || g.awayTeamId === t.id) && mdInGroup.has(g.matchDayId),
+          )
+          .map((g) => ({ ...g, matchDay: matchDays.find((md) => md.id === g.matchDayId) }))
+          .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
+        return {
+          teamId: t.id,
+          label: ph ? `Saison ${ph.displayName}` : 'Matchs',
+          isActive: !!ph?.isActive,
+          games: phaseGames,
+        }
+      })
+      .filter((e) => e.games.length > 0)
+      // Active phase first, then most-recent label first (lexicographic desc works for "Saison 2025/2026 …")
+      .sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+        return b.label.localeCompare(a.label)
+      })
+  }, [team, teams, phases, matchDays, games])
+
+  // Players available to join this team: active, same club, not on another team in the same phase
+  const eligiblePlayers = useMemo(() => {
+    if (!team) return []
+    const takenElsewhere = new Set(
+      teams
+        .filter((t) => t.phaseId === team.phaseId && t.id !== team.id)
+        .flatMap((t) => t.playerIds),
+    )
+    return sortByName(
+      players.filter(
+        (p) => p.clubId === team.clubId && p.status === 'active' && !takenElsewhere.has(p.id),
+      ),
+    )
+  }, [team, teams, players])
 
   useEffect(() => {
     if (team) navigation.setOptions({ title: getTeamName(team, clubs) })
@@ -32,41 +104,108 @@ export default function TeamDetailScreen() {
     )
   }
 
+  function togglePlayer(pid: string) {
+    const current = team!.playerIds
+    const next = current.includes(pid)
+      ? current.filter((x) => x !== pid)
+      : [...current, pid]
+    updateTeam(team!.id, { playerIds: next })
+  }
+
+  function saveWhatsApp() {
+    const val = whatsappDraft.trim()
+    updateTeam(team!.id, { whatsappLink: val || null })
+    setEditingWhatsApp(false)
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
+
+        {/* Banner */}
         <View style={[styles.banner, { backgroundColor: team.color ?? colors.accent }]}>
           <Text style={styles.bannerName}>{getTeamName(team, clubs)}</Text>
-          {club && <Text style={styles.bannerClub}>{club.displayName}</Text>}
+          {division && (
+            <View style={styles.levelBadgeWrap}>
+              <Text style={styles.levelBadge}>{division.displayName}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Captain */}
-        {captain && (
+        {/* WhatsApp */}
+        {(team.whatsappLink || isCaptain) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Capitaine</Text>
-            <View style={styles.playerRow}>
-              <Text style={styles.playerName}>
-                {captain.firstName} {captain.lastName}
-              </Text>
-              <Text style={styles.badge}>Cap.</Text>
-            </View>
+            <Text style={styles.sectionTitle}>WhatsApp</Text>
+            {!editingWhatsApp && (
+              <>
+                {team.whatsappLink ? (
+                  <View style={styles.whatsappRow}>
+                    <TouchableOpacity
+                      style={styles.whatsappBtn}
+                      onPress={() => Linking.openURL(team.whatsappLink!)}
+                    >
+                      <Text style={styles.whatsappBtnText}>Rejoindre le groupe</Text>
+                    </TouchableOpacity>
+                    {isCaptain && (
+                      <TouchableOpacity
+                        onPress={() => { setWhatsappDraft(team.whatsappLink ?? ''); setEditingWhatsApp(true) }}
+                      >
+                        <Text style={styles.textLink}>Modifier</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : isCaptain ? (
+                  <TouchableOpacity
+                    onPress={() => { setWhatsappDraft(''); setEditingWhatsApp(true) }}
+                  >
+                    <Text style={styles.textLink}>Configurer le lien WhatsApp…</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
+            {editingWhatsApp && (
+              <View style={styles.whatsappEdit}>
+                <TextInput
+                  style={styles.whatsappInput}
+                  value={whatsappDraft}
+                  onChangeText={setWhatsappDraft}
+                  placeholder="https://chat.whatsapp.com/..."
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+                <View style={styles.editActions}>
+                  <TouchableOpacity onPress={() => setEditingWhatsApp(false)}>
+                    <Text style={styles.cancelLink}>Annuler</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={saveWhatsApp}>
+                    <Text style={styles.saveLink}>Enregistrer</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
         {/* Roster */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Joueurs ({members.length})</Text>
+        <View style={styles.sectionList}>
+          <Text style={styles.sectionListTitle}>Joueurs ({members.length})</Text>
           {members.map((p) => (
             <View key={p.id} style={styles.playerRow}>
-              <Text style={styles.playerName}>
-                {p.firstName} {p.lastName}
-              </Text>
+              <Text style={styles.playerName}>{p.firstName} {p.lastName}</Text>
               {p.id === team.captainId && <Text style={styles.badge}>Cap.</Text>}
             </View>
           ))}
           {members.length === 0 && (
-            <Text style={styles.empty}>Aucun joueur dans cette équipe.</Text>
+            <Text style={[styles.empty, { paddingHorizontal: 16, paddingBottom: 16 }]}>
+              Aucun joueur dans cette équipe.
+            </Text>
+          )}
+          {isCaptain && (
+            <TouchableOpacity style={styles.addBtn} onPress={() => setShowRosterPicker(true)}>
+              <Text style={styles.addBtnText}>Modifier la composition</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -75,22 +214,94 @@ export default function TeamDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Calendrier</Text>
             {team.defaultDay && team.defaultTime && (
-              <Text style={styles.infoText}>🕐 {team.defaultDay} {team.defaultTime}</Text>
+              <View style={styles.scheduleRow}>
+                <Ionicons name="time-outline" size={15} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{team.defaultDay} {team.defaultTime}</Text>
+              </View>
             )}
           </View>
         )}
+
+        {/* One button per phase this team has participated in */}
+        {phaseEntries.map((entry) => (
+          <TouchableOpacity
+            key={entry.teamId}
+            style={styles.gamesBtn}
+            onPress={() =>
+              router.push({
+                pathname: '/(tabs)/equipes/phase-games',
+                params: { teamId: entry.teamId, label: entry.label },
+              })
+            }
+          >
+            <Text style={styles.gamesBtnText}>{entry.label}</Text>
+            <Text style={styles.gamesBtnChevron}>›</Text>
+          </TouchableOpacity>
+        ))}
+
       </ScrollView>
+
+      {/* Roster picker modal (captain only) */}
+      {isCaptain && (
+        <Modal
+          visible={showRosterPicker}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowRosterPicker(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Composition</Text>
+              <TouchableOpacity onPress={() => setShowRosterPicker(false)}>
+                <Text style={styles.modalClose}>Fermer</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={eligiblePlayers}
+              keyExtractor={(p) => p.id}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item: p }) => {
+                const selected = team.playerIds.includes(p.id)
+                return (
+                  <TouchableOpacity
+                    style={[styles.pickerRow, selected && styles.pickerRowSelected]}
+                    onPress={() => togglePlayer(p.id)}
+                  >
+                    <Text style={styles.pickerCheck}>{selected ? '✓' : ''}</Text>
+                    <Text style={[styles.playerName, selected && styles.pickerNameSelected]}>
+                      {p.firstName} {p.lastName}
+                    </Text>
+                    {p.id === team.captainId && <Text style={styles.badge}>Cap.</Text>}
+                  </TouchableOpacity>
+                )
+              }}
+            />
+          </SafeAreaView>
+        </Modal>
+      )}
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { gap: 12 },
+  scroll: { gap: 12, paddingBottom: 24 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
-  banner: { padding: 24, gap: 4 },
+
+  banner: { padding: 24, gap: 8 },
   bannerName: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  bannerClub: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  levelBadgeWrap: { alignSelf: 'flex-start' },
+  levelBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  // Sections with internal padding + gap (WhatsApp, Schedule)
   section: {
     backgroundColor: colors.card,
     marginHorizontal: 16,
@@ -107,11 +318,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  // List-style section (Joueurs): no padding/gap so border-separated rows are symmetric
+  sectionList: {
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  sectionListTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -127,4 +358,91 @@ const styles = StyleSheet.create({
   },
   empty: { fontSize: 14, color: colors.textSecondary },
   infoText: { fontSize: 14, color: colors.textPrimary },
+  scheduleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  // WhatsApp
+  whatsappRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  whatsappBtn: {
+    flex: 1,
+    backgroundColor: '#25D366',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  whatsappBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  textLink: { fontSize: 14, color: colors.accent },
+  whatsappEdit: { gap: 10 },
+  whatsappInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
+  },
+  editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
+  cancelLink: { fontSize: 14, color: colors.textSecondary },
+  saveLink: { fontSize: 14, color: colors.accent, fontWeight: '600' },
+
+  // Roster button
+  addBtn: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  addBtnText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
+
+  // Phase / games buttons
+  gamesBtn: {
+    marginHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  gamesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  gamesBtnChevron: { fontSize: 22, color: colors.textSecondary },
+
+  // Modal shared (roster picker)
+  modalContainer: { flex: 1, backgroundColor: colors.bg },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary },
+  modalClose: { fontSize: 15, color: colors.accent },
+  listContent: { padding: 16, gap: 1 },
+
+  // Roster picker rows
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 10,
+  },
+  pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
+  pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
+  pickerNameSelected: { fontWeight: '600' },
 })
