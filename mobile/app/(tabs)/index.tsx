@@ -561,6 +561,16 @@ export default function HomeScreen() {
   } = useAppData()
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
+
+  function openPlayer(player: Player, phaseId: string) {
+    setSelectedPlayer(player)
+    setSelectedPhaseId(phaseId)
+  }
+  function closePlayer() {
+    setSelectedPlayer(null)
+    setSelectedPhaseId(null)
+  }
   const [prevPhasesExpanded, setPrevPhasesExpanded] = useState<Set<string>>(new Set())
   const [activePastExpanded, setActivePastExpanded] = useState(true)
 
@@ -686,11 +696,6 @@ export default function HomeScreen() {
     return players.filter((p) => p.clubId === myActiveTeam.clubId)
   }, [players, myActiveTeam])
 
-  function getPhasePoints(player: Player): string | undefined {
-    const team = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
-    return team?.rosterInitialPoints?.[player.id]
-  }
-
   function getGameHistoryForPlayer(player: Player, phaseId?: string): GameHistoryEntry[] {
     const entries: GameHistoryEntry[] = []
     for (const team of teams) {
@@ -716,29 +721,6 @@ export default function HomeScreen() {
     return entries.sort((a, b) => a.matchDayDate.localeCompare(b.matchDayDate))
   }
 
-  function getGamesPlayedForPlayer(player: Player): number {
-    return getGameHistoryForPlayer(player, activePhase?.id).filter((e) => e.isPast).length
-  }
-
-  // Player's registered team in the active phase
-  const selectedPlayerTeam = useMemo(() => {
-    if (!selectedPlayer || !activePhase) return null
-    return teams.find(
-      (t) => t.playerIds.includes(selectedPlayer.id) && t.phaseId === activePhase.id,
-    ) ?? null
-  }, [selectedPlayer, teams, activePhase])
-
-  // Brûlage for the selected player
-  const selectedPlayerBrulage = useMemo(() => {
-    if (!selectedPlayer || activeClubTeams.length === 0) return null
-    return computeBrulage(selectedPlayer.id, activeClubTeams, matchDays, games, gameSelections)
-  }, [selectedPlayer, activeClubTeams, matchDays, games, gameSelections])
-
-  // The team they are burned into (null = not burned)
-  const selectedPlayerBrulageTeam = useMemo(() => {
-    if (!selectedPlayerBrulage?.burnedIntoTeamId) return null
-    return teams.find((t) => t.id === selectedPlayerBrulage.burnedIntoTeamId) ?? null
-  }, [selectedPlayerBrulage, teams])
 
   const isPlayer = !!myPlayerId && !!myActiveTeam
   const activeSeason = seasons.find((s) => s.isActive)
@@ -804,7 +786,7 @@ export default function HomeScreen() {
                     getAvailability={(pid) => getAvailability(pid, game.id)}
                     getSelected={(pid) => selIds.includes(pid)}
                     onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
-                    onPlayerPress={setSelectedPlayer}
+                    onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                     onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
                     onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                     selectionData={{
@@ -917,7 +899,7 @@ export default function HomeScreen() {
                         getAvailability={(pid) => getAvailability(pid, game.id)}
                         getSelected={(pid) => selIds.includes(pid)}
                         onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
-                        onPlayerPress={setSelectedPlayer}
+                        onPlayerPress={(p) => openPlayer(p, phase.id)}
                         onSaveSelection={(playerIds) => setGameSelection(team.id, game.id, playerIds)}
                         onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                         selectionData={{
@@ -972,34 +954,46 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      {selectedPlayer && (
-        <PlayerSheet
-          player={selectedPlayer}
-          phaseLabel={activePhase ? `Saison ${activePhase.displayName}` : undefined}
-          phasePoints={getPhasePoints(selectedPlayer)}
-          gamesPlayed={getGamesPlayedForPlayer(selectedPlayer)}
-          team={selectedPlayerTeam}
-          brulageTeam={selectedPlayerBrulageTeam}
-          history={getGameHistoryForPlayer(selectedPlayer, activePhase?.id).map(
-            (e): PlayerHistoryEntry => ({
-              jNumber: e.matchDayNumber,
-              icon: e.isHome ? 'home' : 'paper-plane-outline',
-              text: e.opponentName,
-              team: e.team,
-              date: new Date(e.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
-                day: 'numeric', month: 'short',
+      {selectedPlayer && selectedPhaseId && (() => {
+        const viewPhase = phases.find((p) => p.id === selectedPhaseId)
+        const viewTeam = myTeamByPhase.get(selectedPhaseId) ?? null
+        const viewClubTeams = viewTeam
+          ? teams.filter((t) => t.clubId === viewTeam.clubId && t.phaseId === selectedPhaseId)
+          : []
+        const brulage = computeBrulage(selectedPlayer.id, viewClubTeams, matchDays, games, gameSelections)
+        const viewBrulageTeam = brulage.burnedIntoTeamId
+          ? teams.find((t) => t.id === brulage.burnedIntoTeamId) ?? null
+          : null
+        const history = getGameHistoryForPlayer(selectedPlayer, selectedPhaseId)
+        return (
+          <PlayerSheet
+            player={selectedPlayer}
+            phaseLabel={viewPhase ? `Saison ${viewPhase.displayName}` : undefined}
+            phasePoints={viewTeam?.rosterInitialPoints?.[selectedPlayer.id]}
+            gamesPlayed={history.filter((e) => e.isPast).length}
+            team={viewTeam}
+            brulageTeam={viewBrulageTeam}
+            history={history.map(
+              (e): PlayerHistoryEntry => ({
+                jNumber: e.matchDayNumber,
+                icon: e.isHome ? 'home' : 'paper-plane-outline',
+                text: e.opponentName,
+                team: e.team,
+                date: new Date(e.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
+                  day: 'numeric', month: 'short',
+                }),
+                isPast: e.isPast,
               }),
-              isPast: e.isPast,
-            }),
-          )}
-          onClose={() => setSelectedPlayer(null)}
-          onProfile={() => {
-            const id = selectedPlayer.id
-            setSelectedPlayer(null)
-            router.push(`/(tabs)/joueurs/${id}`)
-          }}
-        />
-      )}
+            )}
+            onClose={closePlayer}
+            onProfile={() => {
+              const id = selectedPlayer.id
+              closePlayer()
+              router.push(`/(tabs)/joueurs/${id}`)
+            }}
+          />
+        )
+      })()}
     </SafeAreaView>
   )
 }
