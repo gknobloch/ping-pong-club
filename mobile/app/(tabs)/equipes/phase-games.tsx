@@ -297,10 +297,21 @@ export default function PhaseGamesScreen() {
                     <Text style={m.historyTitle}>Historique (phase en cours)</Text>
                     {playerHistory.map((entry, i) => (
                       <View key={i} style={m.historyRow}>
-                        <Text style={[m.historyText, entry.isPast && m.historyPast]}>
-                          {entry.jNumber != null ? `J${entry.jNumber} · ` : ''}
-                          {entry.isHome ? 'vs' : '@'} {entry.oppName}
-                        </Text>
+                        <View style={m.historyLeft}>
+                          {entry.jNumber != null && (
+                            <Text style={[m.historyJ, entry.isPast && m.historyPast]}>
+                              J{entry.jNumber}
+                            </Text>
+                          )}
+                          <Ionicons
+                            name={entry.isHome ? 'home' : 'paper-plane-outline'}
+                            size={13}
+                            color={entry.isPast ? '#94a3b8' : colors.textSecondary}
+                          />
+                          <Text style={[m.historyText, entry.isPast && m.historyPast]} numberOfLines={1}>
+                            {entry.oppName}
+                          </Text>
+                        </View>
                         <Text style={[m.historyDate, entry.isPast && m.historyPast]}>
                           {entry.date}
                         </Text>
@@ -441,8 +452,10 @@ const m = StyleSheet.create({
     fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
   },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  historyText: { fontSize: 14, color: colors.textPrimary, flex: 1, marginRight: 8 },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
+  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 22 },
+  historyText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
   historyDate: { fontSize: 13, color: colors.textSecondary },
   historyPast: { color: '#94a3b8' },
 

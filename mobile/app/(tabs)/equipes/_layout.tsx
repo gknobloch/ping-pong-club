@@ -8,6 +8,7 @@ export default function EquipesLayout() {
         headerStyle: { backgroundColor: colors.primary },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '600' },
+        headerBackTitle: '',
       }}
     >
       <Stack.Screen name="index" options={{ title: 'Équipes' }} />
