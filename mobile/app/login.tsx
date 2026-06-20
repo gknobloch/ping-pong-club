@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -9,20 +9,16 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   ImageBackground,
   KeyboardAvoidingView,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import Constants from 'expo-constants'
 
 // Welcome background. Swap this file to change the image (see issue #113).
 // Photo: Pexels (free license, no attribution required). require() is the
 // standard way to bundle a static image asset in React Native.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const welcomeBg = require('../assets/welcome-bg.jpg')
-import * as WebBrowser from 'expo-web-browser'
-import * as Google from 'expo-auth-session/providers/google'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
 import { getRoleLabel, getDisplayName } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
@@ -30,14 +26,11 @@ import { colors } from '@/constants/colors'
 import type { ApiError } from '@/utils/api'
 import type { User } from '@shared/types'
 
-WebBrowser.maybeCompleteAuthSession()
-
-const extra = (Constants.expoConfig?.extra ?? {}) as {
-  googleWebClientId?: string
-  googleIosClientId?: string
-  googleAndroidClientId?: string
-}
-const googleConfigured = Boolean(extra.googleWebClientId || extra.googleIosClientId || extra.googleAndroidClientId)
+// Google + Apple sign-in have been removed from the UI until the OAuth
+// client IDs are configured (#129 / #100). `loginWithIdToken` /
+// `loginWithApple` in AuthContext, `usesAppleSignIn` in app.json, and the
+// expo-auth-session / expo-apple-authentication deps stay in place so
+// re-enabling is a small change.
 
 // Map backend error codes to French messages.
 function authErrorMessage(e: unknown): string {
@@ -57,7 +50,7 @@ function authErrorMessage(e: unknown): string {
 }
 
 export default function LoginScreen() {
-  const { requestCode, verifyCode, loginWithIdToken, loginWithApple } = useAuth()
+  const { requestCode, verifyCode } = useAuth()
 
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
@@ -65,24 +58,6 @@ export default function LoginScreen() {
   const [devCode, setDevCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // --- Google OAuth (hook must live in the component) ---
-  const [, googleResponse, googlePrompt] = Google.useAuthRequest({
-    webClientId: extra.googleWebClientId,
-    iosClientId: extra.googleIosClientId,
-    androidClientId: extra.googleAndroidClientId,
-  })
-
-  useEffect(() => {
-    if (googleResponse?.type !== 'success') return
-    const idToken = googleResponse.params?.id_token ?? googleResponse.authentication?.idToken
-    if (!idToken) return
-    setBusy(true)
-    setError(null)
-    loginWithIdToken('google', idToken)
-      .catch((e) => setError(authErrorMessage(e)))
-      .finally(() => setBusy(false))
-  }, [googleResponse, loginWithIdToken])
 
   async function handleRequestCode() {
     if (!email.includes('@')) {
@@ -110,30 +85,6 @@ export default function LoginScreen() {
       // On success the AuthGuard navigates away.
     } catch (e) {
       setError(authErrorMessage(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleGoogle() {
-    if (!googleConfigured) {
-      Alert.alert('Google', "La connexion Google n'est pas encore configurée.")
-      return
-    }
-    setError(null)
-    await googlePrompt()
-  }
-
-  async function handleApple() {
-    setBusy(true)
-    setError(null)
-    try {
-      await loginWithApple()
-    } catch (e) {
-      // User cancellation throws ERR_REQUEST_CANCELED — stay silent for that.
-      if ((e as { code?: string })?.code !== 'ERR_REQUEST_CANCELED') {
-        setError(authErrorMessage(e))
-      }
     } finally {
       setBusy(false)
     }
@@ -194,20 +145,10 @@ export default function LoginScreen() {
                     )}
                   </TouchableOpacity>
 
-                  <View style={styles.dividerRow}>
-                    <View style={styles.divider} />
-                    <Text style={styles.dividerText}>ou</Text>
-                    <View style={styles.divider} />
-                  </View>
-
-                  <TouchableOpacity style={styles.oauthBtn} onPress={handleGoogle} disabled={busy}>
-                    <Text style={styles.oauthBtnText}>Continuer avec Google</Text>
-                  </TouchableOpacity>
-                  {Platform.OS === 'ios' && (
-                    <TouchableOpacity style={[styles.oauthBtn, styles.appleBtn]} onPress={handleApple} disabled={busy}>
-                      <Text style={[styles.oauthBtnText, styles.appleBtnText]}>Continuer avec Apple</Text>
-                    </TouchableOpacity>
-                  )}
+                  {/* Google + Apple sign-in are hidden until the OAuth client
+                      IDs are configured (#129 / #100). The handlers and wiring
+                      below stay in place so we can re-enable the buttons with
+                      a one-line change. */}
                 </>
               ) : (
                 <>

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
 import { getDisplayNameForUser, mockClubs } from '@/mock/data'
-import { appleConfigured, appleSignIn, googleConfigured, mountGoogleButton } from '@/lib/webOAuth'
 import type { ApiError } from '@/lib/authApi'
 import type { User } from '@/types'
 
@@ -22,7 +21,7 @@ function authErrorMessage(e: unknown): string {
 }
 
 export function LoginPage() {
-  const { requestCode, verifyCode, loginWithIdToken } = useAuth()
+  const { requestCode, verifyCode } = useAuth()
 
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
@@ -30,22 +29,6 @@ export function LoginPage() {
   const [devCode, setDevCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const googleRef = useRef<HTMLDivElement>(null)
-  const googleMounted = useRef(false)
-
-  // Render the official Google button once, when configured and on the email step.
-  useEffect(() => {
-    if (step !== 'email' || !googleConfigured || googleMounted.current || !googleRef.current) return
-    googleMounted.current = true
-    mountGoogleButton(googleRef.current, (idToken) => {
-      setBusy(true)
-      setError(null)
-      loginWithIdToken('google', idToken)
-        .catch((e) => setError(authErrorMessage(e)))
-        .finally(() => setBusy(false))
-    }).catch(() => setError('Google indisponible.'))
-  }, [step, loginWithIdToken])
 
   const handleRequestCode = useCallback(async () => {
     if (!email.includes('@')) {
@@ -77,19 +60,6 @@ export function LoginPage() {
       setBusy(false)
     }
   }, [email, code, verifyCode])
-
-  const handleApple = useCallback(async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const idToken = await appleSignIn()
-      await loginWithIdToken('apple', idToken)
-    } catch (e) {
-      setError(authErrorMessage(e))
-    } finally {
-      setBusy(false)
-    }
-  }, [loginWithIdToken])
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 px-4 py-10">
@@ -128,40 +98,10 @@ export function LoginPage() {
             >
               {busy ? 'Envoi…' : 'Recevoir un code'}
             </button>
-
-            <div className="flex items-center gap-3 py-1">
-              <span className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">ou</span>
-              <span className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            {/* Google — official GIS button, or disabled placeholder until configured (#100) */}
-            {googleConfigured ? (
-              <div ref={googleRef} className="flex justify-center" />
-            ) : (
-              <button
-                type="button"
-                disabled
-                title="Configuration requise (#100)"
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 font-medium text-slate-400 shadow-sm cursor-not-allowed"
-              >
-                Continuer avec Google (à configurer)
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleApple}
-              disabled={busy || !appleConfigured}
-              title={appleConfigured ? undefined : 'Configuration requise (#100)'}
-              className={`w-full rounded-lg px-4 py-3 font-medium shadow-sm ${
-                appleConfigured
-                  ? 'bg-black text-white hover:bg-slate-800'
-                  : 'border border-slate-300 bg-white text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              {appleConfigured ? 'Continuer avec Apple' : 'Continuer avec Apple (à configurer)'}
-            </button>
+            {/* Google + Apple sign-in are hidden until the OAuth client IDs
+                are configured (#129 / #100). `src/lib/webOAuth.ts` and
+                `AuthContext.loginWithIdToken` stay in place so re-enabling
+                the UI is a one-line change. */}
           </div>
         ) : (
           <div className="space-y-3">
