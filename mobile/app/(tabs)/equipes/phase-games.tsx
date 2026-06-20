@@ -1,6 +1,6 @@
 import {
   ScrollView, View, Text, StyleSheet, SafeAreaView,
-  TouchableOpacity, Modal, Pressable,
+  TouchableOpacity,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
@@ -10,52 +10,9 @@ import { getTeamName } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
 import { computeBrulage } from '@/utils/brulage'
 import { colors } from '@/constants/colors'
-import type { Player, Team } from '@shared/types'
-
-// ---------------------------------------------------------------------------
-// Helpers shared with the Accueil PlayerModal
-// ---------------------------------------------------------------------------
-function hexToRgba(hex: string, alpha: number): string {
-  try {
-    const h = hex.startsWith('#') && hex.length === 4
-      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-      : hex
-    const r = parseInt(h.slice(1, 3), 16)
-    const g = parseInt(h.slice(3, 5), 16)
-    const b = parseInt(h.slice(5, 7), 16)
-    if (isNaN(r) || isNaN(g) || isNaN(b)) throw new Error('bad hex')
-    return `rgba(${r},${g},${b},${alpha})`
-  } catch {
-    return `rgba(226,59,59,${alpha})`
-  }
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={m.row}>
-      <Text style={m.label}>{label}</Text>
-      <Text style={m.value}>{value}</Text>
-    </View>
-  )
-}
-
-function TeamRow({ label, team, burned = false }: { label: string; team: Team; burned?: boolean }) {
-  const clubs = useAppData().clubs
-  const tc = team.color ?? colors.accent
-  const bg = hexToRgba(tc, 0.1)
-  const teamLabel = burned
-    ? `Brûlé — ${getTeamName(team, clubs)}`
-    : getTeamName(team, clubs)
-  return (
-    <View style={m.row}>
-      <Text style={m.label}>{label}</Text>
-      <View style={[m.teamBadge, { borderColor: tc, backgroundColor: bg }]}>
-        <View style={[m.teamDot, { backgroundColor: tc }]} />
-        <Text style={[m.teamBadgeTxt, { color: tc }]}>{teamLabel}</Text>
-      </View>
-    </View>
-  )
-}
+import { PlayerSheet } from '@/components/PlayerSheet'
+import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
+import type { Player } from '@shared/types'
 
 // ---------------------------------------------------------------------------
 // Main screen
@@ -262,83 +219,25 @@ export default function PhaseGamesScreen() {
 
       </ScrollView>
 
-      {/* Player info bottom sheet */}
       {selectedPlayer && (
-        <Modal transparent animationType="slide" onRequestClose={() => setSelectedPlayer(null)}>
-          <Pressable style={m.backdrop} onPress={() => setSelectedPlayer(null)}>
-            <View style={m.sheet} onStartShouldSetResponder={() => true}>
-              <View style={m.handle} />
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={m.name}>
-                  {selectedPlayer.firstName} {selectedPlayer.lastName}
-                </Text>
-
-                <View style={m.rows}>
-                  <InfoRow label="Licence" value={selectedPlayer.licenseNumber} />
-                  {team.rosterInitialPoints?.[selectedPlayer.id] && (
-                    <InfoRow
-                      label="Points (phase)"
-                      value={team.rosterInitialPoints[selectedPlayer.id]}
-                    />
-                  )}
-                  <InfoRow
-                    label="Matchs joués"
-                    value={String(playedCount.get(selectedPlayer.id) ?? 0)}
-                  />
-                  <TeamRow label="Équipe" team={team} />
-                  {brulageInfo && <TeamRow label="Brûlage" team={brulageInfo} burned />}
-                  {selectedPlayer.email ? (
-                    <InfoRow label="Email" value={selectedPlayer.email} />
-                  ) : null}
-                </View>
-
-                {playerHistory.length > 0 && (
-                  <View style={m.historySection}>
-                    <Text style={m.historyTitle}>Historique (phase en cours)</Text>
-                    {playerHistory.map((entry, i) => (
-                      <View key={i} style={m.historyRow}>
-                        <View style={m.historyLeft}>
-                          {entry.jNumber != null && (
-                            <Text style={[m.historyJ, entry.isPast && m.historyPast]}>
-                              J{entry.jNumber}
-                            </Text>
-                          )}
-                          <Ionicons
-                            name={entry.isHome ? 'home' : 'paper-plane-outline'}
-                            size={13}
-                            color={entry.isPast ? '#94a3b8' : colors.textSecondary}
-                          />
-                          <Text style={[m.historyText, entry.isPast && m.historyPast]} numberOfLines={1}>
-                            {entry.oppName}
-                          </Text>
-                        </View>
-                        <Text style={[m.historyDate, entry.isPast && m.historyPast]}>
-                          {entry.date}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Two-button footer */}
-                <View style={m.footer}>
-                  <TouchableOpacity
-                    style={[m.footerBtn, m.footerBtnClose]}
-                    onPress={() => setSelectedPlayer(null)}
-                  >
-                    <Text style={m.footerCloseTxt}>Fermer</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[m.footerBtn, m.footerBtnProfile]}
-                    onPress={() => openProfile(selectedPlayer)}
-                  >
-                    <Text style={m.footerProfileTxt}>Profil</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </Pressable>
-        </Modal>
+        <PlayerSheet
+          player={selectedPlayer}
+          phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
+          gamesPlayed={playedCount.get(selectedPlayer.id) ?? 0}
+          team={team}
+          brulageTeam={brulageInfo}
+          history={playerHistory.map(
+            (e): PlayerHistoryEntry => ({
+              jNumber: e.jNumber,
+              icon: e.isHome ? 'home' : 'paper-plane-outline',
+              text: e.oppName,
+              date: e.date,
+              isPast: e.isPast,
+            }),
+          )}
+          onClose={() => setSelectedPlayer(null)}
+          onProfile={() => openProfile(selectedPlayer)}
+        />
       )}
     </SafeAreaView>
   )
@@ -421,50 +320,3 @@ const styles = StyleSheet.create({
   },
 })
 
-const m = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40, maxHeight: '85%',
-  },
-  handle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12,
-  },
-  name: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
-  rows: { gap: 10 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 14, color: colors.textSecondary },
-  value: {
-    fontSize: 14, fontWeight: '600', color: colors.textPrimary,
-    flexShrink: 1, textAlign: 'right',
-  },
-  teamBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
-  },
-  teamDot: { width: 7, height: 7, borderRadius: 4 },
-  teamBadgeTxt: { fontSize: 13, fontWeight: '600' },
-
-  historySection: { marginTop: 20, gap: 6 },
-  historyTitle: {
-    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
-  },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
-  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 22 },
-  historyText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
-  historyDate: { fontSize: 13, color: colors.textSecondary },
-  historyPast: { color: '#94a3b8' },
-
-  footer: { flexDirection: 'row', gap: 10, marginTop: 20 },
-  footerBtn: {
-    flex: 1, borderRadius: 10, padding: 14, alignItems: 'center',
-  },
-  footerBtnClose: { backgroundColor: colors.bg },
-  footerBtnProfile: { backgroundColor: colors.accent },
-  footerCloseTxt: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-  footerProfileTxt: { fontSize: 15, fontWeight: '600', color: '#fff' },
-})
