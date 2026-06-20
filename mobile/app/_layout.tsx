@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { colors } from '@/constants/colors'
 import { DataProvider, useAppData } from '@/contexts/DataContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 
@@ -37,6 +38,20 @@ function InnerLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />
           <Stack.Screen name="(tabs)" />
+          {/* Week detail lives above the tabs so it can be opened from either
+              Accueil or Journées and "back" returns to the originating tab. */}
+          <Stack.Screen
+            name="week/[id]"
+            options={{
+              headerShown: true,
+              title: 'Journée',
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: '600' },
+              headerBackTitle: '',
+              headerBackButtonDisplayMode: 'minimal',
+            }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </AuthGuard>

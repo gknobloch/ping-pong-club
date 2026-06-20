@@ -8,8 +8,10 @@ import {
   Modal,
   Pressable,
   Alert,
+  RefreshControl,
 } from 'react-native'
 import { useMemo, useState } from 'react'
+import { useRouter } from 'expo-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
@@ -227,6 +229,7 @@ function PlayerRow({
   isMe,
   canEdit,
   gameDatePast,
+  borrowed,
   onPickAvailability,
   onPressName,
 }: {
@@ -236,6 +239,8 @@ function PlayerRow({
   isMe: boolean
   canEdit: boolean
   gameDatePast: boolean
+  /** Player selected from another team — shown without availability pills. */
+  borrowed?: boolean
   onPickAvailability: (s: AvailabilityStatus) => void
   onPressName: () => void
 }) {
@@ -253,31 +258,37 @@ function PlayerRow({
         </Text>
       </TouchableOpacity>
 
-      <View style={pr.pills}>
-        {ALL_STATUSES.map((status) => {
-          const cfg = AVAIL[status]
-          const active = availability === status
-          const editable = canEdit && !gameDatePast
-          return (
-            <TouchableOpacity
-              key={status}
-              disabled={!editable}
-              onPress={() => onPickAvailability(status)}
-              style={[
-                pr.pill,
-                active
-                  ? { backgroundColor: cfg.bg, borderColor: cfg.color }
-                  : { borderColor: colors.border },
-                !editable && pr.pillDisabled,
-              ]}
-            >
-              <Text style={[pr.pillTxt, { color: active ? cfg.color : colors.textSecondary }]}>
-                {cfg.short}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </View>
+      {borrowed ? (
+        <View style={pr.borrowedSlot}>
+          <Text style={pr.borrowedTag}>Renfort</Text>
+        </View>
+      ) : (
+        <View style={pr.pills}>
+          {ALL_STATUSES.map((status) => {
+            const cfg = AVAIL[status]
+            const active = availability === status
+            const editable = canEdit && !gameDatePast
+            return (
+              <TouchableOpacity
+                key={status}
+                disabled={!editable}
+                onPress={() => onPickAvailability(status)}
+                style={[
+                  pr.pill,
+                  active
+                    ? { backgroundColor: cfg.bg, borderColor: cfg.color }
+                    : { borderColor: colors.border },
+                  !editable && pr.pillDisabled,
+                ]}
+              >
+                <Text style={[pr.pillTxt, { color: active ? cfg.color : colors.textSecondary }]}>
+                  {cfg.short}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      )}
     </View>
   )
 }
@@ -301,6 +312,23 @@ const pr = StyleSheet.create({
   },
   pillDisabled: { opacity: 0.5 },
   pillTxt: { fontSize: 11, fontWeight: '700' },
+  // Occupies the same footprint as the 3 pills (3 × 44 + 2 × 5 gap = 142 wide)
+  // with matching vertical padding + border so borrowed rows keep the same
+  // height as roster rows, and centers the "Renfort" label.
+  borrowedSlot: {
+    width: 142,
+    paddingVertical: 6,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  borrowedTag: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
 })
 
 // ---------------------------------------------------------------------------
@@ -460,6 +488,7 @@ function GameCard({
   matchDayDate,
   teamName,
   opponentName,
+  isHome,
   divisionLabel,
   team,
   teamPlayers,
@@ -475,6 +504,7 @@ function GameCard({
   onPickAvailability,
   onPlayerPress,
   onSaveSelection,
+  onOpenWeek,
   selectionData,
 }: {
   game: { id: string; time?: string }
@@ -482,6 +512,8 @@ function GameCard({
   matchDayDate: string
   teamName: string
   opponentName: string
+  /** Whether our team plays at home — drives the matchup order and the indicator. */
+  isHome: boolean
   divisionLabel: string | undefined
   team: Team
   teamPlayers: Player[]
@@ -500,6 +532,8 @@ function GameCard({
   onPickAvailability: (pid: string, status: AvailabilityStatus) => void
   onPlayerPress: (p: Player) => void
   onSaveSelection: (playerIds: string[]) => void
+  /** Open the full week (all games of this match-day). */
+  onOpenWeek: () => void
   selectionData: SelectionData
 }) {
   const today = todayIso()
@@ -513,28 +547,33 @@ function GameCard({
   // Use the parent-supplied IDs so borrowed (non-roster) players stay checked
   const initialSelection = initialSelectionIds
 
+  // Selected players who aren't on this team's roster (borrowed from another
+  // team) — listed on the card but without availability data.
+  const rosterIds = new Set(teamPlayers.map((p) => p.id))
+  const borrowedSelected = selectedPlayers.filter((p) => !rosterIds.has(p.id))
+
   const header = (
     <View style={gc.header}>
       <View style={gc.headerTop}>
         <GameSummary
           style={gc.headerInfo}
-          title={`${teamName} – ${opponentName}`}
+          isHome={isHome}
+          title={isHome ? `${teamName} – ${opponentName}` : `${opponentName} – ${teamName}`}
           dateLabel={dateLabel}
           time={game.time}
           matchDayNumber={matchDayNumber}
           divisionLabel={divisionLabel}
         />
-        {isCaptain && (
-          <TouchableOpacity style={gc.chevronBtn} onPress={() => setShowSelection(true)}>
-            <Text style={gc.chevron}>›</Text>
-          </TouchableOpacity>
-        )}
+        {/* Chevron drills into the full week (all games of this match-day). */}
+        <TouchableOpacity style={gc.chevronBtn} onPress={onOpenWeek}>
+          <Text style={gc.chevron}>›</Text>
+        </TouchableOpacity>
       </View>
     </View>
   )
 
   return (
-    <View style={gc.container}>
+    <View style={[gc.container, { borderLeftWidth: 6, borderLeftColor: team.color ?? colors.accent }]}>
       {header}
 
       {isPast ? (
@@ -549,7 +588,8 @@ function GameCard({
           </View>
         ) : null
       ) : (
-        // Upcoming: full roster with availability pills
+        // Upcoming: full roster with availability pills, plus any borrowed
+        // (non-roster) players that have been selected — shown without pills.
         <View style={gc.body}>
           {teamPlayers.map((p) => {
             const canEdit = isCaptain || p.id === myPlayerId
@@ -567,7 +607,29 @@ function GameCard({
               />
             )
           })}
+          {borrowedSelected.map((p) => (
+            <PlayerRow
+              key={p.id}
+              player={p}
+              availability={undefined}
+              selected
+              isMe={p.id === myPlayerId}
+              canEdit={false}
+              gameDatePast={gameDatePast}
+              borrowed
+              onPickAvailability={() => {}}
+              onPressName={() => onPlayerPress(p)}
+            />
+          ))}
         </View>
+      )}
+
+      {/* Captains compose the line-up via an explicit button — only for
+          upcoming weeks, mirroring the availability pills (hidden once past). */}
+      {isCaptain && !isPast && (
+        <TouchableOpacity style={gc.selectBtn} onPress={() => setShowSelection(true)}>
+          <Text style={gc.selectBtnText}>Composition</Text>
+        </TouchableOpacity>
       )}
 
       {showSelection && (
@@ -599,6 +661,16 @@ const gc = StyleSheet.create({
   chevron: { fontSize: 28, color: colors.accent, lineHeight: 32 },
   body: { padding: 14 },
   pastPlayer: { fontSize: 14, color: colors.textSecondary, paddingVertical: 3 },
+  selectBtn: {
+    margin: 14,
+    marginTop: 0,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    alignItems: 'center',
+  },
+  selectBtnText: { fontSize: 14, fontWeight: '600', color: colors.accent },
 })
 
 // ---------------------------------------------------------------------------
@@ -633,12 +705,14 @@ const sh = StyleSheet.create({
 // Home screen
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
+  const router = useRouter()
   const { user, displayName } = useAuth()
   const {
     clubs, seasons, teams, players, matchDays, games,
     phases, divisions, groups,
     gameAvailabilities, gameSelections,
     setAvailability, setGameSelection,
+    refreshing, refresh,
   } = useAppData()
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
@@ -833,7 +907,10 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+      >
         <View style={styles.welcomeCard}>
           <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
           {teamSubtitle ? (
@@ -864,6 +941,7 @@ export default function HomeScreen() {
                     matchDayDate={md.date}
                     teamName={getTeamName(myActiveTeam, clubs)}
                     opponentName={getOpponentName(game, myActiveTeam.id)}
+                    isHome={game.homeTeamId === myActiveTeam.id}
                     divisionLabel={getDivisionLabel(myActiveTeam)}
                     team={myActiveTeam}
                     teamPlayers={teamPlayers}
@@ -879,6 +957,7 @@ export default function HomeScreen() {
                     onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                     onPlayerPress={setSelectedPlayer}
                     onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
+                    onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                     selectionData={{
                       matchDayId: game.matchDayId,
                       allClubPlayers,
@@ -914,6 +993,7 @@ export default function HomeScreen() {
                       matchDayDate={md.date}
                       teamName={getTeamName(myActiveTeam, clubs)}
                       opponentName={getOpponentName(game, myActiveTeam.id)}
+                      isHome={game.homeTeamId === myActiveTeam.id}
                       divisionLabel={getDivisionLabel(myActiveTeam)}
                       team={myActiveTeam}
                       teamPlayers={teamPlayers}
@@ -929,6 +1009,7 @@ export default function HomeScreen() {
                       onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                       onPlayerPress={setSelectedPlayer}
                       onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
+                      onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                       selectionData={{
                         matchDayId: game.matchDayId,
                         allClubPlayers,
@@ -973,6 +1054,7 @@ export default function HomeScreen() {
                         matchDayDate={md.date}
                         teamName={getTeamName(team, clubs)}
                         opponentName={getOpponentName(game, team.id)}
+                        isHome={game.homeTeamId === team.id}
                         divisionLabel={getDivisionLabel(team)}
                         team={team}
                         teamPlayers={teamPlayers}
@@ -988,6 +1070,7 @@ export default function HomeScreen() {
                         onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
                         onPlayerPress={setSelectedPlayer}
                         onSaveSelection={(playerIds) => setGameSelection(team.id, game.id, playerIds)}
+                        onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                         selectionData={{
                           matchDayId: game.matchDayId,
                           allClubPlayers: phasePlayers,

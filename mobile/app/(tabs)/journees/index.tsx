@@ -1,38 +1,15 @@
 import { useMemo, useState } from 'react'
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native'
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
-
-// ---------------------------------------------------------------------------
-// Week helpers
-// ---------------------------------------------------------------------------
-function getMondayOf(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  const day = d.getDay()
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
-  return d.toISOString().slice(0, 10)
-}
-
-function getSundayOf(mondayStr: string): string {
-  const d = new Date(mondayStr + 'T12:00:00')
-  d.setDate(d.getDate() + 6)
-  return d.toISOString().slice(0, 10)
-}
-
-export function formatWeekRange(mondayStr: string): string {
-  const mo = new Date(mondayStr + 'T12:00:00')
-  const su = new Date(mo)
-  su.setDate(mo.getDate() + 6)
-  const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-  return `Lu ${fmt(mo)} au Di ${fmt(su)}`
-}
+import { getMondayOf, getSundayOf, formatWeekRange } from '@/utils/weeks'
 
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 export default function JourneesScreen() {
-  const { matchDays, games, phases, divisions, groups } = useAppData()
+  const { matchDays, games, phases, divisions, groups, refreshing, refresh } = useAppData()
   const router = useRouter()
 
   const activePhase = phases.find((p) => p.isActive)
@@ -102,15 +79,10 @@ export default function JourneesScreen() {
       <TouchableOpacity
         key={mon}
         style={styles.weekCard}
-        onPress={() => router.push(`/(tabs)/journees/${mon}`)}
+        onPress={() => router.push(`/week/${mon}`)}
       >
         <View style={styles.weekBody}>
-          <View style={styles.weekTopRow}>
-            <Text style={styles.weekRange}>{formatWeekRange(mon)}</Text>
-            <Text style={styles.weekMeta}>
-              {cnt} match{cnt !== 1 ? 's' : ''}
-            </Text>
-          </View>
+          <Text style={styles.weekRange}>{formatWeekRange(mon)}</Text>
           {numbers.length > 0 && (
             <View style={styles.badges}>
               {numbers.map((n) => (
@@ -119,6 +91,9 @@ export default function JourneesScreen() {
             </View>
           )}
         </View>
+        <Text style={styles.weekMeta}>
+          {cnt} match{cnt !== 1 ? 's' : ''}
+        </Text>
         <Text style={styles.rowChevron}>›</Text>
       </TouchableOpacity>
     )
@@ -126,7 +101,10 @@ export default function JourneesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+      >
         {sortedPhases.map((phase) => {
           const weekMap = phaseWeeks.get(phase.id) ?? new Map()
           const allWeeks = [...weekMap.keys()]
@@ -142,7 +120,6 @@ export default function JourneesScreen() {
             <View key={phase.id} style={styles.phaseBlock}>
               <TouchableOpacity style={styles.phaseHeader} onPress={() => togglePhase(phase.id)}>
                 <View style={styles.phaseLeft}>
-                  {phase.isActive && <View style={styles.activeBadge} />}
                   <Text style={styles.phaseTitle}>{phase.displayName}</Text>
                 </View>
                 <Text style={styles.phaseChevron}>{isExpanded ? '▾' : '▸'}</Text>
@@ -163,18 +140,29 @@ export default function JourneesScreen() {
                     </>
                   )}
 
-                  {past.length > 0 && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.groupLabelRow}
-                        onPress={() => togglePastWeeks(phase.id)}
-                      >
-                        <Text style={styles.groupLabel}>Journées passées</Text>
-                        <Text style={styles.groupChevron}>{pastExpanded ? '▾' : '▸'}</Text>
-                      </TouchableOpacity>
-                      {pastExpanded && past.map((mon) => renderWeekCard(mon, weekMap))}
-                    </>
-                  )}
+                  {past.length > 0 &&
+                    // A phase with no upcoming weeks is entirely in the past, so
+                    // its weeks are shown expanded with no collapsible. Otherwise
+                    // past weeks stay collapsed to keep upcoming weeks front-and-center.
+                    (!showUpcoming ? (
+                      <>
+                        <View style={styles.groupLabelRow}>
+                          <Text style={styles.groupLabel}>Journées passées</Text>
+                        </View>
+                        {past.map((mon) => renderWeekCard(mon, weekMap))}
+                      </>
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={styles.groupLabelRow}
+                          onPress={() => togglePastWeeks(phase.id)}
+                        >
+                          <Text style={styles.groupLabel}>Journées passées</Text>
+                          <Text style={styles.groupChevron}>{pastExpanded ? '▾' : '▸'}</Text>
+                        </TouchableOpacity>
+                        {pastExpanded && past.map((mon) => renderWeekCard(mon, weekMap))}
+                      </>
+                    ))}
 
                   {!showUpcoming && past.length === 0 && (
                     <Text style={styles.empty}>Aucune journée.</Text>
@@ -201,7 +189,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   phaseLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  activeBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
   phaseTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   phaseChevron: { fontSize: 16, color: colors.textSecondary },
 
@@ -236,13 +223,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   weekBody: { flex: 1 },
-  weekTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  weekRange: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  weekRange: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   weekMeta: { fontSize: 13, color: colors.textSecondary },
   badges: { flexDirection: 'row', gap: 4, marginTop: 6 },
   badge: {

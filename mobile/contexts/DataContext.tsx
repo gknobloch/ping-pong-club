@@ -4,8 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
+import { AppState } from 'react-native'
+
+// Minimum gap between automatic foreground refetches. A manual pull-to-refresh
+// always forces a fetch and ignores this.
+const FOREGROUND_REFETCH_THROTTLE_MS = 30_000
 import type {
   Club,
   Season,
@@ -64,6 +70,7 @@ type PlayerProfilePatch = Partial<Pick<Player, 'email' | 'phone' | 'birthDate' |
 
 interface DataContextValue extends DataState {
   loading: boolean
+  refreshing: boolean
   error: string | null
   refresh: () => void
   updatePlayer: (id: string, patch: PlayerProfilePatch) => Promise<void>
@@ -87,11 +94,17 @@ const DataContext = createContext<DataContextValue | null>(null)
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<DataState>(emptyState)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiAvailable, setApiAvailable] = useState(false)
+  const lastFetchAt = useRef(0)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  // `mode` decides which spinner reflects the fetch: 'initial' uses the
+  // full-screen loading flag, 'refresh' uses the lightweight one so the UI
+  // (pull-to-refresh, foreground refetch) doesn't blank out existing content.
+  const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'refresh') setRefreshing(true)
+    else setLoading(true)
     setError(null)
     try {
       const res = await fetch(apiUrl('/data'), { headers: dataHeaders() })
@@ -99,18 +112,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const data: DataState = await res.json()
       setState(data)
       setApiAvailable(true)
+      lastFetchAt.current = Date.now()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur réseau')
       setApiAvailable(false)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
+
+  const refresh = useCallback(() => load('refresh'), [load])
 
   useEffect(() => {
     load()
     // Refetch when the session token changes (e.g. after login/logout).
-    return onSessionTokenChange(load)
+    return onSessionTokenChange(() => load())
+  }, [load])
+
+  // Refetch when the app returns to the foreground, so changes made elsewhere
+  // (e.g. on the web app) show up without a full restart. Throttled so rapid
+  // app switching doesn't spam the API — pull-to-refresh bypasses this.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return
+      if (Date.now() - lastFetchAt.current < FOREGROUND_REFETCH_THROTTLE_MS) return
+      load('refresh')
+    })
+    return () => sub.remove()
   }, [load])
 
   const updatePlayer = useCallback(
@@ -213,13 +242,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       loading,
+      refreshing,
       error,
-      refresh: load,
+      refresh,
       updatePlayer,
       setAvailability,
       setGameSelection,
     }),
-    [state, loading, error, load, updatePlayer, setAvailability, setGameSelection],
+    [state, loading, refreshing, error, refresh, updatePlayer, setAvailability, setGameSelection],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
