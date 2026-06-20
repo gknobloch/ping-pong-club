@@ -553,7 +553,7 @@ function GameCard({
   const borrowedSelected = selectedPlayers.filter((p) => !rosterIds.has(p.id))
 
   const header = (
-    <View style={gc.header}>
+    <TouchableOpacity style={gc.header} onPress={onOpenWeek} activeOpacity={0.7}>
       <View style={gc.headerTop}>
         <GameSummary
           style={gc.headerInfo}
@@ -564,12 +564,9 @@ function GameCard({
           matchDayNumber={matchDayNumber}
           divisionLabel={divisionLabel}
         />
-        {/* Chevron drills into the full week (all games of this match-day). */}
-        <TouchableOpacity style={gc.chevronBtn} onPress={onOpenWeek}>
-          <Text style={gc.chevron}>›</Text>
-        </TouchableOpacity>
+        <Text style={gc.chevron}>›</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   )
 
   return (
@@ -657,7 +654,6 @@ const gc = StyleSheet.create({
   header: { padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   headerInfo: { flex: 1 },
-  chevronBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   chevron: { fontSize: 28, color: colors.accent, lineHeight: 32 },
   body: { padding: 14 },
   pastPlayer: { fontSize: 14, color: colors.textSecondary, paddingVertical: 3 },
