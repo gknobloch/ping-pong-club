@@ -10,6 +10,8 @@ export type PlayerHistoryEntry = {
   /** Home/away icon. If absent and jNumber is set, a · separator is rendered instead. */
   icon?: 'home' | 'paper-plane-outline'
   text: string
+  /** The team this game was played for — shown as a small colored label. */
+  team?: Team
   date: string
   isPast: boolean
 }
@@ -142,9 +144,22 @@ export function PlayerSheet({
                         {entry.text}
                       </Text>
                     </View>
-                    <Text style={[s.historyDate, entry.isPast && s.historyPast]}>
-                      {entry.date}
-                    </Text>
+                    <View style={s.historyRight}>
+                      <Text style={[s.historyDate, entry.isPast && s.historyPast]}>
+                        {entry.date}
+                      </Text>
+                      {entry.team && (
+                        <Text
+                          style={[
+                            s.historyTeam,
+                            { color: entry.isPast ? '#94a3b8' : (entry.team.color ?? colors.accent) },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          • {getTeamName(entry.team, clubs)}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 ))}
               </View>
@@ -209,10 +224,12 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3,
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
+  historyRight: { alignItems: 'flex-end', gap: 2 },
   historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 22 },
   historyDot: { fontSize: 13, color: colors.textSecondary },
   historyText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
   historyDate: { fontSize: 13, color: colors.textSecondary },
+  historyTeam: { fontSize: 11, fontWeight: '500' },
   historyPast: { color: '#94a3b8' },
 
   footer: { flexDirection: 'row', gap: 10, marginTop: 20 },

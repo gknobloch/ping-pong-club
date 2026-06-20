@@ -76,33 +76,41 @@ export default function PhaseGamesScreen() {
     [team, teams],
   )
 
-  // Per-player phase history: games where they appeared
+  // Per-player history across ALL club teams in the phase (not just current team)
   const playerHistory = useMemo(() => {
     if (!selectedPlayer) return []
-    return teamGames
-      .filter((g) => {
-        const sel = teamSelections.find((s) => s.gameId === g.id)
-        return sel?.playerIds.includes(selectedPlayer.id)
-      })
-      .map((g) => {
-        const md = g.matchDay
-        const isHome = g.homeTeamId === teamId
-        const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
-        const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
-        const isPast = md ? md.date < new Date().toISOString().slice(0, 10) : false
-        return {
-          jNumber: md?.number,
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const entries: Array<{
+      rawDate: string; jNumber?: number; isHome: boolean
+      oppName: string; team: typeof clubTeamsInPhase[0]; date: string; isPast: boolean
+    }> = []
+    for (const t of clubTeamsInPhase) {
+      const mdInGroup = new Set(
+        matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
+      )
+      for (const g of games) {
+        if ((g.homeTeamId !== t.id && g.awayTeamId !== t.id) || !mdInGroup.has(g.matchDayId)) continue
+        const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
+        if (!sel?.playerIds.includes(selectedPlayer.id)) continue
+        const md = matchDays.find((md) => md.id === g.matchDayId)
+        if (!md) continue
+        const isHome = g.homeTeamId === t.id
+        const oppTeam = teams.find((ot) => ot.id === (isHome ? g.awayTeamId : g.homeTeamId))
+        entries.push({
+          rawDate: md.date,
+          jNumber: md.number,
           isHome,
-          oppName,
-          date: md
-            ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                day: 'numeric', month: 'short',
-              })
-            : '',
-          isPast,
-        }
-      })
-  }, [selectedPlayer, teamGames, teamSelections, teamId, teams, clubs])
+          oppName: oppTeam ? getTeamName(oppTeam, clubs) : '—',
+          team: t,
+          date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+            day: 'numeric', month: 'short',
+          }),
+          isPast: md.date < todayStr,
+        })
+      }
+    }
+    return entries.sort((a, b) => a.rawDate.localeCompare(b.rawDate))
+  }, [selectedPlayer, clubTeamsInPhase, matchDays, games, gameSelections, teams, clubs])
 
   const brulageInfo = useMemo(() => {
     if (!selectedPlayer || !team) return null
@@ -223,7 +231,7 @@ export default function PhaseGamesScreen() {
         <PlayerSheet
           player={selectedPlayer}
           phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
-          gamesPlayed={playedCount.get(selectedPlayer.id) ?? 0}
+          gamesPlayed={playerHistory.filter((e) => e.isPast).length}
           team={team}
           brulageTeam={brulageInfo}
           history={playerHistory.map(
@@ -231,6 +239,7 @@ export default function PhaseGamesScreen() {
               jNumber: e.jNumber,
               icon: e.isHome ? 'home' : 'paper-plane-outline',
               text: e.oppName,
+              team: e.team,
               date: e.date,
               isPast: e.isPast,
             }),

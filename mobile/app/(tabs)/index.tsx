@@ -51,7 +51,9 @@ const AVAIL: Record<AvailabilityStatus, { short: string; color: string; bg: stri
 // ---------------------------------------------------------------------------
 interface GameHistoryEntry {
   matchDayNumber: number
-  teamNumber: number
+  team: Team
+  isHome: boolean
+  opponentName: string
   matchDayDate: string
   isPast: boolean
 }
@@ -699,9 +701,13 @@ export default function HomeScreen() {
         if (!sel.includes(player.id)) continue
         const md = mdMap.get(g.matchDayId)
         if (!md) continue
+        const isHome = g.homeTeamId === team.id
+        const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
         entries.push({
           matchDayNumber: md.number,
-          teamNumber: team.number,
+          team,
+          isHome,
+          opponentName: oppTeam ? getTeamName(oppTeam, clubs) : '—',
           matchDayDate: md.date,
           isPast: md.date < today,
         })
@@ -976,7 +982,9 @@ export default function HomeScreen() {
           history={getGameHistoryForPlayer(selectedPlayer, activePhase?.id).map(
             (e): PlayerHistoryEntry => ({
               jNumber: e.matchDayNumber,
-              text: `Équipe ${e.teamNumber}`,
+              icon: e.isHome ? 'home' : 'paper-plane-outline',
+              text: e.opponentName,
+              team: e.team,
               date: new Date(e.matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
                 day: 'numeric', month: 'short',
               }),
