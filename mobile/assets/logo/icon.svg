@@ -1,0 +1,89 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark slate backdrop, lit from upper area like the login photo -->
+    <radialGradient id="bg" cx="42%" cy="32%" r="85%">
+      <stop offset="0%" stop-color="#1f3052"/>
+      <stop offset="45%" stop-color="#111c34"/>
+      <stop offset="100%" stop-color="#060a15"/>
+    </radialGradient>
+    <!-- Warm bokeh light -->
+    <radialGradient id="bokeh" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd9a0" stop-opacity="0.9"/>
+      <stop offset="55%" stop-color="#e9a24f" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#e9a24f" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Red rubber face: flat-ish, soft directional sheen -->
+    <radialGradient id="rubber" cx="40%" cy="36%" r="78%">
+      <stop offset="0%" stop-color="#f2564e"/>
+      <stop offset="50%" stop-color="#e23b3b"/>
+      <stop offset="88%" stop-color="#bd2a2c"/>
+      <stop offset="100%" stop-color="#9a2024"/>
+    </radialGradient>
+    <!-- Wood rim of blade -->
+    <linearGradient id="wood" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#eac083"/>
+      <stop offset="45%" stop-color="#c79454"/>
+      <stop offset="100%" stop-color="#7c4f26"/>
+    </linearGradient>
+    <!-- Handle wood -->
+    <linearGradient id="handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7a4f26"/>
+      <stop offset="35%" stop-color="#c08f4f"/>
+      <stop offset="60%" stop-color="#d8a868"/>
+      <stop offset="100%" stop-color="#6f441f"/>
+    </linearGradient>
+    <!-- Ball sphere -->
+    <radialGradient id="ball" cx="36%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#eef2f7"/>
+      <stop offset="100%" stop-color="#aeb9c7"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="softer" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="bokehBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Warm bokeh lights -->
+  <circle cx="250" cy="200" r="120" fill="url(#bokeh)" filter="url(#bokehBlur)"/>
+  <circle cx="820" cy="170" r="78" fill="url(#bokeh)" filter="url(#bokehBlur)"/>
+  <circle cx="560" cy="110" r="52" fill="url(#bokeh)" filter="url(#bokehBlur)"/>
+  <circle cx="900" cy="450" r="66" fill="url(#bokeh)" filter="url(#bokehBlur)"/>
+
+  <!-- Big soft contact shadow grounding the whole composition -->
+  <ellipse cx="512" cy="820" rx="360" ry="86" fill="#000000" opacity="0.5" filter="url(#soft)"/>
+
+  <!-- Paddle, tilted like the login photo -->
+  <g transform="rotate(-22 512 500)">
+    <!-- Handle (drawn behind the blade) -->
+    <rect x="460" y="540" width="104" height="338" rx="52" fill="url(#handle)"/>
+    <rect x="460" y="540" width="104" height="338" rx="52" fill="none" stroke="#3f2913" stroke-width="3" opacity="0.45"/>
+    <rect x="492" y="560" width="14" height="300" rx="7" fill="#ffe6bb" opacity="0.4"/>
+    <!-- Shoulder where handle meets blade -->
+    <path d="M452 560 Q512 470 572 560 L572 600 L452 600 Z" fill="url(#handle)"/>
+
+    <!-- Wood rim of blade -->
+    <ellipse cx="512" cy="378" rx="296" ry="284" fill="url(#wood)"/>
+    <!-- Red rubber face -->
+    <ellipse cx="512" cy="372" rx="268" ry="256" fill="url(#rubber)"/>
+    <!-- Inner edge shadow on rubber -->
+    <ellipse cx="512" cy="372" rx="268" ry="256" fill="none" stroke="#5e0f12" stroke-width="9" opacity="0.4"/>
+    <!-- Broad soft sheen -->
+    <ellipse cx="424" cy="276" rx="150" ry="96" fill="#ffffff" opacity="0.16" filter="url(#softer)"/>
+    <!-- Crisp specular glint -->
+    <ellipse cx="402" cy="252" rx="40" ry="22" fill="#ffffff" opacity="0.5" filter="url(#softer)"/>
+  </g>
+
+  <!-- Ball, resting lower-right and overlapping the paddle -->
+  <ellipse cx="690" cy="788" rx="96" ry="34" fill="#000000" opacity="0.45" filter="url(#soft)"/>
+  <circle cx="700" cy="700" r="106" fill="url(#ball)"/>
+  <circle cx="664" cy="662" r="30" fill="#ffffff" opacity="0.8"/>
+</svg>

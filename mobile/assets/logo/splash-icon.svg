@@ -1,0 +1,49 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="rubber" cx="40%" cy="36%" r="78%">
+      <stop offset="0%" stop-color="#f2564e"/>
+      <stop offset="50%" stop-color="#e23b3b"/>
+      <stop offset="88%" stop-color="#bd2a2c"/>
+      <stop offset="100%" stop-color="#9a2024"/>
+    </radialGradient>
+    <linearGradient id="wood" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#eac083"/>
+      <stop offset="45%" stop-color="#c79454"/>
+      <stop offset="100%" stop-color="#7c4f26"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7a4f26"/>
+      <stop offset="35%" stop-color="#c08f4f"/>
+      <stop offset="60%" stop-color="#d8a868"/>
+      <stop offset="100%" stop-color="#6f441f"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="36%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#eef2f7"/>
+      <stop offset="100%" stop-color="#aeb9c7"/>
+    </radialGradient>
+    <filter id="softer" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(512 512) scale(0.72) translate(-512 -512)">
+    <ellipse cx="512" cy="828" rx="320" ry="76" fill="#000000" opacity="0.22" filter="url(#soft)"/>
+    <g transform="rotate(-22 512 512)">
+      <rect x="460" y="552" width="104" height="338" rx="52" fill="url(#handle)"/>
+      <rect x="460" y="552" width="104" height="338" rx="52" fill="none" stroke="#3f2913" stroke-width="3" opacity="0.45"/>
+      <rect x="492" y="572" width="14" height="300" rx="7" fill="#ffe6bb" opacity="0.4"/>
+      <path d="M452 572 Q512 482 572 572 L572 612 L452 612 Z" fill="url(#handle)"/>
+      <ellipse cx="512" cy="390" rx="296" ry="284" fill="url(#wood)"/>
+      <ellipse cx="512" cy="384" rx="268" ry="256" fill="url(#rubber)"/>
+      <ellipse cx="512" cy="384" rx="268" ry="256" fill="none" stroke="#5e0f12" stroke-width="9" opacity="0.4"/>
+      <ellipse cx="424" cy="288" rx="150" ry="96" fill="#ffffff" opacity="0.16" filter="url(#softer)"/>
+      <ellipse cx="402" cy="264" rx="40" ry="22" fill="#ffffff" opacity="0.5" filter="url(#softer)"/>
+    </g>
+    <circle cx="700" cy="712" r="106" fill="url(#ball)"/>
+    <circle cx="664" cy="674" r="30" fill="#ffffff" opacity="0.8"/>
+  </g>
+</svg>
