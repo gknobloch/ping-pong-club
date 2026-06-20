@@ -1,5 +1,5 @@
-import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native'
-import { useLocalSearchParams, useNavigation } from 'expo-router'
+import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
@@ -11,6 +11,7 @@ export default function PhaseGamesScreen() {
   const { teamId, label } = useLocalSearchParams<{ teamId: string; label: string }>()
   const { teams, players, clubs, matchDays, games, gameSelections } = useAppData()
   const navigation = useNavigation()
+  const router = useRouter()
 
   useEffect(() => {
     if (label) navigation.setOptions({ title: label })
@@ -32,7 +33,6 @@ export default function PhaseGamesScreen() {
       .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
   }, [team, teamId, matchDays, games])
 
-  // Per-player game counts across all selections for this team
   const teamSelections = useMemo(
     () => gameSelections.filter((s) => s.teamId === teamId),
     [gameSelections, teamId],
@@ -47,7 +47,6 @@ export default function PhaseGamesScreen() {
     }
     const rosterIds = new Set(team?.playerIds ?? [])
     const borrowedIds = [...counts.keys()].filter((pid) => !rosterIds.has(pid))
-
     const roster = sortByName(
       (team?.playerIds ?? [])
         .map((pid) => players.find((p) => p.id === pid))
@@ -70,6 +69,10 @@ export default function PhaseGamesScreen() {
     )
   }
 
+  function openPlayer(playerId: string) {
+    router.push(`/(tabs)/joueurs/${playerId}`)
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -77,27 +80,20 @@ export default function PhaseGamesScreen() {
         {/* Member stats */}
         {(rosterPlayers.length > 0 || borrowedPlayers.length > 0) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Joueurs</Text>
+            <Text style={styles.sectionTitle}>Joueurs ({rosterPlayers.length + borrowedPlayers.length})</Text>
             {rosterPlayers.map((p) => (
-              <View key={p.id} style={styles.memberRow}>
-                <Text style={styles.memberName}>
-                  {p.firstName} {p.lastName}
-                  {p.id === team.captainId ? '  ' : ''}
-                </Text>
+              <TouchableOpacity key={p.id} style={styles.memberRow} onPress={() => openPlayer(p.id)}>
+                <Text style={styles.memberName}>{p.firstName} {p.lastName}</Text>
                 {p.id === team.captainId && <Text style={styles.capBadge}>Cap.</Text>}
-                <Text style={styles.gamesCount}>
-                  {playedCount.get(p.id) ?? 0}/{totalGames}
-                </Text>
-              </View>
+                <Text style={styles.gamesCount}>{playedCount.get(p.id) ?? 0}/{totalGames}</Text>
+              </TouchableOpacity>
             ))}
             {borrowedPlayers.map((p) => (
-              <View key={p.id} style={styles.memberRow}>
+              <TouchableOpacity key={p.id} style={styles.memberRow} onPress={() => openPlayer(p.id)}>
                 <Text style={styles.memberName}>{p.firstName} {p.lastName}</Text>
-                <Text style={styles.borrowedBadge}>prêt</Text>
-                <Text style={styles.gamesCount}>
-                  {playedCount.get(p.id) ?? 0}/{totalGames}
-                </Text>
-              </View>
+                <Text style={styles.renforceBadge}>Renfort</Text>
+                <Text style={styles.gamesCount}>{playedCount.get(p.id) ?? 0}/{totalGames}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -113,9 +109,7 @@ export default function PhaseGamesScreen() {
                 })
               : ''
             const isHome = g.homeTeamId === teamId
-            const oppTeam = teams.find(
-              (t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId),
-            )
+            const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
             const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
             const isPast = md ? md.date < today : false
 
@@ -126,29 +120,29 @@ export default function PhaseGamesScreen() {
 
             return (
               <View key={g.id} style={styles.gameBlock}>
-                {/* Game header */}
                 <View style={styles.gameHeader}>
-                  <View style={styles.gameHeaderLeft}>
+                  {/* Left: J# · icon · opponent */}
+                  <View style={styles.gameLeft}>
                     {md && (
                       <Text style={[styles.gameJ, isPast && styles.gameJPast]}>J{md.number}</Text>
                     )}
-                    <View>
-                      <Text style={styles.gameDate}>{dateLabel}</Text>
-                      <Text style={styles.gameMatchup}>
-                        {isHome ? `vs ${oppName}` : `@ ${oppName}`}
-                      </Text>
-                    </View>
+                    <Text style={styles.gameIcon}>{isHome ? '🏠' : '✈️'}</Text>
+                    <Text style={styles.gameOpponent} numberOfLines={1}>{oppName}</Text>
                   </View>
-                  {g.time && <Text style={styles.gameTime}>{g.time}</Text>}
+                  {/* Right: date / time stacked */}
+                  <View style={styles.gameRight}>
+                    <Text style={styles.gameDate}>{dateLabel}</Text>
+                    {g.time && <Text style={styles.gameTime}>{g.time}</Text>}
+                  </View>
                 </View>
 
                 {/* Players who played */}
                 {gamePlayers.length > 0 && (
                   <View style={styles.gamePlayers}>
                     {gamePlayers.map((p) => (
-                      <Text key={p.id} style={styles.gamePlayer}>
-                        {p.firstName} {p.lastName}
-                      </Text>
+                      <TouchableOpacity key={p.id} onPress={() => openPlayer(p.id)}>
+                        <Text style={styles.gamePlayer}>{p.firstName} {p.lastName}</Text>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
@@ -186,12 +180,12 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
 
-  // Member stats
+  // Member rows
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     gap: 8,
@@ -206,7 +200,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
-  borrowedBadge: {
+  renforceBadge: {
     fontSize: 11,
     fontWeight: '500',
     color: colors.textSecondary,
@@ -233,16 +227,36 @@ const styles = StyleSheet.create({
   gameHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 8,
   },
-  gameHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  gameJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 26 },
+  gameLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  gameJ: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accent,
+    minWidth: 24,
+  },
   gameJPast: { color: colors.textSecondary },
-  gameDate: { fontSize: 13, color: colors.textSecondary },
-  gameMatchup: { fontSize: 14, fontWeight: '500', color: colors.textPrimary, marginTop: 1 },
-  gameTime: { fontSize: 13, color: colors.textSecondary },
+  gameIcon: { fontSize: 14 },
+  gameOpponent: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  gameRight: {
+    alignItems: 'flex-end',
+  },
+  gameDate: { fontSize: 12, color: colors.textSecondary },
+  gameTime: { fontSize: 13, fontWeight: '500', color: colors.textPrimary, marginTop: 1 },
 
   // Players per game
   gamePlayers: {
@@ -261,5 +275,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    overflow: 'hidden',
   },
 })
