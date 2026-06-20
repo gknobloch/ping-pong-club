@@ -129,7 +129,7 @@ export function PlayerSheet({
                         </Text>
                       )}
                       {entry.team && (() => {
-                        const tc = entry.isPast ? '#94a3b8' : (entry.team.color ?? colors.accent)
+                        const tc = entry.team.color ?? colors.accent
                         return (
                           <View style={[s.historyTeamBadge, { borderColor: tc, backgroundColor: hexToRgba(tc, 0.1) }]}>
                             <Text style={[s.historyTeamNum, { color: tc }]}>{entry.team.number}</Text>
