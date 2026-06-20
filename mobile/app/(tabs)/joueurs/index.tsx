@@ -13,6 +13,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
 import { sortByName } from '@/utils/sortByName'
+import { Avatar } from '@/components/Avatar'
 
 const STATUS_LABELS = {
   active: 'Actif',
@@ -65,11 +66,13 @@ export default function JoueursScreen() {
               style={styles.card}
               onPress={() => router.push(`/(tabs)/joueurs/${p.id}`)}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.initials}>
-                  {p.firstName[0]}{p.lastName[0]}
-                </Text>
-              </View>
+              <Avatar
+                playerId={p.id}
+                avatarUpdatedAt={p.avatarUpdatedAt}
+                firstName={p.firstName}
+                lastName={p.lastName}
+                size={40}
+              />
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{p.firstName} {p.lastName}</Text>
                 <Text style={styles.meta}>{club?.displayName}</Text>
@@ -114,15 +117,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initials: { color: '#fff', fontWeight: '700', fontSize: 15 },
   cardBody: { flex: 1 },
   name: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   meta: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },

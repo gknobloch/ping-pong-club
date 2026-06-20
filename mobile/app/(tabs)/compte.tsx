@@ -1,20 +1,25 @@
 import {
   ScrollView, View, Text, StyleSheet, SafeAreaView,
   TouchableOpacity, Linking, Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
+  ActivityIndicator,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName, getRoleLabel } from '@/utils/roles'
+import { Avatar } from '@/components/Avatar'
+import { pickAvatarFromLibrary, takeAvatarPhoto, type ProcessedAvatar } from '@/utils/avatar'
 import type { Player } from '@shared/types'
 
 type EditableFields = Pick<Player, 'email' | 'phone' | 'birthDate' | 'birthPlace'>
 
 export default function MonCompteScreen() {
   const { user, logout } = useAuth()
-  const { players, teams, clubs, phases, updatePlayer } = useAppData()
+  const { players, teams, clubs, phases, updatePlayer, setAvatar, removeAvatar } = useAppData()
   const [editing, setEditing] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [form, setForm] = useState<EditableFields>({ email: '', phone: '', birthDate: '', birthPlace: '' })
 
   const player = user?.isPlayer ? players.find((p) => p.id === user.id) : null
@@ -49,6 +54,50 @@ export default function MonCompteScreen() {
     setEditing(false)
   }
 
+  async function applyAvatar(pick: () => Promise<ProcessedAvatar | null>) {
+    if (!player) return
+    let img: ProcessedAvatar | null
+    try {
+      img = await pick()
+    } catch {
+      Alert.alert('Erreur', "Impossible d'accéder à la photo.")
+      return
+    }
+    if (!img) return
+    try {
+      setUploadingAvatar(true)
+      await setAvatar(player.id, img.base64, img.contentType)
+    } catch {
+      Alert.alert('Erreur', "Impossible d'enregistrer la photo de profil.")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function deleteAvatar() {
+    if (!player) return
+    try {
+      setUploadingAvatar(true)
+      await removeAvatar(player.id)
+    } catch {
+      Alert.alert('Erreur', 'Impossible de supprimer la photo de profil.')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  function chooseAvatar() {
+    if (!player) return
+    Alert.alert('Photo de profil', undefined, [
+      { text: 'Prendre une photo', onPress: () => applyAvatar(takeAvatarPhoto) },
+      { text: 'Choisir dans la bibliothèque', onPress: () => applyAvatar(pickAvatarFromLibrary) },
+      ...(player.avatarUpdatedAt
+        ? [{ text: 'Supprimer la photo', style: 'destructive' as const, onPress: deleteAvatar }]
+        : []),
+      { text: 'Annuler', style: 'cancel' as const },
+    ])
+  }
+
   function confirmLogout() {
     Alert.alert(
       'Déconnexion',
@@ -65,13 +114,28 @@ export default function MonCompteScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Avatar */}
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.initials}>
-              {player
-                ? `${player.firstName[0]}${player.lastName[0]}`
-                : (user?.email?.[0] ?? '?').toUpperCase()}
-            </Text>
-          </View>
+          {player ? (
+            <TouchableOpacity activeOpacity={0.8} onPress={chooseAvatar} disabled={uploadingAvatar}>
+              <Avatar
+                playerId={player.id}
+                avatarUpdatedAt={player.avatarUpdatedAt}
+                firstName={player.firstName}
+                lastName={player.lastName}
+                size={88}
+              />
+              <View style={styles.cameraBadge}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="camera" size={16} color="#fff" />
+                )}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.initials}>{(user?.email?.[0] ?? '?').toUpperCase()}</Text>
+            </View>
+          )}
           <Text style={styles.name}>
             {player ? `${player.firstName} ${player.lastName}` : user?.email ?? '—'}
           </Text>
@@ -247,6 +311,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   initials: { color: '#fff', fontWeight: '700', fontSize: 26 },
+  cameraBadge: {
+    position: 'absolute', right: -2, bottom: -2,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: colors.accent,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: colors.bg,
+  },
   name: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
   roleBadge: {
     backgroundColor: '#e0e7ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,

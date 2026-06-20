@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
+import { Avatar } from '@/components/Avatar'
 
 const STATUS_LABELS = {
   active: 'Actif',
@@ -46,11 +47,13 @@ export default function PlayerDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Avatar header */}
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.initials}>
-              {player.firstName[0]}{player.lastName[0]}
-            </Text>
-          </View>
+          <Avatar
+            playerId={player.id}
+            avatarUpdatedAt={player.avatarUpdatedAt}
+            firstName={player.firstName}
+            lastName={player.lastName}
+            size={72}
+          />
           <Text style={styles.name}>{player.firstName} {player.lastName}</Text>
           <View style={[styles.statusBadge, player.status !== 'active' && styles.statusBadgeMuted]}>
             <Text style={[styles.statusText, player.status !== 'active' && styles.statusTextMuted]}>
@@ -117,15 +120,6 @@ const styles = StyleSheet.create({
   scroll: { gap: 12, paddingBottom: 32 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
   header: { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initials: { color: '#fff', fontWeight: '700', fontSize: 26 },
   name: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
   statusBadge: {
     backgroundColor: '#dcfce7',

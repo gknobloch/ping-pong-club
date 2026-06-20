@@ -84,6 +84,10 @@ interface DataContextValue extends DataState {
     gameId: string,
     playerIds: string[],
   ) => Promise<void>
+  /** Upload (or replace) a player's avatar. `base64` is the raw image bytes. */
+  setAvatar: (playerId: string, base64: string, contentType: string) => Promise<void>
+  /** Remove a player's avatar. */
+  removeAvatar: (playerId: string) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -238,6 +242,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [apiAvailable],
   )
 
+  const patchPlayerAvatar = useCallback((playerId: string, avatarUpdatedAt: string | undefined) => {
+    setState((prev) => ({
+      ...prev,
+      players: prev.players.map((p) => (p.id === playerId ? { ...p, avatarUpdatedAt } : p)),
+    }))
+  }, [])
+
+  const setAvatar = useCallback(
+    async (playerId: string, base64: string, contentType: string) => {
+      // Optimistic: bump the version immediately so the image refreshes.
+      patchPlayerAvatar(playerId, new Date().toISOString())
+      if (!apiAvailable) return
+      const res = await fetch(apiUrl(`/players/${playerId}/avatar`), {
+        method: 'PUT',
+        headers: dataHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ data: base64, contentType }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const { avatarUpdatedAt } = (await res.json()) as { avatarUpdatedAt?: string }
+      if (avatarUpdatedAt) patchPlayerAvatar(playerId, avatarUpdatedAt)
+    },
+    [apiAvailable, patchPlayerAvatar],
+  )
+
+  const removeAvatar = useCallback(
+    async (playerId: string) => {
+      patchPlayerAvatar(playerId, undefined)
+      if (!apiAvailable) return
+      const res = await fetch(apiUrl(`/players/${playerId}/avatar`), {
+        method: 'DELETE',
+        headers: dataHeaders(),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    },
+    [apiAvailable, patchPlayerAvatar],
+  )
+
   const value = useMemo<DataContextValue>(
     () => ({
       ...state,
@@ -248,8 +289,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updatePlayer,
       setAvailability,
       setGameSelection,
+      setAvatar,
+      removeAvatar,
     }),
-    [state, loading, refreshing, error, refresh, updatePlayer, setAvailability, setGameSelection],
+    [state, loading, refreshing, error, refresh, updatePlayer, setAvailability, setGameSelection, setAvatar, removeAvatar],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
