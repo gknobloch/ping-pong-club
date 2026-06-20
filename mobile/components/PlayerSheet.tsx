@@ -34,6 +34,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export function PlayerSheet({
   player,
+  phaseLabel,
   phasePoints,
   gamesPlayed,
   team,
@@ -43,6 +44,8 @@ export function PlayerSheet({
   onProfile,
 }: {
   player: Player
+  /** e.g. "Saison 2025/2026 Phase 2" — used as section heading above phase stats */
+  phaseLabel?: string
   phasePoints?: string
   gamesPlayed: number
   team: Team | null
@@ -72,18 +75,22 @@ export function PlayerSheet({
         <View style={s.sheet} onStartShouldSetResponder={() => true}>
           <View style={s.handle} />
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={s.name}>
-              {player.firstName} {player.lastName}
-            </Text>
 
+            {/* Identity */}
+            <Text style={s.name}>{player.firstName} {player.lastName}</Text>
+            <View style={s.row}>
+              <Text style={s.label}>Licence</Text>
+              <Text style={s.value}>{player.licenseNumber}</Text>
+            </View>
+
+            <View style={s.divider} />
+
+            {/* Phase stats */}
+            {phaseLabel && <Text style={s.sectionHeading}>{phaseLabel}</Text>}
             <View style={s.rows}>
-              <View style={s.row}>
-                <Text style={s.label}>Licence</Text>
-                <Text style={s.value}>{player.licenseNumber}</Text>
-              </View>
               {phasePoints && (
                 <View style={s.row}>
-                  <Text style={s.label}>Points (phase)</Text>
+                  <Text style={s.label}>Points</Text>
                   <Text style={s.value}>{phasePoints}</Text>
                 </View>
               )}
@@ -103,23 +110,11 @@ export function PlayerSheet({
                   <TeamBadge t={brulageTeam} burned />
                 </View>
               )}
-              {player.phone ? (
-                <View style={s.row}>
-                  <Text style={s.label}>Téléphone</Text>
-                  <Text style={s.value}>{player.phone}</Text>
-                </View>
-              ) : null}
-              {player.email ? (
-                <View style={s.row}>
-                  <Text style={s.label}>Email</Text>
-                  <Text style={s.value}>{player.email}</Text>
-                </View>
-              ) : null}
             </View>
 
+            {/* Game history — no heading, flows directly */}
             {history.length > 0 && (
               <View style={s.historySection}>
-                <Text style={s.historyTitle}>Historique (phase en cours)</Text>
                 {history.map((entry, i) => (
                   <View key={i} style={s.historyRow}>
                     <View style={s.historyLeft}>
@@ -195,7 +190,12 @@ const s = StyleSheet.create({
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12,
   },
-  name: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
+  name: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 12 },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 14 },
+  sectionHeading: {
+    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+  },
   rows: { gap: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { fontSize: 14, color: colors.textSecondary },
@@ -210,16 +210,12 @@ const s = StyleSheet.create({
   teamDot: { width: 7, height: 7, borderRadius: 4 },
   teamBadgeTxt: { fontSize: 13, fontWeight: '600' },
 
-  historySection: { marginTop: 20, gap: 6 },
-  historyTitle: {
-    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
-  },
+  historySection: { marginTop: 16, gap: 6 },
   historyRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3,
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
-  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 22 },
+  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent },
   historyTeamBadge: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 5, paddingVertical: 1,

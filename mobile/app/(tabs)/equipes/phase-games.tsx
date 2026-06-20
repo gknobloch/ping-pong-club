@@ -230,6 +230,7 @@ export default function PhaseGamesScreen() {
       {selectedPlayer && (
         <PlayerSheet
           player={selectedPlayer}
+          phaseLabel={label}
           phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
           gamesPlayed={playerHistory.filter((e) => e.isPast).length}
           team={team}

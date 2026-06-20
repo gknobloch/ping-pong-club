@@ -975,6 +975,7 @@ export default function HomeScreen() {
       {selectedPlayer && (
         <PlayerSheet
           player={selectedPlayer}
+          phaseLabel={activePhase ? `Saison ${activePhase.displayName}` : undefined}
           phasePoints={getPhasePoints(selectedPlayer)}
           gamesPlayed={getGamesPlayedForPlayer(selectedPlayer)}
           team={selectedPlayerTeam}
