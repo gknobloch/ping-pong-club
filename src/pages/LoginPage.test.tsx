@@ -10,11 +10,10 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /Recevoir un code/i })).toBeInTheDocument()
   })
 
-  it('offers Google and Apple sign-in', () => {
+  it('does not offer Google or Apple sign-in until OAuth is configured (#129)', () => {
     render(<LoginPage />)
-    // Not configured in tests -> rendered as disabled "à configurer" buttons.
-    expect(screen.getByRole('button', { name: /Google/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Apple/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Google/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Apple/i })).not.toBeInTheDocument()
   })
 
   it('shows the dev login picker in dev mode', () => {
