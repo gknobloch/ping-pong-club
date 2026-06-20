@@ -194,20 +194,10 @@ export default function LoginScreen() {
                     )}
                   </TouchableOpacity>
 
-                  <View style={styles.dividerRow}>
-                    <View style={styles.divider} />
-                    <Text style={styles.dividerText}>ou</Text>
-                    <View style={styles.divider} />
-                  </View>
-
-                  <TouchableOpacity style={styles.oauthBtn} onPress={handleGoogle} disabled={busy}>
-                    <Text style={styles.oauthBtnText}>Continuer avec Google</Text>
-                  </TouchableOpacity>
-                  {Platform.OS === 'ios' && (
-                    <TouchableOpacity style={[styles.oauthBtn, styles.appleBtn]} onPress={handleApple} disabled={busy}>
-                      <Text style={[styles.oauthBtnText, styles.appleBtnText]}>Continuer avec Apple</Text>
-                    </TouchableOpacity>
-                  )}
+                  {/* Google + Apple sign-in are hidden until the OAuth client
+                      IDs are configured (#129 / #100). The handlers and wiring
+                      below stay in place so we can re-enable the buttons with
+                      a one-line change. */}
                 </>
               ) : (
                 <>
