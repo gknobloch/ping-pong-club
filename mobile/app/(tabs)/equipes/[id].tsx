@@ -9,7 +9,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getTeamName, canManageTeam } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
 import { colors } from '@/constants/colors'
-import type { Player } from '@shared/types'
+import type { Game, MatchDay, Player } from '@shared/types'
+
+type GameEntry = Game & { matchDay?: MatchDay }
+
+type PhaseEntry = {
+  teamId: string
+  label: string  // e.g. "Saison 2025/2026 Phase 2"
+  isActive: boolean
+  games: GameEntry[]
+}
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -17,14 +26,13 @@ export default function TeamDetailScreen() {
   const { user } = useAuth()
   const navigation = useNavigation()
 
-  const [showGames, setShowGames] = useState(false)
+  const [showGamesFor, setShowGamesFor] = useState<PhaseEntry | null>(null)
   const [showRosterPicker, setShowRosterPicker] = useState(false)
   const [editingWhatsApp, setEditingWhatsApp] = useState(false)
   const [whatsappDraft, setWhatsappDraft] = useState('')
 
   const team = teams.find((t) => t.id === id)
   const club = clubs.find((c) => c.id === team?.clubId)
-  const phase = phases.find((p) => p.id === team?.phaseId)
   const isCaptain = !!(user && team && canManageTeam(user, team))
 
   const members = useMemo(
@@ -37,19 +45,37 @@ export default function TeamDetailScreen() {
     [team, players],
   )
 
-  // Games for this team in its group (all of the current phase)
-  const teamGames = useMemo(() => {
+  // One entry per phase this team (by club+number) has participated in
+  const phaseEntries = useMemo<PhaseEntry[]>(() => {
     if (!team) return []
-    const mdInGroup = new Set(
-      matchDays.filter((md) => md.groupId === team.groupId).map((md) => md.id),
-    )
-    return games
-      .filter(
-        (g) => (g.homeTeamId === team.id || g.awayTeamId === team.id) && mdInGroup.has(g.matchDayId),
-      )
-      .map((g) => ({ ...g, matchDay: matchDays.find((md) => md.id === g.matchDayId) }))
-      .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
-  }, [team, matchDays, games])
+    return teams
+      .filter((t) => t.clubId === team.clubId && t.number === team.number)
+      .map((t) => {
+        const ph = phases.find((p) => p.id === t.phaseId)
+        const mdInGroup = new Set(
+          matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
+        )
+        const phaseGames: GameEntry[] = games
+          .filter(
+            (g) =>
+              (g.homeTeamId === t.id || g.awayTeamId === t.id) && mdInGroup.has(g.matchDayId),
+          )
+          .map((g) => ({ ...g, matchDay: matchDays.find((md) => md.id === g.matchDayId) }))
+          .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
+        return {
+          teamId: t.id,
+          label: ph ? `Saison ${ph.displayName}` : 'Matchs',
+          isActive: !!ph?.isActive,
+          games: phaseGames,
+        }
+      })
+      .filter((e) => e.games.length > 0)
+      // Active phase first, then most-recent label first (lexicographic desc works for "Saison 2025/2026 …")
+      .sort((a, b) => {
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+        return b.label.localeCompare(a.label)
+      })
+  }, [team, teams, phases, matchDays, games])
 
   // Players available to join this team: active, same club, not on another team in the same phase
   const eligiblePlayers = useMemo(() => {
@@ -189,36 +215,38 @@ export default function TeamDetailScreen() {
           </View>
         )}
 
-        {/* All games button */}
-        {teamGames.length > 0 && (
-          <TouchableOpacity style={styles.gamesBtn} onPress={() => setShowGames(true)}>
-            <Text style={styles.gamesBtnText}>
-              Matchs{phase ? ` · ${phase.displayName}` : ''}
-            </Text>
+        {/* One "Matchs" button per phase this team has participated in */}
+        {phaseEntries.map((entry) => (
+          <TouchableOpacity
+            key={entry.teamId}
+            style={styles.gamesBtn}
+            onPress={() => setShowGamesFor(entry)}
+          >
+            <Text style={styles.gamesBtnText}>Matchs · {entry.label}</Text>
             <Text style={styles.gamesBtnChevron}>›</Text>
           </TouchableOpacity>
-        )}
+        ))}
 
       </ScrollView>
 
       {/* Games modal */}
       <Modal
-        visible={showGames}
+        visible={!!showGamesFor}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowGames(false)}
+        onRequestClose={() => setShowGamesFor(null)}
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
-              Matchs{phase ? ` · ${phase.displayName}` : ''}
+              {showGamesFor ? `Matchs · ${showGamesFor.label}` : ''}
             </Text>
-            <TouchableOpacity onPress={() => setShowGames(false)}>
+            <TouchableOpacity onPress={() => setShowGamesFor(null)}>
               <Text style={styles.modalClose}>Fermer</Text>
             </TouchableOpacity>
           </View>
           <FlatList
-            data={teamGames}
+            data={showGamesFor?.games ?? []}
             keyExtractor={(g) => g.id}
             contentContainerStyle={styles.listContent}
             renderItem={({ item: g }) => {
@@ -228,7 +256,8 @@ export default function TeamDetailScreen() {
                     weekday: 'short', day: 'numeric', month: 'short',
                   })
                 : ''
-              const isHome = g.homeTeamId === team.id
+              const activeTeamId = showGamesFor!.teamId
+              const isHome = g.homeTeamId === activeTeamId
               const oppTeam = teams.find(
                 (t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId),
               )
@@ -247,7 +276,9 @@ export default function TeamDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                  {g.time && <Text style={[styles.gameTime, isPast && styles.gameTextPast]}>{g.time}</Text>}
+                  {g.time && (
+                    <Text style={[styles.gameTime, isPast && styles.gameTextPast]}>{g.time}</Text>
+                  )}
                 </View>
               )
             }}
@@ -369,7 +400,7 @@ const styles = StyleSheet.create({
   cancelLink: { fontSize: 14, color: colors.textSecondary },
   saveLink: { fontSize: 14, color: colors.accent, fontWeight: '600' },
 
-  // Add player button
+  // Roster button
   addBtn: {
     borderWidth: 1,
     borderColor: colors.accent,
@@ -380,7 +411,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
 
-  // Games button
+  // Phase / games buttons
   gamesBtn: {
     marginHorizontal: 16,
     flexDirection: 'row',
@@ -425,12 +456,7 @@ const styles = StyleSheet.create({
   },
   gameRowPast: { opacity: 0.55 },
   gameRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  gameJ: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.accent,
-    minWidth: 26,
-  },
+  gameJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 26 },
   gameDate: { fontSize: 13, color: colors.textSecondary },
   gameMatchup: { fontSize: 14, fontWeight: '500', color: colors.textPrimary, marginTop: 1 },
   gameTime: { fontSize: 13, color: colors.textSecondary },
