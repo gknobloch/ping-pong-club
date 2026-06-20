@@ -11,7 +11,6 @@ export default function JourneesLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'Journées' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Journée' }} />
     </Stack>
   )
 }
