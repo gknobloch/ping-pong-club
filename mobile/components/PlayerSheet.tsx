@@ -128,6 +128,14 @@ export function PlayerSheet({
                           J{entry.jNumber}
                         </Text>
                       )}
+                      {entry.team && (() => {
+                        const tc = entry.isPast ? '#94a3b8' : (entry.team.color ?? colors.accent)
+                        return (
+                          <View style={[s.historyTeamBadge, { borderColor: tc, backgroundColor: hexToRgba(tc, 0.1) }]}>
+                            <Text style={[s.historyTeamNum, { color: tc }]}>{entry.team.number}</Text>
+                          </View>
+                        )
+                      })()}
                       {entry.icon ? (
                         <Ionicons
                           name={entry.icon}
@@ -144,22 +152,9 @@ export function PlayerSheet({
                         {entry.text}
                       </Text>
                     </View>
-                    <View style={s.historyRight}>
-                      <Text style={[s.historyDate, entry.isPast && s.historyPast]}>
-                        {entry.date}
-                      </Text>
-                      {entry.team && (
-                        <Text
-                          style={[
-                            s.historyTeam,
-                            { color: entry.isPast ? '#94a3b8' : (entry.team.color ?? colors.accent) },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          • {getTeamName(entry.team, clubs)}
-                        </Text>
-                      )}
-                    </View>
+                    <Text style={[s.historyDate, entry.isPast && s.historyPast]}>
+                      {entry.date}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -224,12 +219,15 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3,
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
-  historyRight: { alignItems: 'flex-end', gap: 2 },
   historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 22 },
+  historyTeamBadge: {
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 5, paddingVertical: 1,
+  },
+  historyTeamNum: { fontSize: 11, fontWeight: '700' },
   historyDot: { fontSize: 13, color: colors.textSecondary },
   historyText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
   historyDate: { fontSize: 13, color: colors.textSecondary },
-  historyTeam: { fontSize: 11, fontWeight: '500' },
   historyPast: { color: '#94a3b8' },
 
   footer: { flexDirection: 'row', gap: 10, marginTop: 20 },
