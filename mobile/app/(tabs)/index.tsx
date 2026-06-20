@@ -838,7 +838,7 @@ export default function HomeScreen() {
                       getAvailability={(pid) => getAvailability(pid, game.id)}
                       getSelected={(pid) => selIds.includes(pid)}
                       onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
-                      onPlayerPress={setSelectedPlayer}
+                      onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                       onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
                       onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
                       selectionData={{
