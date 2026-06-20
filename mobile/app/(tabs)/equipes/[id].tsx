@@ -2,7 +2,7 @@ import {
   ScrollView, View, Text, StyleSheet, SafeAreaView,
   TouchableOpacity, Modal, FlatList, Linking, TextInput,
 } from 'react-native'
-import { useLocalSearchParams, useNavigation } from 'expo-router'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -22,17 +22,17 @@ type PhaseEntry = {
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { teams, players, clubs, phases, matchDays, games, updateTeam } = useAppData()
+  const { teams, players, clubs, phases, divisions, matchDays, games, updateTeam } = useAppData()
   const { user } = useAuth()
   const navigation = useNavigation()
-
-  const [showGamesFor, setShowGamesFor] = useState<PhaseEntry | null>(null)
+  const router = useRouter()
   const [showRosterPicker, setShowRosterPicker] = useState(false)
   const [editingWhatsApp, setEditingWhatsApp] = useState(false)
   const [whatsappDraft, setWhatsappDraft] = useState('')
 
   const team = teams.find((t) => t.id === id)
   const club = clubs.find((c) => c.id === team?.clubId)
+  const division = divisions.find((d) => d.id === team?.divisionId)
   const isCaptain = !!(user && team && canManageTeam(user, team))
 
   const members = useMemo(
@@ -118,8 +118,6 @@ export default function TeamDetailScreen() {
     setEditingWhatsApp(false)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -127,7 +125,11 @@ export default function TeamDetailScreen() {
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: team.color ?? colors.accent }]}>
           <Text style={styles.bannerName}>{getTeamName(team, clubs)}</Text>
-          {club && <Text style={styles.bannerClub}>{club.displayName}</Text>}
+          {division && (
+            <View style={styles.levelBadgeWrap}>
+              <Text style={styles.levelBadge}>{division.displayName}</Text>
+            </View>
+          )}
         </View>
 
         {/* WhatsApp */}
@@ -215,76 +217,24 @@ export default function TeamDetailScreen() {
           </View>
         )}
 
-        {/* One "Matchs" button per phase this team has participated in */}
+        {/* One button per phase this team has participated in */}
         {phaseEntries.map((entry) => (
           <TouchableOpacity
             key={entry.teamId}
             style={styles.gamesBtn}
-            onPress={() => setShowGamesFor(entry)}
+            onPress={() =>
+              router.push({
+                pathname: '/(tabs)/equipes/phase-games',
+                params: { teamId: entry.teamId, label: entry.label },
+              })
+            }
           >
-            <Text style={styles.gamesBtnText}>Matchs · {entry.label}</Text>
+            <Text style={styles.gamesBtnText}>{entry.label}</Text>
             <Text style={styles.gamesBtnChevron}>›</Text>
           </TouchableOpacity>
         ))}
 
       </ScrollView>
-
-      {/* Games modal */}
-      <Modal
-        visible={!!showGamesFor}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowGamesFor(null)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {showGamesFor ? `Matchs · ${showGamesFor.label}` : ''}
-            </Text>
-            <TouchableOpacity onPress={() => setShowGamesFor(null)}>
-              <Text style={styles.modalClose}>Fermer</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={showGamesFor?.games ?? []}
-            keyExtractor={(g) => g.id}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item: g }) => {
-              const md = g.matchDay
-              const dateLabel = md
-                ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                  })
-                : ''
-              const activeTeamId = showGamesFor!.teamId
-              const isHome = g.homeTeamId === activeTeamId
-              const oppTeam = teams.find(
-                (t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId),
-              )
-              const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
-              const isPast = md ? md.date < today : false
-              return (
-                <View style={[styles.gameRow, isPast && styles.gameRowPast]}>
-                  <View style={styles.gameRowLeft}>
-                    {md && <Text style={styles.gameJ}>J{md.number}</Text>}
-                    <View>
-                      <Text style={[styles.gameDate, isPast && styles.gameTextPast]}>
-                        {dateLabel}
-                      </Text>
-                      <Text style={[styles.gameMatchup, isPast && styles.gameTextPast]}>
-                        {isHome ? `vs ${oppName}` : `@ ${oppName}`}
-                      </Text>
-                    </View>
-                  </View>
-                  {g.time && (
-                    <Text style={[styles.gameTime, isPast && styles.gameTextPast]}>{g.time}</Text>
-                  )}
-                </View>
-              )
-            }}
-          />
-        </SafeAreaView>
-      </Modal>
 
       {/* Roster picker modal (captain only) */}
       {isCaptain && (
@@ -333,9 +283,18 @@ const styles = StyleSheet.create({
   scroll: { gap: 12, paddingBottom: 24 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
 
-  banner: { padding: 24, gap: 4 },
+  banner: { padding: 24, gap: 8 },
   bannerName: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  bannerClub: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  levelBadgeWrap: { alignSelf: 'flex-start' },
+  levelBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
 
   section: {
     backgroundColor: colors.card,
@@ -427,7 +386,7 @@ const styles = StyleSheet.create({
   gamesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   gamesBtnChevron: { fontSize: 22, color: colors.textSecondary },
 
-  // Modal shared
+  // Modal shared (roster picker)
   modalContainer: { flex: 1, backgroundColor: colors.bg },
   modalHeader: {
     flexDirection: 'row',
@@ -440,27 +399,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary },
   modalClose: { fontSize: 15, color: colors.accent },
   listContent: { padding: 16, gap: 1 },
-
-  // Game rows
-  gameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  gameRowPast: { opacity: 0.55 },
-  gameRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  gameJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 26 },
-  gameDate: { fontSize: 13, color: colors.textSecondary },
-  gameMatchup: { fontSize: 14, fontWeight: '500', color: colors.textPrimary, marginTop: 1 },
-  gameTime: { fontSize: 13, color: colors.textSecondary },
-  gameTextPast: { color: colors.textSecondary },
 
   // Roster picker rows
   pickerRow: {

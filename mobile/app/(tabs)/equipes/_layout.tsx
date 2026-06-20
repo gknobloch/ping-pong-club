@@ -12,6 +12,7 @@ export default function EquipesLayout() {
     >
       <Stack.Screen name="index" options={{ title: 'Équipes' }} />
       <Stack.Screen name="[id]" options={{ title: 'Équipe' }} />
+      <Stack.Screen name="phase-games" options={{ title: 'Matchs' }} />
     </Stack>
   )
 }
