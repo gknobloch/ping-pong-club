@@ -1,0 +1,18 @@
+<svg width="1600" height="1067" viewBox="0 0 1600 1067" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Splash background. Same welcome photo used by the login screen, with the
+    same slate gradient baked in (matches the LinearGradient overlay in
+    app/login.tsx) so the splash → login transition is visually continuous.
+    Rendered at the photo's native 1600x1067 aspect and used with
+    resizeMode: "cover" on a #1e293b backgroundColor.
+  -->
+  <defs>
+    <linearGradient id="loginTint" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f1c" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#0a0f1c" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#0a0f1c" stop-opacity="0.65"/>
+    </linearGradient>
+  </defs>
+  <image href="{{PHOTO}}" x="0" y="0" width="1600" height="1067" preserveAspectRatio="none"/>
+  <rect width="1600" height="1067" fill="url(#loginTint)"/>
+</svg>
