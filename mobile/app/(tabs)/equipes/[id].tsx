@@ -2,6 +2,7 @@ import {
   ScrollView, View, Text, StyleSheet, SafeAreaView,
   TouchableOpacity, Modal, FlatList, Linking, TextInput,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppData } from '@/contexts/DataContext'
@@ -189,8 +190,8 @@ export default function TeamDetailScreen() {
         )}
 
         {/* Roster */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Joueurs ({members.length})</Text>
+        <View style={styles.sectionList}>
+          <Text style={styles.sectionListTitle}>Joueurs ({members.length})</Text>
           {members.map((p) => (
             <View key={p.id} style={styles.playerRow}>
               <Text style={styles.playerName}>{p.firstName} {p.lastName}</Text>
@@ -198,7 +199,9 @@ export default function TeamDetailScreen() {
             </View>
           ))}
           {members.length === 0 && (
-            <Text style={styles.empty}>Aucun joueur dans cette équipe.</Text>
+            <Text style={[styles.empty, { paddingHorizontal: 16, paddingBottom: 16 }]}>
+              Aucun joueur dans cette équipe.
+            </Text>
           )}
           {isCaptain && (
             <TouchableOpacity style={styles.addBtn} onPress={() => setShowRosterPicker(true)}>
@@ -212,7 +215,10 @@ export default function TeamDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Calendrier</Text>
             {team.defaultDay && team.defaultTime && (
-              <Text style={styles.infoText}>🕐 {team.defaultDay} {team.defaultTime}</Text>
+              <View style={styles.scheduleRow}>
+                <Ionicons name="time-outline" size={15} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{team.defaultDay} {team.defaultTime}</Text>
+              </View>
             )}
           </View>
         )}
@@ -296,6 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 
+  // Sections with internal padding + gap (WhatsApp, Schedule)
   section: {
     backgroundColor: colors.card,
     marginHorizontal: 16,
@@ -312,11 +319,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  // List-style section (Joueurs): no padding/gap so border-separated rows are symmetric
+  sectionList: {
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  sectionListTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -332,6 +359,7 @@ const styles = StyleSheet.create({
   },
   empty: { fontSize: 14, color: colors.textSecondary },
   infoText: { fontSize: 14, color: colors.textPrimary },
+  scheduleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
   // WhatsApp
   whatsappRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -366,7 +394,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 9,
     alignItems: 'center',
-    marginTop: 4,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
   },
   addBtnText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
 

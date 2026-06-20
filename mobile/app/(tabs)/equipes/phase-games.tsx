@@ -71,7 +71,7 @@ export default function PhaseGamesScreen() {
   }
 
   function openPlayer(playerId: string) {
-    router.push(`/(tabs)/joueurs/${playerId}`)
+    router.push({ pathname: '/(tabs)/equipes/player-detail', params: { id: playerId } })
   }
 
   return (
@@ -259,8 +259,8 @@ const styles = StyleSheet.create({
   gameRight: {
     alignItems: 'flex-end',
   },
-  gameDate: { fontSize: 12, color: colors.textSecondary },
-  gameTime: { fontSize: 13, fontWeight: '500', color: colors.textPrimary, marginTop: 1 },
+  gameDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  gameTime: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
 
   // Players per game
   gamePlayers: {
