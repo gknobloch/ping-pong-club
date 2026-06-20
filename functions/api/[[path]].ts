@@ -37,7 +37,7 @@ app.get('/data', async (c) => {
   const [
     seasonsR, phasesR, divisionsR, clubsR, addressesR,
     groupsR, teamsR, matchDaysR, gamesR,
-    availsR, selectionsR, usersR,
+    availsR, selectionsR, usersR, avatarsR,
   ] = await Promise.all([
     db.prepare('SELECT * FROM seasons').all(),
     db.prepare('SELECT * FROM phases').all(),
@@ -51,7 +51,13 @@ app.get('/data', async (c) => {
     db.prepare('SELECT * FROM game_availabilities').all(),
     db.prepare('SELECT * FROM game_selections').all(),
     db.prepare('SELECT * FROM users').all(),
+    // Only the version marker — the image bytes are served separately so this
+    // bulk payload stays light.
+    db.prepare('SELECT user_id, updated_at FROM player_avatars').all(),
   ])
+  const avatarUpdatedAt = new Map(
+    avatarsR.results.map((r) => [r.user_id as string, r.updated_at as string]),
+  )
 
   const addrByClub = new Map<string, unknown[]>()
   for (const a of addressesR.results) {
@@ -93,6 +99,9 @@ app.get('/data', async (c) => {
       ...(r.birth_date ? { birthDate: r.birth_date } : {}),
       ...(r.birth_place ? { birthPlace: r.birth_place } : {}),
       status: r.status, clubId: r.club_id ?? '',
+      ...(avatarUpdatedAt.has(r.id as string)
+        ? { avatarUpdatedAt: avatarUpdatedAt.get(r.id as string) }
+        : {}),
     })),
     teams: teamsR.results.map(r => ({
       id: r.id, clubId: r.club_id, phaseId: r.phase_id, number: r.number,
@@ -474,6 +483,48 @@ app.patch('/players/:id', async (c) => {
   if ('status' in p) { s.push('status = ?'); v.push(p.status) }
   if ('clubId' in p) { s.push('club_id = ?'); v.push(p.clubId) }
   if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE users SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  return c.json({ ok: true })
+})
+
+// --- Player avatars (#124) ---
+// Images are stored base64 in D1 and served here so the bulk /api/data payload
+// stays light (it only carries avatarUpdatedAt for cache-busting).
+app.get('/players/:id/avatar', async (c) => {
+  const id = c.req.param('id')
+  const row = await c.env.DB
+    .prepare('SELECT data, content_type, updated_at FROM player_avatars WHERE user_id = ?')
+    .bind(id)
+    .first() as { data: string; content_type: string; updated_at: string } | null
+  if (!row) return c.json({ error: 'not_found' }, 404)
+  const bytes = Uint8Array.from(atob(row.data), (ch) => ch.charCodeAt(0))
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': row.content_type,
+      // The client appends ?v=<updatedAt>, so each version has a unique URL and
+      // can be cached aggressively.
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      ETag: `"${row.updated_at}"`,
+    },
+  })
+})
+
+app.put('/players/:id/avatar', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json() as { data?: string; contentType?: string }
+  if (!body.data) return c.json({ error: 'missing data' }, 400)
+  const updatedAt = new Date().toISOString()
+  await c.env.DB.prepare(
+    `INSERT INTO player_avatars (user_id, data, content_type, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       data = excluded.data, content_type = excluded.content_type, updated_at = excluded.updated_at`
+  ).bind(id, body.data, body.contentType ?? 'image/jpeg', updatedAt).run()
+  return c.json({ ok: true, avatarUpdatedAt: updatedAt })
+})
+
+app.delete('/players/:id/avatar', async (c) => {
+  const id = c.req.param('id')
+  await c.env.DB.prepare('DELETE FROM player_avatars WHERE user_id = ?').bind(id).run()
   return c.json({ ok: true })
 })
 

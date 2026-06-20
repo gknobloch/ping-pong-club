@@ -33,7 +33,14 @@
       "expo-splash-screen",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autorisez l'accès à vos photos pour choisir un avatar.",
+          "cameraPermission": "Autorisez l'accès à l'appareil photo pour prendre votre avatar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -69,6 +69,10 @@ export interface Player {
   birthPlace?: string
   status: PlayerStatus
   clubId: string
+  /** ISO timestamp of the player's avatar, or undefined if none. The image
+   *  itself is fetched separately via GET /api/players/:id/avatar; this acts as
+   *  a cache-busting version. */
+  avatarUpdatedAt?: string
 }
 
 export interface Team {
