@@ -1,4 +1,5 @@
 import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo } from 'react'
 import { useAppData } from '@/contexts/DataContext'
@@ -126,7 +127,11 @@ export default function PhaseGamesScreen() {
                     {md && (
                       <Text style={[styles.gameJ, isPast && styles.gameJPast]}>J{md.number}</Text>
                     )}
-                    <Text style={styles.gameIcon}>{isHome ? '🏠' : '✈️'}</Text>
+                    <Ionicons
+                      name={isHome ? 'home' : 'paper-plane-outline'}
+                      size={14}
+                      color={colors.textSecondary}
+                    />
                     <Text style={styles.gameOpponent} numberOfLines={1}>{oppName}</Text>
                   </View>
                   {/* Right: date / time stacked */}
@@ -245,7 +250,6 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   gameJPast: { color: colors.textSecondary },
-  gameIcon: { fontSize: 14 },
   gameOpponent: {
     flex: 1,
     fontSize: 14,
