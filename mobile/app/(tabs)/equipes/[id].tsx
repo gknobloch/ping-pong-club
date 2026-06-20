@@ -32,7 +32,6 @@ export default function TeamDetailScreen() {
   const [whatsappDraft, setWhatsappDraft] = useState('')
 
   const team = teams.find((t) => t.id === id)
-  const club = clubs.find((c) => c.id === team?.clubId)
   const division = divisions.find((d) => d.id === team?.divisionId)
   const isCaptain = !!(user && team && canManageTeam(user, team))
 

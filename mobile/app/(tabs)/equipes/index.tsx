@@ -7,7 +7,7 @@ import { colors } from '@/constants/colors'
 import { useMemo, useState } from 'react'
 
 export default function EquipesScreen() {
-  const { teams, players, clubs, phases, divisions } = useAppData()
+  const { teams, clubs, phases, divisions } = useAppData()
   const { user } = useAuth()
   const router = useRouter()
 
@@ -43,7 +43,7 @@ export default function EquipesScreen() {
   function togglePhase(id: string) {
     setExpandedPhases((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }
