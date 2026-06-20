@@ -215,7 +215,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3,
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
-  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent },
+  historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, width: 26 },
   historyTeamBadge: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 5, paddingVertical: 1,
