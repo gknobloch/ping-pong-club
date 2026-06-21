@@ -25,7 +25,7 @@ export function ClubsPage() {
 
   const handleSave = () => {
     if (creating) {
-      addClub({ ...form, isArchived: false, addresses: [] })
+      addClub({ ...form, isArchived: false, addresses: [], channels: [] })
       setCreating(false)
     }
   }

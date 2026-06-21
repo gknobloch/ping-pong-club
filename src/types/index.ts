@@ -12,12 +12,27 @@ export interface Address {
   isDefault: boolean
 }
 
+export type ClubChannelType = 'website' | 'whatsapp' | 'facebook' | 'other'
+
+export interface ClubChannel {
+  id: string
+  type: ClubChannelType
+  link: string
+  /** Optional label; when blank, the channel's type label is shown instead. */
+  displayName?: string
+  /** Admin-defined ordering within the club's channel list. */
+  sortOrder: number
+}
+
 export interface Club {
   id: string
   affiliationNumber: string
   displayName: string
   isArchived: boolean
   addresses: Address[]
+  channels: ClubChannel[]
+  /** ISO timestamp of the last logo change; used to cache-bust the logo URL. Absent when no logo. */
+  logoUpdatedAt?: string
 }
 
 export interface Season {

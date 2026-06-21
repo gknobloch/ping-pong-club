@@ -15,7 +15,8 @@ const opponentAddr = (id: string, city: string): Address[] => [
 // ---------------------------------------------------------------------------
 // Clubs
 // ---------------------------------------------------------------------------
-export const mockClubs: Club[] = [
+// Channels are authored per club via the admin UI; mocks start with an empty list.
+const baseClubs: Omit<Club, 'channels'>[] = [
   { id: 'club-1', affiliationNumber: '06680011', displayName: 'PPA Rixheim', isArchived: false, addresses: ppaAddresses },
   { id: 'club-etival', affiliationNumber: '06880001', displayName: 'Etival', isArchived: false, addresses: opponentAddr('addr-etival', 'Etival') },
   { id: 'club-rosenau', affiliationNumber: '06680002', displayName: 'Rosenau', isArchived: false, addresses: opponentAddr('addr-rosenau', 'Rosenau') },
@@ -40,6 +41,8 @@ export const mockClubs: Club[] = [
   { id: 'club-ballons', affiliationNumber: '06680018', displayName: 'Ballons des Vosges', isArchived: false, addresses: opponentAddr('addr-ballons', 'Ballons des Vosges') },
   { id: 'club-mulhouse-tt', affiliationNumber: '06680019', displayName: 'Mulhouse TT', isArchived: false, addresses: opponentAddr('addr-mutt', 'Mulhouse') },
 ]
+
+export const mockClubs: Club[] = baseClubs.map((c) => ({ ...c, channels: [] }))
 
 // ---------------------------------------------------------------------------
 // Season & Phase
