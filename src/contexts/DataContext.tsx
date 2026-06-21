@@ -11,6 +11,7 @@ import type { Division } from '@/types'
 import type {
   Address,
   Club,
+  ClubChannel,
   Season,
   Phase,
   Group,
@@ -92,6 +93,12 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   addClubAddress: (clubId: string, data: Omit<Address, 'id'>) => Address
   updateClubAddress: (clubId: string, addressId: string, patch: Partial<Address>) => void
   deleteClubAddress: (clubId: string, addressId: string) => void
+  setClubLogo: (clubId: string, base64: string, contentType: string) => void
+  removeClubLogo: (clubId: string) => void
+  addClubChannel: (clubId: string, data: Omit<ClubChannel, 'id' | 'sortOrder'>) => ClubChannel
+  updateClubChannel: (clubId: string, channelId: string, patch: Partial<Omit<ClubChannel, 'id'>>) => void
+  deleteClubChannel: (clubId: string, channelId: string) => void
+  reorderClubChannels: (clubId: string, orderedIds: string[]) => void
   updateSeason: (id: string, patch: Partial<Season>) => void
   archiveSeason: (id: string) => void
   deleteSeason: (id: string) => void
@@ -430,6 +437,73 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     if (persist) api(`/clubs/${clubId}/addresses/${addressId}`, { method: 'DELETE' })
   }, [persist])
 
+  // --- Club logo (#135) ---
+  const setClubLogo = useCallback((clubId: string, base64: string, contentType: string) => {
+    const updatedAt = new Date().toISOString()
+    setClubs((prev) => prev.map((c) => (c.id === clubId ? { ...c, logoUpdatedAt: updatedAt } : c)))
+    if (persist) api(`/clubs/${clubId}/logo`, { method: 'PUT', body: JSON.stringify({ data: base64, contentType }) })
+  }, [persist])
+
+  const removeClubLogo = useCallback((clubId: string) => {
+    setClubs((prev) => prev.map((c) => (c.id === clubId ? { ...c, logoUpdatedAt: undefined } : c)))
+    if (persist) api(`/clubs/${clubId}/logo`, { method: 'DELETE' })
+  }, [persist])
+
+  // --- Club communication channels (#135) ---
+  const addClubChannel = useCallback((clubId: string, data: Omit<ClubChannel, 'id' | 'sortOrder'>) => {
+    const id = nextId('chan')
+    let sortOrder = 0
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c
+        const channels = c.channels ?? []
+        sortOrder = channels.length
+        return { ...c, channels: [...channels, { ...data, id, sortOrder }] }
+      })
+    )
+    const channel: ClubChannel = { ...data, id, sortOrder }
+    if (persist) api(`/clubs/${clubId}/channels`, { method: 'POST', body: JSON.stringify(channel) })
+    return channel
+  }, [persist])
+
+  const updateClubChannel = useCallback(
+    (clubId: string, channelId: string, patch: Partial<Omit<ClubChannel, 'id'>>) => {
+      setClubs((prev) =>
+        prev.map((c) => {
+          if (c.id !== clubId) return c
+          const channels = (c.channels ?? []).map((ch) => (ch.id === channelId ? { ...ch, ...patch } : ch))
+          return { ...c, channels }
+        })
+      )
+      if (persist) api(`/clubs/${clubId}/channels/${channelId}`, { method: 'PATCH', body: JSON.stringify(patch) })
+    },
+    [persist]
+  )
+
+  const deleteClubChannel = useCallback((clubId: string, channelId: string) => {
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c
+        return { ...c, channels: (c.channels ?? []).filter((ch) => ch.id !== channelId) }
+      })
+    )
+    if (persist) api(`/clubs/${clubId}/channels/${channelId}`, { method: 'DELETE' })
+  }, [persist])
+
+  const reorderClubChannels = useCallback((clubId: string, orderedIds: string[]) => {
+    setClubs((prev) =>
+      prev.map((c) => {
+        if (c.id !== clubId) return c
+        const byId = new Map((c.channels ?? []).map((ch) => [ch.id, ch]))
+        const channels = orderedIds
+          .map((id, i) => { const ch = byId.get(id); return ch ? { ...ch, sortOrder: i } : null })
+          .filter(Boolean) as ClubChannel[]
+        return { ...c, channels }
+      })
+    )
+    if (persist) api(`/clubs/${clubId}/channels/reorder`, { method: 'PUT', body: JSON.stringify({ ids: orderedIds }) })
+  }, [persist])
+
   // --- Groups ---
   const updateGroup = useCallback((id: string, patch: Partial<Group>) => {
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)))
@@ -742,6 +816,12 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       addClubAddress,
       updateClubAddress,
       deleteClubAddress,
+      setClubLogo,
+      removeClubLogo,
+      addClubChannel,
+      updateClubChannel,
+      deleteClubChannel,
+      reorderClubChannels,
       updateSeason,
       archiveSeason,
       deleteSeason,
@@ -781,6 +861,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       matchDays, games,
       updateDivision, archiveDivision, deleteDivision,
       updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
+      setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,

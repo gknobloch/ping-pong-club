@@ -35,15 +35,16 @@ const jsonStr = (v: unknown) => JSON.stringify(v)
 app.get('/data', async (c) => {
   const db = c.env.DB
   const [
-    seasonsR, phasesR, divisionsR, clubsR, addressesR,
+    seasonsR, phasesR, divisionsR, clubsR, addressesR, channelsR,
     groupsR, teamsR, matchDaysR, gamesR,
-    availsR, selectionsR, usersR, avatarsR,
+    availsR, selectionsR, usersR, avatarsR, clubLogosR,
   ] = await Promise.all([
     db.prepare('SELECT * FROM seasons').all(),
     db.prepare('SELECT * FROM phases').all(),
     db.prepare('SELECT * FROM divisions').all(),
     db.prepare('SELECT * FROM clubs').all(),
     db.prepare('SELECT * FROM club_addresses').all(),
+    db.prepare('SELECT * FROM club_channels ORDER BY sort_order').all(),
     db.prepare('SELECT * FROM groups_tbl').all(),
     db.prepare('SELECT * FROM teams').all(),
     db.prepare('SELECT * FROM match_days').all(),
@@ -54,9 +55,13 @@ app.get('/data', async (c) => {
     // Only the version marker — the image bytes are served separately so this
     // bulk payload stays light.
     db.prepare('SELECT user_id, updated_at FROM player_avatars').all(),
+    db.prepare('SELECT club_id, updated_at FROM club_logos').all(),
   ])
   const avatarUpdatedAt = new Map(
     avatarsR.results.map((r) => [r.user_id as string, r.updated_at as string]),
+  )
+  const logoUpdatedAt = new Map(
+    clubLogosR.results.map((r) => [r.club_id as string, r.updated_at as string]),
   )
 
   const addrByClub = new Map<string, unknown[]>()
@@ -66,6 +71,17 @@ app.get('/data', async (c) => {
     addrByClub.get(cid)!.push({
       id: a.id, label: a.label, street: a.street,
       postalCode: a.postal_code, city: a.city, isDefault: bool(a.is_default),
+    })
+  }
+
+  // Channels are pre-sorted by sort_order in the query above.
+  const channelsByClub = new Map<string, unknown[]>()
+  for (const ch of channelsR.results) {
+    const cid = ch.club_id as string
+    if (!channelsByClub.has(cid)) channelsByClub.set(cid, [])
+    channelsByClub.get(cid)!.push({
+      id: ch.id, type: ch.type, link: ch.link,
+      displayName: ch.display_name, sortOrder: ch.sort_order,
     })
   }
 
@@ -87,6 +103,10 @@ app.get('/data', async (c) => {
       id: r.id, affiliationNumber: r.affiliation_number, displayName: r.display_name,
       isArchived: bool(r.is_archived),
       addresses: addrByClub.get(r.id as string) ?? [],
+      channels: channelsByClub.get(r.id as string) ?? [],
+      ...(logoUpdatedAt.has(r.id as string)
+        ? { logoUpdatedAt: logoUpdatedAt.get(r.id as string) }
+        : {}),
     })),
     groups: groupsR.results.map(r => ({
       id: r.id, divisionId: r.division_id, number: r.number, teamIds: jsonParse(r.team_ids),
@@ -349,6 +369,15 @@ app.post('/clubs', async (c) => {
     )
     await c.env.DB.batch(stmts)
   }
+  // Insert channels
+  if (d.channels?.length) {
+    const stmts = d.channels.map((ch: Record<string, unknown>, i: number) =>
+      c.env.DB.prepare(
+        'INSERT INTO club_channels (id, club_id, type, link, display_name, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(ch.id, d.id, ch.type, ch.link, ch.displayName, (ch.sortOrder as number | undefined) ?? i)
+    )
+    await c.env.DB.batch(stmts)
+  }
   return c.json({ ok: true })
 })
 
@@ -403,6 +432,93 @@ app.delete('/clubs/:clubId/addresses/:addressId', async (c) => {
       'UPDATE club_addresses SET is_default = 1 WHERE club_id = ? AND id != ? LIMIT 1'
     ).bind(clubId, addressId).run()
   }
+  return c.json({ ok: true })
+})
+
+// --- Club Communication Channels (#135) ---
+app.post('/clubs/:clubId/channels', async (c) => {
+  const clubId = c.req.param('clubId')
+  const d = await c.req.json()
+  // New channels go to the end of the list.
+  const row = await c.env.DB
+    .prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM club_channels WHERE club_id = ?')
+    .bind(clubId).first() as { m: number } | null
+  const sortOrder = (row?.m ?? -1) + 1
+  await c.env.DB.prepare(
+    'INSERT INTO club_channels (id, club_id, type, link, display_name, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(d.id, clubId, d.type, d.link, d.displayName, sortOrder).run()
+  return c.json({ ok: true, sortOrder })
+})
+
+app.patch('/clubs/:clubId/channels/:channelId', async (c) => {
+  const channelId = c.req.param('channelId')
+  const p = await c.req.json()
+  const s: string[] = [], v: unknown[] = []
+  if ('type' in p) { s.push('type = ?'); v.push(p.type) }
+  if ('link' in p) { s.push('link = ?'); v.push(p.link) }
+  if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
+  if ('sortOrder' in p) { s.push('sort_order = ?'); v.push(p.sortOrder) }
+  if (s.length) { v.push(channelId); await c.env.DB.prepare(`UPDATE club_channels SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  return c.json({ ok: true })
+})
+
+app.delete('/clubs/:clubId/channels/:channelId', async (c) => {
+  const channelId = c.req.param('channelId')
+  await c.env.DB.prepare('DELETE FROM club_channels WHERE id = ?').bind(channelId).run()
+  return c.json({ ok: true })
+})
+
+// Reorder: body { ids: string[] } — sort_order becomes each id's index.
+app.put('/clubs/:clubId/channels/reorder', async (c) => {
+  const clubId = c.req.param('clubId')
+  const { ids } = await c.req.json() as { ids?: string[] }
+  if (ids?.length) {
+    const stmts = ids.map((id, i) =>
+      c.env.DB.prepare('UPDATE club_channels SET sort_order = ? WHERE id = ? AND club_id = ?').bind(i, id, clubId)
+    )
+    await c.env.DB.batch(stmts)
+  }
+  return c.json({ ok: true })
+})
+
+// --- Club logos (#135) ---
+// Mirrors player avatars: stored base64 in D1, served here so the bulk /api/data
+// payload stays light (it only carries logoUpdatedAt for cache-busting).
+app.get('/clubs/:id/logo', async (c) => {
+  const id = c.req.param('id')
+  const row = await c.env.DB
+    .prepare('SELECT data, content_type, updated_at FROM club_logos WHERE club_id = ?')
+    .bind(id)
+    .first() as { data: string; content_type: string; updated_at: string } | null
+  if (!row) return c.json({ error: 'not_found' }, 404)
+  const bytes = Uint8Array.from(atob(row.data), (ch) => ch.charCodeAt(0))
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': row.content_type,
+      // The client appends ?v=<updatedAt>, so each version has a unique URL.
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      ETag: `"${row.updated_at}"`,
+    },
+  })
+})
+
+app.put('/clubs/:id/logo', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json() as { data?: string; contentType?: string }
+  if (!body.data) return c.json({ error: 'missing data' }, 400)
+  const updatedAt = new Date().toISOString()
+  await c.env.DB.prepare(
+    `INSERT INTO club_logos (club_id, data, content_type, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(club_id) DO UPDATE SET
+       data = excluded.data, content_type = excluded.content_type, updated_at = excluded.updated_at`
+  ).bind(id, body.data, body.contentType ?? 'image/png', updatedAt).run()
+  return c.json({ ok: true, logoUpdatedAt: updatedAt })
+})
+
+app.delete('/clubs/:id/logo', async (c) => {
+  const id = c.req.param('id')
+  await c.env.DB.prepare('DELETE FROM club_logos WHERE club_id = ?').bind(id).run()
   return c.json({ ok: true })
 })
 
