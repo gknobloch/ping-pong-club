@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   Alert,
   RefreshControl,
+  Modal,
+  Pressable,
 } from 'react-native'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'expo-router'
@@ -14,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 import { GameSummary } from '@/components/GameSummary'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
@@ -729,12 +733,13 @@ export default function HomeScreen() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 3)
 
-  // Welcome card subtitle: team info or generic role label
-  const teamSubtitle = myActiveTeam
-    ? (isCaptain
-        ? `Capitaine — Équipe ${myActiveTeam.number}`
-        : `Équipe ${myActiveTeam.number}`)
-    : null
+  // Logged-in player's record (for the welcome avatar). Falls back to the
+  // auth user's name when the account isn't a player (e.g. club admin).
+  const me = myPlayerId ? playerMap.get(myPlayerId) : undefined
+
+  // The person's club — shown (logo + name) in the welcome header.
+  const myClubId = me?.clubId ?? user?.clubId
+  const myClub = myClubId ? clubs.find((c) => c.id === myClubId) : undefined
 
   return (
     <SafeAreaView style={styles.container}>
@@ -743,9 +748,26 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcome}>Bonjour, {displayName} 👋</Text>
-          {teamSubtitle ? (
-            <Text style={styles.roleText}>{teamSubtitle}</Text>
+          <Avatar
+            playerId={me?.id ?? user?.id ?? ''}
+            avatarUpdatedAt={me?.avatarUpdatedAt}
+            firstName={me?.firstName ?? user?.firstName}
+            lastName={me?.lastName ?? user?.lastName}
+            size={48}
+          />
+          <View style={styles.welcomeText}>
+            <Text style={styles.identityName} numberOfLines={1}>{displayName}</Text>
+            {myClub ? (
+              <Text style={styles.identityClub} numberOfLines={1}>{myClub.displayName}</Text>
+            ) : null}
+          </View>
+          {myClub ? (
+            <ClubLogo
+              clubId={myClub.id}
+              logoUpdatedAt={myClub.logoUpdatedAt}
+              name={myClub.displayName}
+              size={48}
+            />
           ) : null}
         </View>
 
@@ -1003,10 +1025,12 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 4 },
   welcomeCard: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: colors.border, marginBottom: 16, gap: 4,
+    borderWidth: 1, borderColor: colors.border, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
+  welcomeText: { flex: 1, gap: 2 },
+  identityName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
+  identityClub: { fontSize: 16, fontWeight: '400', color: colors.textSecondary, textAlign: 'center' },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
