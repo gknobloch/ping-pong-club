@@ -16,6 +16,6 @@ CREATE TABLE IF NOT EXISTS club_channels (
   club_id      TEXT NOT NULL,
   type         TEXT NOT NULL,        -- website | whatsapp | facebook | other
   link         TEXT NOT NULL,
-  display_name TEXT NOT NULL,
+  display_name TEXT,                  -- optional; NULL → fall back to the type label
   sort_order   INTEGER NOT NULL DEFAULT 0
 );

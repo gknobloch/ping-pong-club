@@ -80,8 +80,8 @@ app.get('/data', async (c) => {
     const cid = ch.club_id as string
     if (!channelsByClub.has(cid)) channelsByClub.set(cid, [])
     channelsByClub.get(cid)!.push({
-      id: ch.id, type: ch.type, link: ch.link,
-      displayName: ch.display_name, sortOrder: ch.sort_order,
+      id: ch.id, type: ch.type, link: ch.link, sortOrder: ch.sort_order,
+      ...(ch.display_name ? { displayName: ch.display_name } : {}),
     })
   }
 
@@ -374,7 +374,7 @@ app.post('/clubs', async (c) => {
     const stmts = d.channels.map((ch: Record<string, unknown>, i: number) =>
       c.env.DB.prepare(
         'INSERT INTO club_channels (id, club_id, type, link, display_name, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(ch.id, d.id, ch.type, ch.link, ch.displayName ?? '', (ch.sortOrder as number | undefined) ?? i)
+      ).bind(ch.id, d.id, ch.type, ch.link, ch.displayName ?? null, (ch.sortOrder as number | undefined) ?? i)
     )
     await c.env.DB.batch(stmts)
   }
@@ -446,7 +446,7 @@ app.post('/clubs/:clubId/channels', async (c) => {
   const sortOrder = (row?.m ?? -1) + 1
   await c.env.DB.prepare(
     'INSERT INTO club_channels (id, club_id, type, link, display_name, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(d.id, clubId, d.type, d.link, d.displayName ?? '', sortOrder).run()
+  ).bind(d.id, clubId, d.type, d.link, d.displayName ?? null, sortOrder).run()
   return c.json({ ok: true, sortOrder })
 })
 
@@ -456,7 +456,7 @@ app.patch('/clubs/:clubId/channels/:channelId', async (c) => {
   const s: string[] = [], v: unknown[] = []
   if ('type' in p) { s.push('type = ?'); v.push(p.type) }
   if ('link' in p) { s.push('link = ?'); v.push(p.link) }
-  if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName ?? '') }
+  if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName || null) }
   if ('sortOrder' in p) { s.push('sort_order = ?'); v.push(p.sortOrder) }
   if (s.length) { v.push(channelId); await c.env.DB.prepare(`UPDATE club_channels SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
   return c.json({ ok: true })
