@@ -3,6 +3,10 @@
 // A "week" is keyed by its Monday date string (e.g. "2025-09-22").
 // ---------------------------------------------------------------------------
 
+export function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export function getMondayOf(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
   const day = d.getDay()
