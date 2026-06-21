@@ -17,6 +17,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 import { GameSummary } from '@/components/GameSummary'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
@@ -736,6 +737,10 @@ export default function HomeScreen() {
   // auth user's name when the account isn't a player (e.g. club admin).
   const me = myPlayerId ? playerMap.get(myPlayerId) : undefined
 
+  // The person's club — shown (logo + name) in the welcome header.
+  const myClubId = me?.clubId ?? user?.clubId
+  const myClub = myClubId ? clubs.find((c) => c.id === myClubId) : undefined
+
   // Welcome card subtitle: team info or generic role label
   const teamSubtitle = myActiveTeam
     ? (isCaptain
@@ -758,11 +763,24 @@ export default function HomeScreen() {
             size={52}
           />
           <View style={styles.welcomeText}>
-            <Text style={styles.welcome}>Bonjour, {displayName}</Text>
+            <Text style={styles.welcome}>{displayName}</Text>
             {teamSubtitle ? (
               <Text style={styles.roleText}>{teamSubtitle}</Text>
             ) : null}
           </View>
+          {myClub ? (
+            <View style={styles.clubBadge}>
+              <ClubLogo
+                clubId={myClub.id}
+                logoUpdatedAt={myClub.logoUpdatedAt}
+                name={myClub.displayName}
+                size={40}
+              />
+              <Text style={styles.clubName} numberOfLines={2}>
+                {myClub.displayName}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* ── Player dashboard ── */}
@@ -1025,6 +1043,10 @@ const styles = StyleSheet.create({
   welcomeText: { flex: 1, gap: 4 },
   welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
+  clubBadge: { alignItems: 'center', gap: 4, maxWidth: 92 },
+  clubName: {
+    fontSize: 11, fontWeight: '600', color: colors.textSecondary, textAlign: 'center',
+  },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
