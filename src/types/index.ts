@@ -18,7 +18,8 @@ export interface ClubChannel {
   id: string
   type: ClubChannelType
   link: string
-  displayName: string
+  /** Optional label; when blank, the channel's type label is shown instead. */
+  displayName?: string
   /** Admin-defined ordering within the club's channel list. */
   sortOrder: number
 }

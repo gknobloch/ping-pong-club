@@ -181,7 +181,7 @@ export function ClubDetailView({
 
   const openEditChannel = (channel: ClubChannel) => {
     setChannelForm({ mode: 'edit', channel })
-    setChannelFields({ type: channel.type, link: channel.link, displayName: channel.displayName })
+    setChannelFields({ type: channel.type, link: channel.link, displayName: channel.displayName ?? '' })
   }
 
   const closeChannelForm = () => setChannelForm(null)
@@ -509,10 +509,14 @@ export function ClubDetailView({
                   <ChannelIcon type={ch.type} />
                 </span>
                 <div className="min-w-0">
-                  <span className="font-medium text-slate-900">{ch.displayName}</span>
-                  <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                    {channelTypeLabel(ch.type)}
+                  <span className="font-medium text-slate-900">
+                    {ch.displayName?.trim() || channelTypeLabel(ch.type)}
                   </span>
+                  {ch.displayName?.trim() && (
+                    <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
+                      {channelTypeLabel(ch.type)}
+                    </span>
+                  )}
                   <p className="truncate text-slate-600">
                     <a href={ch.link} target="_blank" rel="noreferrer" className="hover:underline">
                       {ch.link}
@@ -565,12 +569,14 @@ export function ClubDetailView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600">Nom affiché</label>
+                <label className="block text-xs font-medium text-slate-600">
+                  Nom affiché <span className="font-normal text-slate-400">(optionnel)</span>
+                </label>
                 <input
                   type="text"
                   value={channelFields.displayName}
                   onChange={(e) => setChannelFields((f) => ({ ...f, displayName: e.target.value }))}
-                  placeholder="ex. Notre groupe WhatsApp"
+                  placeholder={channelTypeLabel(channelFields.type)}
                   className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                 />
               </div>
@@ -596,7 +602,7 @@ export function ClubDetailView({
               <button
                 type="button"
                 onClick={handleSaveChannel}
-                disabled={!channelFields.displayName.trim() || !channelFields.link.trim()}
+                disabled={!channelFields.link.trim()}
                 className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 Enregistrer
