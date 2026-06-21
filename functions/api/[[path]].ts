@@ -7,12 +7,18 @@ const app = new Hono<Env>().basePath('/api')
 // Public endpoints that must work without a session (you're not logged in yet).
 const PUBLIC_PATH = /^\/api\/auth\/(email\/|oauth$)/
 
-// Session guard (#98): every /api route except the public auth endpoints
+// Image endpoints are served to <img> / <Image> tags, which can't send the
+// Bearer header — so GETs to them are public (read-only, non-sensitive logos /
+// avatars). Writes (PUT/DELETE) still go through the guard below.
+const PUBLIC_IMAGE_PATH = /^\/api\/(clubs\/[^/]+\/logo|players\/[^/]+\/avatar)$/
+
+// Session guard (#98): every /api route except the public auth + image endpoints
 // requires a valid Bearer session. Bypassed locally via AUTH_GUARD_DISABLED so
 // the dev user-picker login (no server session) still works in development.
 app.use('*', async (c, next) => {
   const path = new URL(c.req.url).pathname
   if (PUBLIC_PATH.test(path) || c.env.AUTH_GUARD_DISABLED === 'true') return next()
+  if (c.req.method === 'GET' && PUBLIC_IMAGE_PATH.test(path)) return next()
   const token = bearer(c.req.header('Authorization'))
   const user = token ? await userFromToken(c.env.DB, token) : null
   if (!user) return c.json({ error: 'unauthorized' }, 401)
