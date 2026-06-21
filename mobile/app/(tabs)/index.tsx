@@ -741,13 +741,6 @@ export default function HomeScreen() {
   const myClubId = me?.clubId ?? user?.clubId
   const myClub = myClubId ? clubs.find((c) => c.id === myClubId) : undefined
 
-  // Welcome card subtitle: team info or generic role label
-  const teamSubtitle = myActiveTeam
-    ? (isCaptain
-        ? `Capitaine — Équipe ${myActiveTeam.number}`
-        : `Équipe ${myActiveTeam.number}`)
-    : null
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -760,26 +753,21 @@ export default function HomeScreen() {
             avatarUpdatedAt={me?.avatarUpdatedAt}
             firstName={me?.firstName ?? user?.firstName}
             lastName={me?.lastName ?? user?.lastName}
-            size={52}
+            size={48}
           />
           <View style={styles.welcomeText}>
-            <Text style={styles.welcome}>{displayName}</Text>
-            {teamSubtitle ? (
-              <Text style={styles.roleText}>{teamSubtitle}</Text>
+            <Text style={styles.identityName} numberOfLines={1}>{displayName}</Text>
+            {myClub ? (
+              <Text style={styles.identityClub} numberOfLines={1}>{myClub.displayName}</Text>
             ) : null}
           </View>
           {myClub ? (
-            <View style={styles.clubBadge}>
-              <ClubLogo
-                clubId={myClub.id}
-                logoUpdatedAt={myClub.logoUpdatedAt}
-                name={myClub.displayName}
-                size={40}
-              />
-              <Text style={styles.clubName} numberOfLines={2}>
-                {myClub.displayName}
-              </Text>
-            </View>
+            <ClubLogo
+              clubId={myClub.id}
+              logoUpdatedAt={myClub.logoUpdatedAt}
+              name={myClub.displayName}
+              size={48}
+            />
           ) : null}
         </View>
 
@@ -1038,15 +1026,11 @@ const styles = StyleSheet.create({
   welcomeCard: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,
     borderWidth: 1, borderColor: colors.border, marginBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  welcomeText: { flex: 1, gap: 4 },
-  welcome: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  roleText: { fontSize: 14, color: colors.accent, fontWeight: '500' },
-  clubBadge: { alignItems: 'center', gap: 4, maxWidth: 92 },
-  clubName: {
-    fontSize: 11, fontWeight: '600', color: colors.textSecondary, textAlign: 'center',
-  },
+  welcomeText: { flex: 1, gap: 2 },
+  identityName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
+  identityClub: { fontSize: 16, fontWeight: '400', color: colors.textSecondary, textAlign: 'center' },
   empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
   card: {
     backgroundColor: colors.card, borderRadius: 12, padding: 16,

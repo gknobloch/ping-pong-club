@@ -28,7 +28,9 @@ export function ClubLogo({
   const token = getSessionToken()
   const showImage = !!logoUpdatedAt && !failed
   const initial = (name?.[0] ?? '?').toUpperCase()
-  const dim = { width: size, height: size }
+  // Round to match the player Avatar; the logo is contained (not cropped), so
+  // the circular clip only trims the empty corners of its bounding box.
+  const dim = { width: size, height: size, borderRadius: size / 2 }
 
   return (
     <View style={[styles.base, dim, style]}>
@@ -52,7 +54,6 @@ export function ClubLogo({
 const styles = StyleSheet.create({
   base: {
     backgroundColor: '#fff',
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
