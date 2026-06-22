@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
-import { GameSummary } from '@/components/GameSummary'
+import { MatchHeader } from '@/components/MatchHeader'
 import { PlayerRow } from '@/components/PlayerRow'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
 import { playersCommittedElsewhere } from '@/utils/matchdays'
@@ -82,10 +82,6 @@ export default function MatchDetailScreen() {
     return addr ? `${addr.label}, ${addr.city}` : undefined
   })()
 
-  const dateLabel = new Date(matchDay.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  })
-
   const selection = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds ?? []
   const selectedPlayers = selection.map((pid) => playerMap.get(pid)).filter(Boolean) as Player[]
   const rosterIds = new Set(roster.map((p) => p.id))
@@ -105,21 +101,18 @@ export default function MatchDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Summary */}
         <View style={styles.card}>
-          <GameSummary
-            teamLabel={`Équipe ${team.number}`}
-            isHome={isHome}
-            title={isHome ? `${getTeamName(team, clubs)} – ${opponentName}` : `${opponentName} – ${getTeamName(team, clubs)}`}
-            dateLabel={dateLabel}
-            time={game.time}
+          <MatchHeader
             matchDayNumber={matchDay.number}
             divisionLabel={div?.displayName}
+            teamColor={team.color}
+            teamNumber={team.number}
+            isHome={isHome}
+            teamName={getTeamName(team, clubs)}
+            opponentName={opponentName}
+            matchDayDate={matchDay.date}
+            time={game.time}
+            venueLabel={venueLabel}
           />
-          {venueLabel ? (
-            <View style={styles.venueRow}>
-              <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.venue}>{venueLabel}</Text>
-            </View>
-          ) : null}
         </View>
 
         {/* Availabilities + line-up (check = selected) */}
@@ -129,13 +122,19 @@ export default function MatchDetailScreen() {
             const lockedTeam = !selection.includes(p.id) ? committed.get(p.id) : undefined
             if (lockedTeam !== undefined) {
               return (
-                <View key={p.id} style={[styles.lockedRow]}>
-                  <View style={styles.lockSlot} />
-                  <Text style={styles.lockedName} numberOfLines={1}>{p.firstName} {p.lastName}</Text>
-                  <Text style={styles.lockedReason}>
-                    <Ionicons name="lock-closed" size={11} color={colors.textSecondary} /> Joue en Équipe {lockedTeam}
-                  </Text>
-                </View>
+                <PlayerRow
+                  key={p.id}
+                  player={p}
+                  availability={undefined}
+                  selected={false}
+                  isMe={p.id === myPlayerId}
+                  canEdit={false}
+                  gameDatePast={gameDatePast}
+                  lockedReason={`Joue en Équipe ${lockedTeam}`}
+                  onPickAvailability={() => {}}
+                  onClear={() => {}}
+                  onPressName={() => {}}
+                />
               )
             }
             const canEdit = (canManage || p.id === myPlayerId) && !gameDatePast
@@ -221,17 +220,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: 12,
     borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8,
   },
-  venueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  venue: { fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
   sectionTitle: {
     fontSize: 12, fontWeight: '600', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
   },
-
-  lockedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, opacity: 0.5 },
-  lockSlot: { width: 18 },
-  lockedName: { flex: 1, fontSize: 14, color: colors.textPrimary },
-  lockedReason: { fontSize: 11, fontStyle: 'italic', color: colors.textSecondary },
 
   compose: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

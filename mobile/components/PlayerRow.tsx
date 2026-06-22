@@ -15,6 +15,7 @@ export function PlayerRow({
   canEdit,
   gameDatePast,
   borrowed,
+  lockedReason,
   onPickAvailability,
   onClear,
   onPressName,
@@ -27,28 +28,32 @@ export function PlayerRow({
   gameDatePast: boolean
   /** Player selected from another team — shown without availability pills. */
   borrowed?: boolean
+  /** Non-selectable (e.g. already fielded elsewhere) — shows the reason in
+   *  place of the pills, greyed, in the same slot as the "Renfort" tag. */
+  lockedReason?: string
   onPickAvailability: (s: AvailabilityStatus) => void
   /** Re-tapping the active pill clears the response. */
   onClear: () => void
   onPressName: () => void
 }) {
+  const slotLabel = lockedReason ?? (borrowed ? 'Renfort' : null)
   return (
-    <View style={pr.row}>
+    <View style={[pr.row, lockedReason ? pr.rowLocked : null]}>
       {selected ? (
         <View style={pr.checkBadge}><Text style={pr.checkTxt}>✓</Text></View>
       ) : (
         <View style={pr.checkPlaceholder} />
       )}
 
-      <TouchableOpacity style={pr.nameBtn} onPress={onPressName}>
+      <TouchableOpacity style={pr.nameBtn} onPress={onPressName} disabled={!!lockedReason}>
         <Text style={[pr.name, isMe && pr.nameMe]} numberOfLines={1}>
           {player.firstName} {player.lastName}
         </Text>
       </TouchableOpacity>
 
-      {borrowed ? (
-        <View style={pr.borrowedSlot}>
-          <Text style={pr.borrowedTag}>Renfort</Text>
+      {slotLabel !== null ? (
+        <View style={pr.slot}>
+          <Text style={pr.slotTag}>{slotLabel}</Text>
         </View>
       ) : (
         <View style={pr.pills}>
@@ -83,6 +88,7 @@ export function PlayerRow({
 
 const pr = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5 },
+  rowLocked: { opacity: 0.5 },
   checkBadge: {
     width: 18, height: 18, borderRadius: 9,
     backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
@@ -101,9 +107,9 @@ const pr = StyleSheet.create({
   pillDisabled: { opacity: 0.5 },
   pillTxt: { fontSize: 11, fontWeight: '700' },
   // Occupies the same footprint as the 3 pills (3 × 44 + 2 × 5 gap = 142 wide)
-  // with matching vertical padding + border so borrowed rows keep the same
-  // height as roster rows, and centers the "Renfort" label.
-  borrowedSlot: {
+  // with matching vertical padding + border so "Renfort" / "Joue en …" rows
+  // keep the same height as roster rows, and the label stays centered.
+  slot: {
     width: 142,
     paddingVertical: 6,
     borderWidth: 1.5,
@@ -111,10 +117,11 @@ const pr = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  borrowedTag: {
+  slotTag: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
     fontStyle: 'italic',
+    textAlign: 'center',
   },
 })
