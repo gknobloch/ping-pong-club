@@ -35,6 +35,8 @@ export function NextMatchCard({
   availableCount,
   noResponseCount,
   availablePlayers,
+  playersPerGame,
+  selectedCount,
   isCaptain,
   onCompose,
   onOpenWeek,
@@ -55,6 +57,8 @@ export function NextMatchCard({
   availableCount: number
   noResponseCount: number
   availablePlayers: Player[]
+  playersPerGame: number
+  selectedCount: number
   isCaptain: boolean
   onCompose: () => void
   onOpenWeek: () => void
@@ -66,11 +70,14 @@ export function NextMatchCard({
   const title = isHome ? `${teamName} – ${opponentName}` : `${opponentName} – ${teamName}`
   const stack = availablePlayers.slice(0, 3)
   const extra = Math.max(0, availableCount - stack.length)
+  // Not enough confirmed players, or the line-up isn't filled yet.
+  const enoughAvailable = availableCount >= playersPerGame
+  const lineupComplete = selectedCount >= playersPerGame
 
   return (
     <View style={s.card}>
       {/* Tappable top → full week view */}
-      <TouchableOpacity activeOpacity={0.7} onPress={onOpenWeek}>
+      <TouchableOpacity activeOpacity={0.7} onPress={onOpenWeek} style={s.headerContent}>
         <View style={s.badgeRow}>
           <View style={s.badges}>
             <Text style={s.badge}>J{matchDayNumber}</Text>
@@ -91,7 +98,7 @@ export function NextMatchCard({
             name={isHome ? 'home' : 'paper-plane-outline'}
             size={15}
             color={colors.textSecondary}
-            style={{ marginTop: 2 }}
+            style={{ marginTop: 3 }}
           />
           <Text style={s.title}>{title}</Text>
         </View>
@@ -137,7 +144,7 @@ export function NextMatchCard({
         </View>
       </View>
 
-      {/* Response summary */}
+      {/* Response summary — amber when fewer confirmed players than needed */}
       <View style={s.responses}>
         <View style={s.stack}>
           {stack.map((p, i) => (
@@ -157,19 +164,27 @@ export function NextMatchCard({
             </View>
           ) : null}
         </View>
-        <Text style={s.responseTxt}>
+        {!enoughAvailable ? (
+          <Ionicons name="alert-circle" size={14} color={colors.warning} />
+        ) : null}
+        <Text style={[s.responseTxt, !enoughAvailable && s.responseWarn]}>
           {availableCount} disponible{availableCount !== 1 ? 's' : ''} · {noResponseCount} sans réponse
         </Text>
       </View>
 
-      {/* Captain shortcut */}
+      {/* Captain shortcut — shows the line-up fill state */}
       {isCaptain ? (
         <TouchableOpacity style={s.compose} onPress={onCompose}>
           <View style={s.composeLeft}>
             <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
             <Text style={s.composeTxt}>Composer l'équipe</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          <View style={s.composeRight}>
+            <Text style={[s.composeCount, { color: lineupComplete ? colors.success : colors.warning }]}>
+              {selectedCount}/{playersPerGame}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          </View>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -181,6 +196,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: 12,
     borderWidth: 1, borderColor: colors.border, padding: 14, gap: 12,
   },
+  headerContent: { gap: 6 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   badges: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   badge: {
@@ -201,7 +217,7 @@ const s = StyleSheet.create({
   },
   countdownTxt: { fontSize: 12, fontWeight: '600', color: colors.warning },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.textPrimary, lineHeight: 21 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   meta: { fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
   section: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, gap: 8 },
@@ -213,8 +229,8 @@ const s = StyleSheet.create({
   },
   segmentDisabled: { opacity: 0.5 },
   segmentTxt: { fontSize: 14, fontWeight: '600' },
-  responses: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stack: { flexDirection: 'row' },
+  responses: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stack: { flexDirection: 'row', marginRight: 4 },
   stackItem: { borderRadius: 12, borderWidth: 1.5, borderColor: colors.card },
   extra: {
     width: 24, height: 24, borderRadius: 12, backgroundColor: colors.bg,
@@ -222,10 +238,13 @@ const s = StyleSheet.create({
   },
   extraTxt: { fontSize: 10, fontWeight: '700', color: colors.textSecondary },
   responseTxt: { fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
+  responseWarn: { color: colors.warning, fontWeight: '600' },
   compose: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12,
   },
   composeLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   composeTxt: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  composeRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  composeCount: { fontSize: 14, fontWeight: '700' },
 })

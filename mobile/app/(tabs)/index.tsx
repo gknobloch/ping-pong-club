@@ -6,6 +6,7 @@ import {
   StyleSheet,
   SafeAreaView,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useMemo, useState } from 'react'
@@ -20,7 +21,7 @@ import { NextMatchCard } from '@/components/NextMatchCard'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
 import { sortByName } from '@/utils/sortByName'
 import { getMondayOf, todayIso } from '@/utils/weeks'
-import type { AvailabilityStatus, Player, Team } from '@shared/types'
+import type { AvailabilityStatus, Game, MatchDay, Player, Team } from '@shared/types'
 
 // ---------------------------------------------------------------------------
 // Home screen — player dashboard
@@ -36,7 +37,11 @@ export default function HomeScreen() {
     refreshing, refresh,
   } = useAppData()
 
-  const [showCompose, setShowCompose] = useState(false)
+  const { width } = useWindowDimensions()
+  const cardWidth = width - 32 // matches the scroll container's 16px padding
+
+  const [composeGameId, setComposeGameId] = useState<string | null>(null)
+  const [matchPage, setMatchPage] = useState(0)
 
   const today = todayIso()
   const currentWeekMonday = getMondayOf(today)
@@ -63,6 +68,7 @@ export default function HomeScreen() {
     return map
   }, [teams, myPlayerId])
 
+  const activeSeason = seasons.find((s) => s.isActive)
   const activePhase = phases.find((p) => p.isActive)
   const myActiveTeam = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
   const isCaptain = !!(user && myActiveTeam && canManageTeam(user, myActiveTeam))
@@ -71,7 +77,7 @@ export default function HomeScreen() {
   function getTeamGames(teamId: string) {
     return games.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
   }
-  function getOpponentName(ourTeamId: string, oppTeamId: string): string {
+  function getOpponentName(oppTeamId: string): string {
     const opp = teams.find((t) => t.id === oppTeamId)
     return opp ? getTeamName(opp, clubs) : '?'
   }
@@ -90,7 +96,6 @@ export default function HomeScreen() {
     return gameSelections.find((s) => s.teamId === teamId && s.gameId === gameId)?.playerIds ?? []
   }
 
-  // Active-team games split into upcoming (this week onward) and past.
   const activeTeamGames = myActiveTeam ? getTeamGames(myActiveTeam.id) : []
   const upcomingGames = useMemo(() => {
     if (!myActiveTeam) return []
@@ -99,9 +104,7 @@ export default function HomeScreen() {
       .sort((a, b) => (mdMap.get(a.matchDayId)?.date ?? '').localeCompare(mdMap.get(b.matchDayId)?.date ?? ''))
   }, [myActiveTeam, games, mdMap, currentWeekMonday]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nextGame = upcomingGames[0]
-
-  // Roster + per-game derivations for the hero card.
+  // Roster sorted (used by every hero card + the compose sheet).
   const roster = useMemo(
     () => myActiveTeam
       ? sortByName(myActiveTeam.playerIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[])
@@ -119,14 +122,16 @@ export default function HomeScreen() {
     return players.filter((p) => p.clubId === myActiveTeam.clubId)
   }, [players, myActiveTeam])
 
-  // Metric tiles
+  // Metric tiles — "joués" is out of games already played (past), not the
+  // whole season, so an upcoming game isn't counted in the denominator.
+  const pastTeamGames = activeTeamGames.filter((g) => {
+    const md = mdMap.get(g.matchDayId)
+    return md && md.date < today
+  })
   const playedCount = myActiveTeam && myPlayerId
-    ? activeTeamGames.filter((g) => {
-        const md = mdMap.get(g.matchDayId)
-        return md && md.date < today && getSelectedForGame(myActiveTeam.id, g.id).includes(myPlayerId)
-      }).length
+    ? pastTeamGames.filter((g) => getSelectedForGame(myActiveTeam.id, g.id).includes(myPlayerId)).length
     : 0
-  const totalGames = activeTeamGames.length
+  const playedTotal = pastTeamGames.length
   const toConfirm = myPlayerId
     ? upcomingGames.filter((g) => getAvailability(myPlayerId, g.id) === undefined).length
     : 0
@@ -136,33 +141,34 @@ export default function HomeScreen() {
   const myClubId = me?.clubId ?? user?.clubId
   const myClub = myClubId ? clubs.find((c) => c.id === myClubId) : undefined
 
-  // Phases the player appears in — subtitle for the "Voir tous mes matchs" row.
-  const myPhasesSubtitle = useMemo(
-    () => phases
-      .filter((p) => myTeamByPhase.has(p.id))
-      .sort((a, b) => (a.isActive === b.isActive ? b.displayName.localeCompare(a.displayName) : a.isActive ? -1 : 1))
-      .map((p) => p.displayName)
-      .join(' · '),
-    [phases, myTeamByPhase],
-  )
+  // ── Hero view-models (one per upcoming game, for the carousel) ──
+  type Hero = {
+    game: Game; md: MatchDay; isHome: boolean; oppId: string; venueLabel?: string
+    availablePlayers: Player[]; availableCount: number; noResponseCount: number; selectedCount: number
+  }
+  const heroes: Hero[] = myActiveTeam
+    ? (upcomingGames
+        .map((game): Hero | null => {
+          const md = mdMap.get(game.matchDayId)
+          if (!md) return null
+          const isHome = game.homeTeamId === myActiveTeam.id
+          const homeTeam = teams.find((t) => t.id === game.homeTeamId)
+          const rosterAvail = roster.map((p) => getAvailability(p.id, game.id))
+          const availablePlayers = roster.filter((_, i) => rosterAvail[i] === 'available')
+          return {
+            game, md, isHome,
+            oppId: isHome ? game.awayTeamId : game.homeTeamId,
+            venueLabel: homeTeam ? addressMap.get(homeTeam.gameLocationId) : undefined,
+            availablePlayers,
+            availableCount: availablePlayers.length,
+            noResponseCount: rosterAvail.filter((s) => s === undefined).length,
+            selectedCount: getSelectedForGame(myActiveTeam.id, game.id).length,
+          }
+        })
+        .filter(Boolean) as Hero[])
+    : []
 
-  // ── Hero view-model (only when there's a next game) ──
-  const hero = (() => {
-    if (!myActiveTeam || !nextGame) return null
-    const md = mdMap.get(nextGame.matchDayId)
-    if (!md) return null
-    const isHome = nextGame.homeTeamId === myActiveTeam.id
-    const oppId = isHome ? nextGame.awayTeamId : nextGame.homeTeamId
-    const homeTeam = teams.find((t) => t.id === nextGame.homeTeamId)
-    const venueLabel = homeTeam ? addressMap.get(homeTeam.gameLocationId) : undefined
-
-    const rosterAvail = roster.map((p) => getAvailability(p.id, nextGame.id))
-    const availablePlayers = roster.filter((_, i) => rosterAvail[i] === 'available')
-    const availableCount = availablePlayers.length
-    const noResponseCount = rosterAvail.filter((s) => s === undefined).length
-
-    return { md, isHome, oppId, venueLabel, availablePlayers, availableCount, noResponseCount }
-  })()
+  const composeGame = upcomingGames.find((g) => g.id === composeGameId)
 
   return (
     <SafeAreaView style={styles.container}>
@@ -198,40 +204,70 @@ export default function HomeScreen() {
         {/* ── Player dashboard ── */}
         {isPlayer && myActiveTeam && (
           <>
-            <Text style={styles.sectionLabel}>Prochain match</Text>
-            {hero ? (
-              <NextMatchCard
-                matchDayNumber={hero.md.number}
-                matchDayDate={hero.md.date}
-                time={nextGame!.time}
-                divisionLabel={getDivisionLabel(myActiveTeam)}
-                teamColor={myActiveTeam.color}
-                teamNumber={myActiveTeam.number}
-                isHome={hero.isHome}
-                teamName={getTeamName(myActiveTeam, clubs)}
-                opponentName={getOpponentName(myActiveTeam.id, hero.oppId)}
-                venueLabel={hero.venueLabel}
-                myAvailability={myPlayerId ? getAvailability(myPlayerId, nextGame!.id) : undefined}
-                canSetAvailability={!!myPlayerId}
-                onPickAvailability={(status) => myPlayerId && setAvailability(myPlayerId, nextGame!.id, status)}
-                availableCount={hero.availableCount}
-                noResponseCount={hero.noResponseCount}
-                availablePlayers={hero.availablePlayers}
-                isCaptain={isCaptain}
-                onCompose={() => setShowCompose(true)}
-                onOpenWeek={() => router.push(`/week/${getMondayOf(hero.md.date)}`)}
-              />
-            ) : (
+            <Text style={styles.sectionLabel}>
+              {heroes.length > 1 ? 'Prochains matchs' : 'Prochain match'}
+            </Text>
+            {heroes.length === 0 ? (
               <View style={styles.card}>
                 <Text style={styles.empty}>Pas de prochain match prévu.</Text>
               </View>
+            ) : (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={heroes.length > 1}
+                  onMomentumScrollEnd={(e) =>
+                    setMatchPage(Math.round(e.nativeEvent.contentOffset.x / cardWidth))
+                  }
+                >
+                  {heroes.map((h) => (
+                    <View key={h.game.id} style={{ width: cardWidth }}>
+                      <NextMatchCard
+                        matchDayNumber={h.md.number}
+                        matchDayDate={h.md.date}
+                        time={h.game.time}
+                        divisionLabel={getDivisionLabel(myActiveTeam)}
+                        teamColor={myActiveTeam.color}
+                        teamNumber={myActiveTeam.number}
+                        isHome={h.isHome}
+                        teamName={getTeamName(myActiveTeam, clubs)}
+                        opponentName={getOpponentName(h.oppId)}
+                        venueLabel={h.venueLabel}
+                        myAvailability={myPlayerId ? getAvailability(myPlayerId, h.game.id) : undefined}
+                        canSetAvailability={!!myPlayerId}
+                        onPickAvailability={(status) => myPlayerId && setAvailability(myPlayerId, h.game.id, status)}
+                        availableCount={h.availableCount}
+                        noResponseCount={h.noResponseCount}
+                        availablePlayers={h.availablePlayers}
+                        playersPerGame={getPlayersPerGame(myActiveTeam)}
+                        selectedCount={h.selectedCount}
+                        isCaptain={isCaptain}
+                        onCompose={() => setComposeGameId(h.game.id)}
+                        onOpenWeek={() => router.push(`/week/${getMondayOf(h.md.date)}`)}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+                {heroes.length > 1 && (
+                  <View style={styles.dots}>
+                    {heroes.map((h, i) => (
+                      <View
+                        key={h.game.id}
+                        style={[styles.dot, i === Math.min(matchPage, heroes.length - 1) && styles.dotActive]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
             )}
 
             {/* Quick stats */}
             <View style={styles.tiles}>
               <View style={styles.tile}>
                 <Text style={styles.tileLabel}>Matchs joués</Text>
-                <Text style={styles.tileValue}>{playedCount} / {totalGames}</Text>
+                <Text style={styles.tileValue}>{playedCount} / {playedTotal}</Text>
               </View>
               <View style={styles.tile}>
                 <Text style={styles.tileLabel}>À confirmer</Text>
@@ -246,9 +282,9 @@ export default function HomeScreen() {
               <View style={styles.allMatchesLeft}>
                 <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
                 <View>
-                  <Text style={styles.allMatchesTitle}>Voir tous mes matchs</Text>
-                  {myPhasesSubtitle ? (
-                    <Text style={styles.allMatchesSub} numberOfLines={1}>{myPhasesSubtitle}</Text>
+                  <Text style={styles.allMatchesTitle}>Tous mes matchs</Text>
+                  {activeSeason ? (
+                    <Text style={styles.allMatchesSub} numberOfLines={1}>Saison {activeSeason.displayName}</Text>
                   ) : null}
                 </View>
               </View>
@@ -260,10 +296,10 @@ export default function HomeScreen() {
         {/* ── Generic view for non-players ── */}
         {!isPlayer && (
           <>
-            {seasons.find((s) => s.isActive) && (
+            {activeSeason && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Saison en cours</Text>
-                <Text style={styles.seasonName}>{seasons.find((s) => s.isActive)!.displayName}</Text>
+                <Text style={styles.seasonName}>{activeSeason.displayName}</Text>
               </View>
             )}
             {(() => {
@@ -298,25 +334,25 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Captain line-up sheet for the next match */}
-      {showCompose && myActiveTeam && nextGame && (
+      {/* Captain line-up sheet for the selected upcoming match */}
+      {composeGame && myActiveTeam && (
         <CaptainSelectionSheet
           team={myActiveTeam}
           teamPlayers={roster}
           clubs={clubs}
           playersPerGame={getPlayersPerGame(myActiveTeam)}
-          getAvailability={(pid) => getAvailability(pid, nextGame.id)}
-          initialSelection={getSelectedForGame(myActiveTeam.id, nextGame.id)}
+          getAvailability={(pid) => getAvailability(pid, composeGame.id)}
+          initialSelection={getSelectedForGame(myActiveTeam.id, composeGame.id)}
           selectionData={{
-            matchDayId: nextGame.matchDayId,
+            matchDayId: composeGame.matchDayId,
             allClubPlayers,
             clubTeams: activeClubTeams,
             matchDays,
             games,
             gameSelections,
           }}
-          onSave={(ids) => setGameSelection(myActiveTeam.id, nextGame.id, ids)}
-          onClose={() => setShowCompose(false)}
+          onSave={(ids) => setGameSelection(myActiveTeam.id, composeGame.id, ids)}
+          onClose={() => setComposeGameId(null)}
         />
       )}
     </SafeAreaView>
@@ -346,6 +382,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   seasonName: { fontSize: 18, fontWeight: '600', color: colors.textPrimary },
+
+  // Carousel dots
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: -2 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.accent, width: 18 },
 
   // Metric tiles
   tiles: { flexDirection: 'row', gap: 12 },
