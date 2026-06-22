@@ -1,0 +1,245 @@
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useLocalSearchParams, useNavigation } from 'expo-router'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAppData } from '@/contexts/DataContext'
+import { canManageTeam, getTeamName } from '@/utils/roles'
+import { colors } from '@/constants/colors'
+import { GameSummary } from '@/components/GameSummary'
+import { PlayerRow } from '@/components/PlayerRow'
+import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
+import { playersCommittedElsewhere } from '@/utils/matchdays'
+import { sortByName } from '@/utils/sortByName'
+import { todayIso } from '@/utils/weeks'
+import type { Player } from '@shared/types'
+
+// ---------------------------------------------------------------------------
+// Match detail — one team's view of a game: availabilities (editable by the
+// captain / club-admin for everyone, by a player for themselves) and the
+// line-up. Opened from a Journées card; back returns there.
+// ---------------------------------------------------------------------------
+export default function MatchDetailScreen() {
+  const { id, teamId } = useLocalSearchParams<{ id: string; teamId: string }>()
+  const navigation = useNavigation()
+  const { user } = useAuth()
+  const {
+    clubs, teams, players, matchDays, games, divisions, groups,
+    gameAvailabilities, gameSelections,
+    setAvailability, clearAvailability, setGameSelection,
+  } = useAppData()
+
+  const [showCompose, setShowCompose] = useState(false)
+
+  const game = games.find((g) => g.id === id)
+  const team = teams.find((t) => t.id === teamId)
+  const matchDay = game ? matchDays.find((md) => md.id === game.matchDayId) : undefined
+
+  useEffect(() => {
+    if (matchDay) navigation.setOptions({ title: `Journée ${matchDay.number}` })
+  }, [matchDay, navigation])
+
+  const today = todayIso()
+  const myPlayerId = user?.isPlayer ? user.id : undefined
+
+  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players])
+
+  const roster = useMemo(
+    () => (team ? sortByName(team.playerIds.map((id) => playerMap.get(id)).filter(Boolean) as Player[]) : []),
+    [team, playerMap],
+  )
+  const clubTeamsInPhase = useMemo(
+    () => (team ? teams.filter((t) => t.clubId === team.clubId && t.phaseId === team.phaseId) : []),
+    [teams, team],
+  )
+  const allClubPlayers = useMemo(
+    () => (team ? players.filter((p) => p.clubId === team.clubId) : []),
+    [players, team],
+  )
+
+  if (!game || !team || !matchDay) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.notFound}>Match introuvable.</Text>
+      </SafeAreaView>
+    )
+  }
+
+  const isHome = game.homeTeamId === team.id
+  const oppTeamId = isHome ? game.awayTeamId : game.homeTeamId
+  const oppTeam = teams.find((t) => t.id === oppTeamId)
+  const opponentName = oppTeam ? getTeamName(oppTeam, clubs) : '?'
+
+  const grp = groups.find((g) => g.id === team.groupId)
+  const div = grp ? divisions.find((d) => d.id === grp.divisionId) : undefined
+  const playersPerGame = div?.playersPerGame ?? 4
+
+  const homeTeam = teams.find((t) => t.id === game.homeTeamId)
+  const venueLabel = (() => {
+    const addr = homeTeam
+      ? clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
+      : undefined
+    return addr ? `${addr.label}, ${addr.city}` : undefined
+  })()
+
+  const dateLabel = new Date(matchDay.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+
+  const selection = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds ?? []
+  const selectedPlayers = selection.map((pid) => playerMap.get(pid)).filter(Boolean) as Player[]
+  const rosterIds = new Set(roster.map((p) => p.id))
+  const borrowedSelected = selectedPlayers.filter((p) => !rosterIds.has(p.id))
+
+  const committed = playersCommittedElsewhere(
+    team.id, matchDay.number, clubTeamsInPhase, games, matchDays, gameSelections,
+  )
+
+  const canManage = !!(user && canManageTeam(user, team))
+  const gameDatePast = matchDay.date < today
+  const getAvail = (pid: string) =>
+    gameAvailabilities.find((a) => a.playerId === pid && a.gameId === game.id)?.status
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Summary */}
+        <View style={styles.card}>
+          <GameSummary
+            teamLabel={`Équipe ${team.number}`}
+            isHome={isHome}
+            title={isHome ? `${getTeamName(team, clubs)} – ${opponentName}` : `${opponentName} – ${getTeamName(team, clubs)}`}
+            dateLabel={dateLabel}
+            time={game.time}
+            matchDayNumber={matchDay.number}
+            divisionLabel={div?.displayName}
+          />
+          {venueLabel ? (
+            <View style={styles.venueRow}>
+              <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.venue}>{venueLabel}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Availabilities + line-up (check = selected) */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Disponibilités</Text>
+          {roster.map((p) => {
+            const lockedTeam = !selection.includes(p.id) ? committed.get(p.id) : undefined
+            if (lockedTeam !== undefined) {
+              return (
+                <View key={p.id} style={[styles.lockedRow]}>
+                  <View style={styles.lockSlot} />
+                  <Text style={styles.lockedName} numberOfLines={1}>{p.firstName} {p.lastName}</Text>
+                  <Text style={styles.lockedReason}>
+                    <Ionicons name="lock-closed" size={11} color={colors.textSecondary} /> Joue en Équipe {lockedTeam}
+                  </Text>
+                </View>
+              )
+            }
+            const canEdit = (canManage || p.id === myPlayerId) && !gameDatePast
+            return (
+              <PlayerRow
+                key={p.id}
+                player={p}
+                availability={getAvail(p.id)}
+                selected={selection.includes(p.id)}
+                isMe={p.id === myPlayerId}
+                canEdit={canEdit}
+                gameDatePast={gameDatePast}
+                onPickAvailability={(status) => setAvailability(p.id, game.id, status)}
+                onClear={() => clearAvailability(p.id, game.id)}
+                onPressName={() => {}}
+              />
+            )
+          })}
+          {borrowedSelected.map((p) => (
+            <PlayerRow
+              key={p.id}
+              player={p}
+              availability={undefined}
+              selected
+              isMe={p.id === myPlayerId}
+              canEdit={false}
+              gameDatePast={gameDatePast}
+              borrowed
+              onPickAvailability={() => {}}
+              onClear={() => {}}
+              onPressName={() => {}}
+            />
+          ))}
+        </View>
+
+        {/* Compose (captain / club-admin) */}
+        {canManage && !gameDatePast && (
+          <TouchableOpacity style={styles.compose} onPress={() => setShowCompose(true)}>
+            <View style={styles.composeLeft}>
+              <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.composeTxt}>Composer l'équipe</Text>
+            </View>
+            <View style={styles.composeRight}>
+              <Text style={[styles.composeCount, { color: selection.length >= playersPerGame ? colors.success : colors.warning }]}>
+                {selection.length}/{playersPerGame}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+
+      {showCompose && (
+        <CaptainSelectionSheet
+          team={team}
+          teamPlayers={roster}
+          clubs={clubs}
+          playersPerGame={playersPerGame}
+          getAvailability={(pid) => getAvail(pid)}
+          initialSelection={selection}
+          selectionData={{
+            matchDayId: game.matchDayId,
+            allClubPlayers,
+            clubTeams: clubTeamsInPhase,
+            matchDays,
+            games,
+            gameSelections,
+          }}
+          onSave={(ids) => setGameSelection(team.id, game.id, ids)}
+          onClose={() => setShowCompose(false)}
+        />
+      )}
+    </SafeAreaView>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  scroll: { padding: 16, gap: 12 },
+  notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
+
+  card: {
+    backgroundColor: colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8,
+  },
+  venueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  venue: { fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
+  sectionTitle: {
+    fontSize: 12, fontWeight: '600', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+  },
+
+  lockedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, opacity: 0.5 },
+  lockSlot: { width: 18 },
+  lockedName: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  lockedReason: { fontSize: 11, fontStyle: 'italic', color: colors.textSecondary },
+
+  compose: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, padding: 14,
+  },
+  composeLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  composeTxt: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  composeRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  composeCount: { fontSize: 14, fontWeight: '700' },
+})

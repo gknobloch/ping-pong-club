@@ -17,9 +17,9 @@ import { GameSummary } from '@/components/GameSummary'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import { CaptainSelectionSheet, type SelectionData } from '@/components/CaptainSelectionSheet'
+import { PlayerRow } from '@/components/PlayerRow'
 import { computeBrulage } from '@/utils/brulage'
 import { sortByName } from '@/utils/sortByName'
-import { AVAIL, ALL_STATUSES } from '@/constants/availability'
 import { getMondayOf, todayIso } from '@/utils/weeks'
 import type { AvailabilityStatus, Club, Player, Team } from '@shared/types'
 
@@ -34,121 +34,6 @@ interface GameHistoryEntry {
   matchDayDate: string
   isPast: boolean
 }
-
-// ---------------------------------------------------------------------------
-// Player row — always-visible compact OUI/PE/NON pills
-// ---------------------------------------------------------------------------
-function PlayerRow({
-  player,
-  availability,
-  selected,
-  isMe,
-  canEdit,
-  gameDatePast,
-  borrowed,
-  onPickAvailability,
-  onClear,
-  onPressName,
-}: {
-  player: Player
-  availability: AvailabilityStatus | undefined
-  selected: boolean
-  isMe: boolean
-  canEdit: boolean
-  gameDatePast: boolean
-  /** Player selected from another team — shown without availability pills. */
-  borrowed?: boolean
-  onPickAvailability: (s: AvailabilityStatus) => void
-  /** Re-tapping the active pill clears the response. */
-  onClear: () => void
-  onPressName: () => void
-}) {
-  return (
-    <View style={pr.row}>
-      {selected ? (
-        <View style={pr.checkBadge}><Text style={pr.checkTxt}>✓</Text></View>
-      ) : (
-        <View style={pr.checkPlaceholder} />
-      )}
-
-      <TouchableOpacity style={pr.nameBtn} onPress={onPressName}>
-        <Text style={[pr.name, isMe && pr.nameMe]} numberOfLines={1}>
-          {player.firstName} {player.lastName}
-        </Text>
-      </TouchableOpacity>
-
-      {borrowed ? (
-        <View style={pr.borrowedSlot}>
-          <Text style={pr.borrowedTag}>Renfort</Text>
-        </View>
-      ) : (
-        <View style={pr.pills}>
-          {ALL_STATUSES.map((status) => {
-            const cfg = AVAIL[status]
-            const active = availability === status
-            const editable = canEdit && !gameDatePast
-            return (
-              <TouchableOpacity
-                key={status}
-                disabled={!editable}
-                onPress={() => (active ? onClear() : onPickAvailability(status))}
-                style={[
-                  pr.pill,
-                  active
-                    ? { backgroundColor: cfg.bg, borderColor: cfg.color }
-                    : { borderColor: colors.border },
-                  !editable && pr.pillDisabled,
-                ]}
-              >
-                <Text style={[pr.pillTxt, { color: active ? cfg.color : colors.textSecondary }]}>
-                  {cfg.short}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
-        </View>
-      )}
-    </View>
-  )
-}
-
-const pr = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5 },
-  checkBadge: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
-  },
-  checkPlaceholder: { width: 18 },
-  checkTxt: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  nameBtn: { flex: 1 },
-  name: { fontSize: 14, color: colors.textPrimary },
-  nameMe: { fontWeight: '700', color: colors.accent },
-  pills: { flexDirection: 'row', gap: 5 },
-  pill: {
-    width: 44, paddingVertical: 6,
-    borderRadius: 8, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pillDisabled: { opacity: 0.5 },
-  pillTxt: { fontSize: 11, fontWeight: '700' },
-  // Occupies the same footprint as the 3 pills (3 × 44 + 2 × 5 gap = 142 wide)
-  // with matching vertical padding + border so borrowed rows keep the same
-  // height as roster rows, and centers the "Renfort" label.
-  borrowedSlot: {
-    width: 142,
-    paddingVertical: 6,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  borrowedTag: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-})
 
 // ---------------------------------------------------------------------------
 // Game card — handles both upcoming (full roster + pills) and past (selected

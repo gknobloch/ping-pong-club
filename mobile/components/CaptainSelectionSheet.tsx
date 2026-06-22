@@ -4,6 +4,7 @@ import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { AVAIL } from '@/constants/availability'
 import { isPlayerEligibleForTeam } from '@/utils/brulage'
+import { playersCommittedElsewhere } from '@/utils/matchdays'
 import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
 
 export interface SelectionData {
@@ -50,7 +51,16 @@ export function CaptainSelectionSheet({
     })
   }, [allClubPlayers, teamPlayers, team, clubTeams, matchDays, games, gameSelections, matchDayId])
 
+  // Players already fielded by another club team this same journée — can't be
+  // picked again. Keyed by playerId → that team's number.
+  const committedElsewhere = useMemo(() => {
+    const round = matchDays.find((md) => md.id === matchDayId)?.number
+    if (round === undefined) return new Map<string, number>()
+    return playersCommittedElsewhere(team.id, round, clubTeams, games, matchDays, gameSelections)
+  }, [team.id, clubTeams, games, matchDays, gameSelections, matchDayId])
+
   function toggle(pid: string) {
+    if (committedElsewhere.has(pid) && !selection.includes(pid)) return
     setSelection((prev) => {
       if (prev.includes(pid)) return prev.filter((id) => id !== pid)
       if (prev.length >= playersPerGame) {
@@ -65,15 +75,24 @@ export function CaptainSelectionSheet({
     const avail = getAvailability(p.id)
     const picked = selection.includes(p.id)
     const cfg = avail ? AVAIL[avail] : null
+    const lockedTeam = !picked ? committedElsewhere.get(p.id) : undefined
+    const locked = lockedTeam !== undefined
     return (
-      <TouchableOpacity key={p.id} style={sel.playerRow} onPress={() => toggle(p.id)}>
+      <TouchableOpacity
+        key={p.id}
+        style={[sel.playerRow, locked && sel.playerRowLocked]}
+        onPress={() => toggle(p.id)}
+        disabled={locked}
+      >
         <View style={[sel.check, picked && sel.checkActive]}>
           {picked && <Text style={sel.checkMark}>✓</Text>}
         </View>
         <Text style={[sel.playerName, picked && sel.playerNamePicked]}>
           {p.firstName} {p.lastName}
         </Text>
-        {cfg ? (
+        {locked ? (
+          <Text style={sel.lockedTxt}>Équipe {lockedTeam}</Text>
+        ) : cfg ? (
           <View style={[sel.availChip, { backgroundColor: cfg.bg }]}>
             <Text style={[sel.availTxt, { color: cfg.color }]}>{cfg.short}</Text>
           </View>
@@ -149,6 +168,8 @@ const sel = StyleSheet.create({
   availChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
   availTxt: { fontSize: 11, fontWeight: '600' },
   noAvail: { fontSize: 12, color: colors.border },
+  playerRowLocked: { opacity: 0.45 },
+  lockedTxt: { fontSize: 11, fontStyle: 'italic', color: colors.textSecondary },
   actions: { flexDirection: 'row', gap: 10 },
   cancelBtn: {
     flex: 1, borderRadius: 10, padding: 14,

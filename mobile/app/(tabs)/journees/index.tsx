@@ -1,101 +1,236 @@
 import { useMemo, useState } from 'react'
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
+import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
+import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
-import { getMondayOf, getSundayOf, formatWeekRange } from '@/utils/weeks'
+import { getPhaseMatchDays, activeMatchDayNumber, formatDateRange } from '@/utils/matchdays'
+import type { Game, Team } from '@shared/types'
+
+// ---------------------------------------------------------------------------
+// Stacked < > switcher (phase / match-day)
+// ---------------------------------------------------------------------------
+function Switcher({
+  title, subtitle, onPrev, onNext, large,
+}: {
+  title: string; subtitle?: string; onPrev?: () => void; onNext?: () => void; large?: boolean
+}) {
+  return (
+    <View style={[sw.row, large && sw.rowLarge]}>
+      <TouchableOpacity onPress={onPrev} disabled={!onPrev} style={sw.btn} hitSlop={8}>
+        <Ionicons name="chevron-back" size={large ? 22 : 18} color={onPrev ? colors.textSecondary : colors.border} />
+      </TouchableOpacity>
+      <View style={sw.center}>
+        <Text style={large ? sw.titleLarge : sw.title}>{title}</Text>
+        {subtitle ? <Text style={sw.subtitle}>{subtitle}</Text> : null}
+      </View>
+      <TouchableOpacity onPress={onNext} disabled={!onNext} style={sw.btn} hitSlop={8}>
+        <Ionicons name="chevron-forward" size={large ? 22 : 18} color={onNext ? colors.textSecondary : colors.border} />
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+const sw = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
+  rowLarge: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, paddingHorizontal: 6, paddingVertical: 8,
+  },
+  btn: { padding: 6 },
+  center: { alignItems: 'center', flex: 1 },
+  title: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  titleLarge: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+})
+
+// ---------------------------------------------------------------------------
+// Match card — consistent with the Accueil next-match header
+// ---------------------------------------------------------------------------
+function MatchCard({
+  team, game, teamName, label, mine, divisionLabel, playersPerGame, dateShort,
+  opponentName, isHome, selectedCount, availableCount, onPress,
+}: {
+  team: Team; game: Game; teamName: string; label?: string; mine?: boolean
+  divisionLabel?: string; playersPerGame: number; dateShort: string
+  opponentName: string; isHome: boolean
+  selectedCount: number; availableCount: number | null; onPress: () => void
+}) {
+  const accent = team.color ?? colors.accent
+  const title = isHome
+    ? `${teamName} – ${opponentName}`
+    : `${opponentName} – ${teamName}`
+  const short = selectedCount < playersPerGame || (availableCount !== null && availableCount < playersPerGame)
+  return (
+    <TouchableOpacity style={[mc.card, mine && mc.cardMine]} onPress={onPress} activeOpacity={0.7}>
+      <View style={mc.body}>
+        <View style={mc.badgeRow}>
+          <View style={mc.teamBadge}>
+            <View style={[mc.teamDot, { backgroundColor: accent }]} />
+            <Text style={mc.teamBadgeTxt}>Équipe {team.number}{divisionLabel ? ` · ${divisionLabel}` : ''}</Text>
+          </View>
+          {label ? (
+            <View style={[mc.label, mine && label === 'Mon équipe' && mc.labelMine]}>
+              <Text style={[mc.labelTxt, mine && label === 'Mon équipe' && mc.labelTxtMine]}>{label}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={mc.titleRow}>
+          <Ionicons name={isHome ? 'home' : 'paper-plane-outline'} size={14} color={colors.textSecondary} style={{ marginTop: 2 }} />
+          <Text style={mc.title}>{title}</Text>
+        </View>
+        <Text style={[mc.meta, short && mc.metaWarn]}>
+          {dateShort}{game.time ? ` · ${game.time}` : ''}
+          {availableCount !== null ? ` · ${availableCount} dispo` : ''}
+          {` · Compo ${selectedCount}/${playersPerGame}`}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
+  )
+}
+
+const mc = StyleSheet.create({
+  card: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8,
+  },
+  cardMine: { borderWidth: 2, borderColor: colors.accent },
+  body: { flex: 1, gap: 6 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  teamBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: colors.border, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
+  },
+  teamDot: { width: 8, height: 8, borderRadius: 2 },
+  teamBadgeTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  label: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+  },
+  labelMine: { backgroundColor: '#fff5f5', borderColor: colors.accent },
+  labelTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  labelTxtMine: { color: colors.accent },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  title: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  meta: { fontSize: 13, color: colors.textSecondary },
+  metaWarn: { color: colors.warning, fontWeight: '600' },
+})
 
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 export default function JourneesScreen() {
-  const { matchDays, games, phases, divisions, groups, refreshing, refresh } = useAppData()
+  const { user } = useAuth()
+  const { clubs, teams, matchDays, games, phases, divisions, groups, gameAvailabilities, gameSelections, refreshing, refresh } = useAppData()
   const router = useRouter()
 
-  const activePhase = phases.find((p) => p.isActive)
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(
-    () => new Set(activePhase ? [activePhase.id] : []),
-  )
-  // Past weeks are collapsed by default so upcoming weeks stay front-and-center.
-  const [pastExpandedPhases, setPastExpandedPhases] = useState<Set<string>>(new Set())
+  const myClubId = user?.clubId
+  const myPlayerId = user?.isPlayer ? user.id : undefined
 
-  const sortedPhases = useMemo(
-    () =>
-      [...phases].sort((a, b) => {
-        if (a.isActive && !b.isActive) return -1
-        if (!a.isActive && b.isActive) return 1
-        return a.displayName.localeCompare(b.displayName)
-      }),
+  // Phases ordered for the < > switcher (chronological by name); default active.
+  const orderedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [phases],
   )
+  const activePhase = phases.find((p) => p.isActive)
+  const [phaseId, setPhaseId] = useState<string | undefined>(activePhase?.id ?? orderedPhases[0]?.id)
+  const phase = phases.find((p) => p.id === phaseId) ?? activePhase
+  const phaseIndex = orderedPhases.findIndex((p) => p.id === phase?.id)
 
-  // phaseId → Map<mondayStr, MatchDay[]>
-  const phaseWeeks = useMemo(() => {
-    const groupMap = new Map(groups.map((g) => [g.id, g]))
-    const divMap = new Map(divisions.map((d) => [d.id, d]))
-    const result = new Map<string, Map<string, typeof matchDays>>()
-    for (const p of phases) result.set(p.id, new Map())
-    for (const md of matchDays) {
-      const grp = groupMap.get(md.groupId)
-      if (!grp) continue
-      const div = divMap.get(grp.divisionId)
-      if (!div) continue
-      const weekMap = result.get(div.phaseId)
-      if (!weekMap) continue
-      const mon = getMondayOf(md.date)
-      weekMap.set(mon, [...(weekMap.get(mon) ?? []), md])
+  const matchDayGroups = useMemo(
+    () => (phase ? getPhaseMatchDays(phase.id, matchDays, groups, divisions) : []),
+    [phase, matchDays, groups, divisions],
+  )
+
+  const [mdNumber, setMdNumber] = useState<number | null>(null)
+  // Default (and re-default on phase change) to the active match-day.
+  const effectiveMdNumber = mdNumber ?? activeMatchDayNumber(matchDayGroups)
+  const mdIndex = matchDayGroups.findIndex((g) => g.number === effectiveMdNumber)
+  const mdGroup = matchDayGroups[mdIndex]
+
+  function selectPhase(next: number) {
+    const p = orderedPhases[next]
+    if (!p) return
+    setPhaseId(p.id)
+    setMdNumber(null) // reset to the new phase's active match-day
+  }
+
+  // Division / playersPerGame helpers
+  const divLabel = (team: Team) => {
+    const g = groups.find((x) => x.id === team.groupId)
+    return g ? divisions.find((d) => d.id === g.divisionId)?.displayName : undefined
+  }
+  const perGame = (team: Team) => {
+    const g = groups.find((x) => x.id === team.groupId)
+    return (g ? divisions.find((d) => d.id === g.divisionId)?.playersPerGame : undefined) ?? 4
+  }
+
+  // Club teams + their games for the selected match-day.
+  const clubGames = useMemo(() => {
+    if (!phase || !mdGroup) return [] as { team: Team; game: Game }[]
+    const roundMdIds = new Set(mdGroup.matchDays.map((m) => m.id))
+    const clubTeams = teams.filter((t) => t.clubId === myClubId && t.phaseId === phase.id)
+    const result: { team: Team; game: Game }[] = []
+    for (const team of clubTeams) {
+      const game = games.find(
+        (g) => roundMdIds.has(g.matchDayId) && (g.homeTeamId === team.id || g.awayTeamId === team.id),
+      )
+      if (game) result.push({ team, game })
     }
-    return result
-  }, [matchDays, groups, divisions, phases])
+    return result.sort((a, b) => a.team.number - b.team.number)
+  }, [phase, mdGroup, teams, games, myClubId])
 
-  const now = new Date().toISOString().slice(0, 10)
+  // Which teams am I playing for this match-day (roster team + any that borrowed me)?
+  const mineLabel = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!myPlayerId) return map
+    for (const { team, game } of clubGames) {
+      if (team.playerIds.includes(myPlayerId)) map.set(team.id, 'Mon équipe')
+      else {
+        const sel = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)
+        if (sel?.playerIds.includes(myPlayerId)) map.set(team.id, 'Renfort')
+      }
+    }
+    return map
+  }, [clubGames, gameSelections, myPlayerId])
 
-  function togglePhase(id: string) {
-    setExpandedPhases((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  const mine = clubGames.filter((cg) => mineLabel.has(cg.team.id))
+  const others = clubGames.filter((cg) => !mineLabel.has(cg.team.id))
 
-  function togglePastWeeks(id: string) {
-    setPastExpandedPhases((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  // Renders a single tappable week as a card (matches the Accueil match cards).
-  function renderWeekCard(mon: string, weekMap: Map<string, typeof matchDays>) {
-    const mds = weekMap.get(mon) ?? []
-    const cnt = games.filter((g) => mds.some((md) => md.id === g.matchDayId)).length
-    // Journée number(s) for the week — usually one, shown as a "J7" badge like
-    // the Accueil match cards.
-    const numbers = [...new Set(mds.map((md) => md.number))].sort((a, b) => a - b)
+  function renderCard({ team, game }: { team: Team; game: Game }) {
+    const md = matchDays.find((m) => m.id === game.matchDayId)
+    const isHome = game.homeTeamId === team.id
+    const oppId = isHome ? game.awayTeamId : game.homeTeamId
+    const opp = teams.find((t) => t.id === oppId)
+    const dateShort = md
+      ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })
+      : ''
+    const isMine = mineLabel.has(team.id)
+    const selectedCount = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds.length ?? 0
+    const availableCount = isMine
+      ? team.playerIds.filter((pid) => gameAvailabilities.find((a) => a.playerId === pid && a.gameId === game.id)?.status === 'available').length
+      : null
     return (
-      <TouchableOpacity
-        key={mon}
-        style={styles.weekCard}
-        onPress={() => router.push(`/week/${mon}`)}
-      >
-        <View style={styles.weekBody}>
-          <Text style={styles.weekRange}>{formatWeekRange(mon)}</Text>
-          {numbers.length > 0 && (
-            <View style={styles.badges}>
-              {numbers.map((n) => (
-                <Text key={n} style={styles.badge}>J{n}</Text>
-              ))}
-            </View>
-          )}
-        </View>
-        <Text style={styles.weekMeta}>
-          {cnt} match{cnt !== 1 ? 's' : ''}
-        </Text>
-        <Text style={styles.rowChevron}>›</Text>
-      </TouchableOpacity>
+      <MatchCard
+        key={game.id}
+        team={team}
+        game={game}
+        teamName={getTeamName(team, clubs)}
+        label={mineLabel.get(team.id)}
+        mine={isMine}
+        divisionLabel={divLabel(team)}
+        playersPerGame={perGame(team)}
+        dateShort={dateShort}
+        opponentName={opp ? getTeamName(opp, clubs) : '?'}
+        isHome={isHome}
+        selectedCount={selectedCount}
+        availableCount={availableCount}
+        onPress={() => router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: team.id } })}
+      />
     )
   }
 
@@ -105,73 +240,43 @@ export default function JourneesScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        {sortedPhases.map((phase) => {
-          const weekMap = phaseWeeks.get(phase.id) ?? new Map()
-          const allWeeks = [...weekMap.keys()]
-          // Upcoming weeks: closest → furthest. Past weeks: most recent first.
-          const upcoming = allWeeks.filter((mon) => getSundayOf(mon) >= now).sort()
-          const past = allWeeks.filter((mon) => getSundayOf(mon) < now).sort().reverse()
-          const isExpanded = expandedPhases.has(phase.id)
-          const pastExpanded = pastExpandedPhases.has(phase.id)
-          // Only the active phase advertises an (empty) "à venir" section.
-          const showUpcoming = phase.isActive || upcoming.length > 0
+        {orderedPhases.length > 1 && phase ? (
+          <Switcher
+            title={phase.displayName}
+            onPrev={phaseIndex > 0 ? () => selectPhase(phaseIndex - 1) : undefined}
+            onNext={phaseIndex < orderedPhases.length - 1 ? () => selectPhase(phaseIndex + 1) : undefined}
+          />
+        ) : null}
 
-          return (
-            <View key={phase.id} style={styles.phaseBlock}>
-              <TouchableOpacity style={styles.phaseHeader} onPress={() => togglePhase(phase.id)}>
-                <View style={styles.phaseLeft}>
-                  <Text style={styles.phaseTitle}>{phase.displayName}</Text>
-                </View>
-                <Text style={styles.phaseChevron}>{isExpanded ? '▾' : '▸'}</Text>
-              </TouchableOpacity>
+        {mdGroup ? (
+          <Switcher
+            large
+            title={`Journée ${mdGroup.number}`}
+            subtitle={formatDateRange(mdGroup.startDate, mdGroup.endDate)}
+            onPrev={mdIndex > 0 ? () => setMdNumber(matchDayGroups[mdIndex - 1].number) : undefined}
+            onNext={mdIndex < matchDayGroups.length - 1 ? () => setMdNumber(matchDayGroups[mdIndex + 1].number) : undefined}
+          />
+        ) : (
+          <Text style={styles.empty}>Aucune journée pour cette phase.</Text>
+        )}
 
-              {isExpanded && (
-                <>
-                  {showUpcoming && (
-                    <>
-                      <View style={styles.groupLabelRow}>
-                        <Text style={styles.groupLabel}>Prochaines journées</Text>
-                      </View>
-                      {upcoming.length > 0 ? (
-                        upcoming.map((mon) => renderWeekCard(mon, weekMap))
-                      ) : (
-                        <Text style={styles.empty}>Pas de prochaine journée.</Text>
-                      )}
-                    </>
-                  )}
+        {mdGroup && clubGames.length === 0 && (
+          <Text style={styles.empty}>Aucun match cette journée.</Text>
+        )}
 
-                  {past.length > 0 &&
-                    // A phase with no upcoming weeks is entirely in the past, so
-                    // its weeks are shown expanded with no collapsible. Otherwise
-                    // past weeks stay collapsed to keep upcoming weeks front-and-center.
-                    (!showUpcoming ? (
-                      <>
-                        <View style={styles.groupLabelRow}>
-                          <Text style={styles.groupLabel}>Journées passées</Text>
-                        </View>
-                        {past.map((mon) => renderWeekCard(mon, weekMap))}
-                      </>
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={styles.groupLabelRow}
-                          onPress={() => togglePastWeeks(phase.id)}
-                        >
-                          <Text style={styles.groupLabel}>Journées passées</Text>
-                          <Text style={styles.groupChevron}>{pastExpanded ? '▾' : '▸'}</Text>
-                        </TouchableOpacity>
-                        {pastExpanded && past.map((mon) => renderWeekCard(mon, weekMap))}
-                      </>
-                    ))}
+        {mine.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Mes équipes</Text>
+            {mine.map(renderCard)}
+          </>
+        )}
 
-                  {!showUpcoming && past.length === 0 && (
-                    <Text style={styles.empty}>Aucune journée.</Text>
-                  )}
-                </>
-              )}
-            </View>
-          )
-        })}
+        {others.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Autres équipes</Text>
+            {others.map(renderCard)}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   )
@@ -179,61 +284,7 @@ export default function JourneesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: 16 },
-
-  phaseBlock: { marginBottom: 8 },
-  phaseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  phaseLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  phaseTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
-  phaseChevron: { fontSize: 16, color: colors.textSecondary },
-
-  // Section labels ("Prochaines journées" / "Journées passées"), Accueil style.
-  groupLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  groupLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  groupChevron: { fontSize: 16, color: colors.textSecondary },
-  empty: { fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
-
-  weekCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  weekBody: { flex: 1 },
-  weekRange: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-  weekMeta: { fontSize: 13, color: colors.textSecondary },
-  badges: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  badge: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.accent,
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  rowChevron: { fontSize: 22, color: colors.textSecondary },
+  scroll: { padding: 16, gap: 12 },
+  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: -4 },
+  empty: { fontSize: 14, color: colors.textSecondary },
 })
