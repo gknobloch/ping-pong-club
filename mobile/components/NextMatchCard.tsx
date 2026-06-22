@@ -32,6 +32,7 @@ export function NextMatchCard({
   myAvailability,
   canSetAvailability,
   onPickAvailability,
+  onClearAvailability,
   availableCount,
   noResponseCount,
   availablePlayers,
@@ -54,6 +55,8 @@ export function NextMatchCard({
   myAvailability: AvailabilityStatus | undefined
   canSetAvailability: boolean
   onPickAvailability: (s: AvailabilityStatus) => void
+  /** Re-tapping the active option clears the response. */
+  onClearAvailability: () => void
   availableCount: number
   noResponseCount: number
   availablePlayers: Player[]
@@ -126,7 +129,7 @@ export function NextMatchCard({
               <TouchableOpacity
                 key={status}
                 disabled={!canSetAvailability}
-                onPress={() => onPickAvailability(status)}
+                onPress={() => (active ? onClearAvailability() : onPickAvailability(status))}
                 style={[
                   s.segment,
                   active

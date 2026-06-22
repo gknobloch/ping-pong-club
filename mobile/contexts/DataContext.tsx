@@ -81,6 +81,7 @@ interface DataContextValue extends DataState {
     gameId: string,
     status: AvailabilityStatus,
   ) => Promise<void>
+  clearAvailability: (playerId: string, gameId: string) => Promise<void>
   setGameSelection: (
     teamId: string,
     gameId: string,
@@ -227,6 +228,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [apiAvailable],
   )
 
+  // Clear a player's response for a game (tapping the active option again).
+  const clearAvailability = useCallback(
+    async (playerId: string, gameId: string) => {
+      setState((prev) => ({
+        ...prev,
+        gameAvailabilities: prev.gameAvailabilities.filter(
+          (a) => !(a.playerId === playerId && a.gameId === gameId),
+        ),
+      }))
+
+      if (apiAvailable) {
+        fetch(apiUrl('/game-availabilities/clear'), {
+          method: 'POST',
+          headers: dataHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ playerId, gameId }),
+        }).catch(() => {})
+      }
+    },
+    [apiAvailable],
+  )
+
   const setGameSelection = useCallback(
     async (teamId: string, gameId: string, playerIds: string[]) => {
       // Always generate an ID; the server uses it only when creating a new record
@@ -314,11 +336,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updatePlayer,
       updateTeam,
       setAvailability,
+      clearAvailability,
       setGameSelection,
       setAvatar,
       removeAvatar,
     }),
-    [state, loading, refreshing, error, refresh, updatePlayer, updateTeam, setAvailability, setGameSelection, setAvatar, removeAvatar],
+    [state, loading, refreshing, error, refresh, updatePlayer, updateTeam, setAvailability, clearAvailability, setGameSelection, setAvatar, removeAvatar],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

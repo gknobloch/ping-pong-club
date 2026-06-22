@@ -47,6 +47,7 @@ function PlayerRow({
   gameDatePast,
   borrowed,
   onPickAvailability,
+  onClear,
   onPressName,
 }: {
   player: Player
@@ -58,6 +59,8 @@ function PlayerRow({
   /** Player selected from another team — shown without availability pills. */
   borrowed?: boolean
   onPickAvailability: (s: AvailabilityStatus) => void
+  /** Re-tapping the active pill clears the response. */
+  onClear: () => void
   onPressName: () => void
 }) {
   return (
@@ -88,7 +91,7 @@ function PlayerRow({
               <TouchableOpacity
                 key={status}
                 disabled={!editable}
-                onPress={() => onPickAvailability(status)}
+                onPress={() => (active ? onClear() : onPickAvailability(status))}
                 style={[
                   pr.pill,
                   active
@@ -171,6 +174,7 @@ function GameCard({
   getAvailability,
   getSelected,
   onPickAvailability,
+  onClear,
   onPlayerPress,
   onSaveSelection,
   onOpenWeek,
@@ -199,6 +203,7 @@ function GameCard({
   getAvailability: (pid: string) => AvailabilityStatus | undefined
   getSelected: (pid: string) => boolean
   onPickAvailability: (pid: string, status: AvailabilityStatus) => void
+  onClear: (pid: string) => void
   onPlayerPress: (p: Player) => void
   onSaveSelection: (playerIds: string[]) => void
   /** Open the full week (all games of this match-day). */
@@ -269,6 +274,7 @@ function GameCard({
                 canEdit={canEdit}
                 gameDatePast={gameDatePast}
                 onPickAvailability={(status) => onPickAvailability(p.id, status)}
+                onClear={() => onClear(p.id)}
                 onPressName={() => onPlayerPress(p)}
               />
             )
@@ -284,6 +290,7 @@ function GameCard({
               gameDatePast={gameDatePast}
               borrowed
               onPickAvailability={() => {}}
+              onClear={() => {}}
               onPressName={() => onPlayerPress(p)}
             />
           ))}
@@ -378,7 +385,7 @@ export default function MesMatchsScreen() {
     clubs, teams, players, matchDays, games,
     phases, divisions, groups,
     gameAvailabilities, gameSelections,
-    setAvailability, setGameSelection,
+    setAvailability, clearAvailability, setGameSelection,
     refreshing, refresh,
   } = useAppData()
 
@@ -589,6 +596,7 @@ export default function MesMatchsScreen() {
                     getAvailability={(pid) => getAvailability(pid, game.id)}
                     getSelected={(pid) => selIds.includes(pid)}
                     onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
+                    onClear={(pid) => clearAvailability(pid, game.id)}
                     onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                     onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
                     onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
@@ -641,6 +649,7 @@ export default function MesMatchsScreen() {
                       getAvailability={(pid) => getAvailability(pid, game.id)}
                       getSelected={(pid) => selIds.includes(pid)}
                       onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
+                      onClear={(pid) => clearAvailability(pid, game.id)}
                       onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                       onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
                       onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
@@ -702,6 +711,7 @@ export default function MesMatchsScreen() {
                         getAvailability={(pid) => getAvailability(pid, game.id)}
                         getSelected={(pid) => selIds.includes(pid)}
                         onPickAvailability={(pid, status) => setAvailability(pid, game.id, status)}
+                        onClear={(pid) => clearAvailability(pid, game.id)}
                         onPlayerPress={(p) => openPlayer(p, phase.id)}
                         onSaveSelection={(playerIds) => setGameSelection(team.id, game.id, playerIds)}
                         onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}

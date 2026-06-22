@@ -33,7 +33,7 @@ export default function HomeScreen() {
     clubs, seasons, teams, players, matchDays, games,
     phases, divisions, groups,
     gameAvailabilities, gameSelections,
-    setAvailability, setGameSelection,
+    setAvailability, clearAvailability, setGameSelection,
     refreshing, refresh,
   } = useAppData()
 
@@ -238,6 +238,7 @@ export default function HomeScreen() {
                         myAvailability={myPlayerId ? getAvailability(myPlayerId, h.game.id) : undefined}
                         canSetAvailability={!!myPlayerId}
                         onPickAvailability={(status) => myPlayerId && setAvailability(myPlayerId, h.game.id, status)}
+                        onClearAvailability={() => myPlayerId && clearAvailability(myPlayerId, h.game.id)}
                         availableCount={h.availableCount}
                         noResponseCount={h.noResponseCount}
                         availablePlayers={h.availablePlayers}
