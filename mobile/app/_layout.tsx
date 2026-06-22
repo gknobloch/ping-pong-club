@@ -48,6 +48,19 @@ function AuthedRoutes() {
             headerBackButtonDisplayMode: 'minimal',
           }}
         />
+        {/* The player's full match list, opened from the Accueil dashboard. */}
+        <Stack.Screen
+          name="mes-matchs"
+          options={{
+            headerShown: true,
+            title: 'Mes matchs',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '600' },
+            headerBackTitle: '',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
       </Stack.Protected>
     </Stack>
   )
