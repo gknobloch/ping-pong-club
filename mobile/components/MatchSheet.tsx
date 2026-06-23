@@ -7,13 +7,14 @@ import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/colors'
 
 export interface MatchSheetPlayer {
-  name: string
+  firstName: string
+  lastName: string
   license?: string
   points?: string
 }
 
 // Fixed row pitch — the drag maths convert finger travel into slot moves.
-const ROW_H = 56
+const ROW_H = 60
 
 // Read-only "feuille de match" — club identity + the selected line-up with
 // licences and phase points, to help fill the official sheet on site.
@@ -124,7 +125,10 @@ export function MatchSheet({
                     <Ionicons name="reorder-three-outline" size={24} color={colors.textSecondary} />
                   </View>
                   <Text style={s.letter}>{activeSet[i]}</Text>
-                  <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
+                  <View style={s.playerName}>
+                    <Text style={s.firstName} numberOfLines={1}>{p.firstName}</Text>
+                    <Text style={s.lastName} numberOfLines={1}>{p.lastName}</Text>
+                  </View>
                   <View style={s.playerMeta}>
                     <Text style={s.license}>{p.license ?? '—'}</Text>
                     <Text style={s.points}>{p.points ?? '—'} pts</Text>
@@ -185,7 +189,9 @@ const s = StyleSheet.create({
   },
   playerRowActive: { backgroundColor: colors.bg },
   dragHandle: { paddingHorizontal: 4, paddingVertical: 8 },
-  playerName: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  playerName: { flex: 1 },
+  firstName: { fontSize: 14, color: colors.textSecondary },
+  lastName: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   playerMeta: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   license: { fontSize: 15, color: colors.textSecondary, fontVariant: ['tabular-nums'] },
   points: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'right' },

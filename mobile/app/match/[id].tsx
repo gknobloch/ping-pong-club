@@ -295,7 +295,7 @@ export default function MatchDetailScreen() {
         const sheetPlayers = (selection
           .map((pid) => playerMap.get(pid))
           .filter(Boolean) as Player[])
-          .map((p) => ({ name: `${p.firstName} ${p.lastName}`, license: p.licenseNumber, points: pointsFor(p.id) }))
+          .map((p) => ({ firstName: p.firstName, lastName: p.lastName, license: p.licenseNumber, points: pointsFor(p.id) }))
         const teamName = getTeamName(team, clubs)
         return (
           <MatchSheet
