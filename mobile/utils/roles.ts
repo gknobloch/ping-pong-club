@@ -19,7 +19,7 @@ export function getRoleLabel(role: User['role']): string {
 /** Captaincy is per-team (team.captainId), so it's derived from the team. */
 export function canManageTeam(user: User, team: Team): boolean {
   if (user.role === 'general_admin') return true
-  if (user.role === 'club_admin') return true
+  if (user.role === 'club_admin') return user.clubId === team.clubId
   return team.captainId === user.id
 }
 

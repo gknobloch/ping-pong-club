@@ -61,6 +61,19 @@ function AuthedRoutes() {
             headerBackButtonDisplayMode: 'minimal',
           }}
         />
+        {/* Match detail (availabilities + line-up), opened from Journées. */}
+        <Stack.Screen
+          name="match/[id]"
+          options={{
+            headerShown: true,
+            title: 'Match',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '600' },
+            headerBackTitle: '',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
       </Stack.Protected>
     </Stack>
   )

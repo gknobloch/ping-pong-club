@@ -233,6 +233,11 @@ export default function PhaseGamesScreen() {
           phaseLabel={label}
           phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
           gamesPlayed={playerHistory.filter((e) => e.isPast).length}
+          gamesTotal={games.filter((g) => {
+            if (g.homeTeamId !== team.id && g.awayTeamId !== team.id) return false
+            const md = matchDays.find((m) => m.id === g.matchDayId)
+            return !!md && md.date < today
+          }).length}
           team={team}
           brulageTeam={brulageInfo}
           history={playerHistory.map(

@@ -52,12 +52,16 @@ export default function HomeScreen() {
   const mdMap = useMemo(() => new Map(matchDays.map((md) => [md.id, md])), [matchDays])
   const divMap = useMemo(() => new Map(divisions.map((d) => [d.id, d])), [divisions])
   const groupMap = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
-  // Resolve a team's gameLocationId → "Label, City" across every club's addresses.
-  const addressMap = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const c of clubs) for (const a of c.addresses ?? []) m.set(a.id, `${a.label}, ${a.city}`)
-    return m
-  }, [clubs])
+  // Venue for a game = the home team's game-location address ("Label, City"),
+  // falling back to the home club's city when there's no address.
+  const venueFor = (homeTeam: Team | undefined): string | undefined => {
+    if (!homeTeam) return undefined
+    const addr = clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
+    if (addr) return addr.label ? `${addr.label}, ${addr.city}` : addr.city
+    const homeClub = clubs.find((c) => c.id === homeTeam.clubId)
+    const cityAddr = homeClub?.addresses?.find((a) => a.isDefault) ?? homeClub?.addresses?.[0]
+    return cityAddr?.city
+  }
 
   const myTeamByPhase = useMemo(() => {
     if (!myPlayerId) return new Map<string, Team>()
@@ -158,7 +162,7 @@ export default function HomeScreen() {
           return {
             game, md, isHome,
             oppId: isHome ? game.awayTeamId : game.homeTeamId,
-            venueLabel: homeTeam ? addressMap.get(homeTeam.gameLocationId) : undefined,
+            venueLabel: venueFor(homeTeam),
             availablePlayers,
             availableCount: availablePlayers.length,
             noResponseCount: rosterAvail.filter((s) => s === undefined).length,
