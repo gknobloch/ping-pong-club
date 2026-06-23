@@ -8,8 +8,11 @@ import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { MatchHeader } from '@/components/MatchHeader'
 import { PlayerRow } from '@/components/PlayerRow'
+import { PlayerSheet } from '@/components/PlayerSheet'
+import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
 import { playersCommittedElsewhere } from '@/utils/matchdays'
+import { computeBrulage } from '@/utils/brulage'
 import { sortByName } from '@/utils/sortByName'
 import { todayIso } from '@/utils/weeks'
 import type { Player } from '@shared/types'
@@ -24,12 +27,13 @@ export default function MatchDetailScreen() {
   const navigation = useNavigation()
   const { user } = useAuth()
   const {
-    clubs, teams, players, matchDays, games, divisions, groups,
+    clubs, teams, players, matchDays, games, phases, divisions, groups,
     gameAvailabilities, gameSelections,
     setAvailability, clearAvailability, setGameSelection,
   } = useAppData()
 
   const [showCompose, setShowCompose] = useState(false)
+  const [quickViewPlayer, setQuickViewPlayer] = useState<Player | null>(null)
 
   const game = games.find((g) => g.id === id)
   const team = teams.find((t) => t.id === teamId)
@@ -96,6 +100,34 @@ export default function MatchDetailScreen() {
   const getAvail = (pid: string) =>
     gameAvailabilities.find((a) => a.playerId === pid && a.gameId === game.id)?.status
 
+  // Game history (this phase, across the club's teams) for the quick-view sheet.
+  function historyFor(player: Player): PlayerHistoryEntry[] {
+    const rows: { e: PlayerHistoryEntry; raw: string }[] = []
+    for (const t of clubTeamsInPhase) {
+      for (const g of games) {
+        if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) continue
+        const s = gameSelections.find((x) => x.teamId === t.id && x.gameId === g.id)
+        if (!s?.playerIds.includes(player.id)) continue
+        const md = matchDays.find((m) => m.id === g.matchDayId)
+        if (!md) continue
+        const home = g.homeTeamId === t.id
+        const opp = teams.find((x) => x.id === (home ? g.awayTeamId : g.homeTeamId))
+        rows.push({
+          raw: md.date,
+          e: {
+            jNumber: md.number,
+            icon: home ? 'home' : 'paper-plane-outline',
+            text: opp ? getTeamName(opp, clubs) : '—',
+            team: t,
+            date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+            isPast: md.date < today,
+          },
+        })
+      }
+    }
+    return rows.sort((a, b) => a.raw.localeCompare(b.raw)).map((r) => r.e)
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -149,7 +181,7 @@ export default function MatchDetailScreen() {
                 gameDatePast={gameDatePast}
                 onPickAvailability={(status) => setAvailability(p.id, game.id, status)}
                 onClear={() => clearAvailability(p.id, game.id)}
-                onPressName={() => {}}
+                onPressName={() => setQuickViewPlayer(p)}
               />
             )
           })}
@@ -165,7 +197,7 @@ export default function MatchDetailScreen() {
               borrowed
               onPickAvailability={() => {}}
               onClear={() => {}}
-              onPressName={() => {}}
+              onPressName={() => setQuickViewPlayer(p)}
             />
           ))}
         </View>
@@ -207,6 +239,28 @@ export default function MatchDetailScreen() {
           onClose={() => setShowCompose(false)}
         />
       )}
+
+      {quickViewPlayer && (() => {
+        const viewTeam = clubTeamsInPhase.find((t) => t.playerIds.includes(quickViewPlayer.id)) ?? team
+        const viewPhase = phases.find((p) => p.id === team.phaseId)
+        const brulage = computeBrulage(quickViewPlayer.id, clubTeamsInPhase, matchDays, games, gameSelections)
+        const brulageTeam = brulage.burnedIntoTeamId
+          ? teams.find((t) => t.id === brulage.burnedIntoTeamId) ?? null
+          : null
+        const history = historyFor(quickViewPlayer)
+        return (
+          <PlayerSheet
+            player={quickViewPlayer}
+            phaseLabel={viewPhase ? `Saison ${viewPhase.displayName}` : undefined}
+            phasePoints={viewTeam.rosterInitialPoints?.[quickViewPlayer.id]}
+            gamesPlayed={history.filter((e) => e.isPast).length}
+            team={viewTeam}
+            brulageTeam={brulageTeam}
+            history={history}
+            onClose={() => setQuickViewPlayer(null)}
+          />
+        )
+      })()}
     </SafeAreaView>
   )
 }

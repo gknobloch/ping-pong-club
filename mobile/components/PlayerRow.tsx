@@ -38,7 +38,7 @@ export function PlayerRow({
 }) {
   const slotLabel = lockedReason ?? (borrowed ? 'Renfort' : null)
   return (
-    <View style={[pr.row, lockedReason ? pr.rowLocked : null]}>
+    <View style={pr.row}>
       {selected ? (
         <View style={pr.checkBadge}><Text style={pr.checkTxt}>✓</Text></View>
       ) : (
@@ -46,7 +46,7 @@ export function PlayerRow({
       )}
 
       <TouchableOpacity style={pr.nameBtn} onPress={onPressName} disabled={!!lockedReason}>
-        <Text style={[pr.name, isMe && pr.nameMe]} numberOfLines={1}>
+        <Text style={[pr.name, isMe && pr.nameMe, lockedReason ? pr.nameLocked : null]} numberOfLines={1}>
           {player.firstName} {player.lastName}
         </Text>
       </TouchableOpacity>
@@ -88,7 +88,6 @@ export function PlayerRow({
 
 const pr = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5 },
-  rowLocked: { opacity: 0.5 },
   checkBadge: {
     width: 18, height: 18, borderRadius: 9,
     backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
@@ -98,6 +97,7 @@ const pr = StyleSheet.create({
   nameBtn: { flex: 1 },
   name: { fontSize: 14, color: colors.textPrimary },
   nameMe: { fontWeight: '700', color: colors.accent },
+  nameLocked: { color: colors.textSecondary },
   pills: { flexDirection: 'row', gap: 5 },
   pill: {
     width: 44, paddingVertical: 6,

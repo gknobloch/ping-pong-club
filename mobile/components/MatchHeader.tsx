@@ -28,6 +28,8 @@ export function MatchHeader({
   time,
   venueLabel,
   showCountdown,
+  label,
+  labelMine,
 }: {
   matchDayNumber: number
   divisionLabel?: string
@@ -40,6 +42,9 @@ export function MatchHeader({
   time?: string
   venueLabel?: string
   showCountdown?: boolean
+  /** Optional badge shown right of the team (e.g. "Mon équipe" / "Renfort"). */
+  label?: string
+  labelMine?: boolean
 }) {
   const accent = teamColor ?? colors.accent
   const dateLabel = new Date(matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
@@ -57,6 +62,11 @@ export function MatchHeader({
             <View style={[s.teamDot, { backgroundColor: accent }]} />
             <Text style={s.teamBadgeTxt}>Équipe {teamNumber}</Text>
           </View>
+          {label ? (
+            <View style={[s.label, labelMine && s.labelMine]}>
+              <Text style={[s.labelTxt, labelMine && s.labelTxtMine]}>{label}</Text>
+            </View>
+          ) : null}
         </View>
         {showCountdown ? (
           <View style={s.countdown}>
@@ -106,6 +116,13 @@ const s = StyleSheet.create({
   },
   teamDot: { width: 8, height: 8, borderRadius: 2 },
   teamBadgeTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  label: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+  },
+  labelMine: { backgroundColor: '#fff5f5', borderColor: colors.accent },
+  labelTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  labelTxtMine: { color: colors.accent },
   countdown: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,

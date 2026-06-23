@@ -7,6 +7,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { getPhaseMatchDays, activeMatchDayNumber, formatDateRange } from '@/utils/matchdays'
+import { MatchHeader } from '@/components/MatchHeader'
 import type { Game, Team } from '@shared/types'
 
 // ---------------------------------------------------------------------------
@@ -50,41 +51,34 @@ const sw = StyleSheet.create({
 // Match card — consistent with the Accueil next-match header
 // ---------------------------------------------------------------------------
 function MatchCard({
-  team, game, teamName, label, mine, divisionLabel, playersPerGame, dateShort,
-  opponentName, isHome, selectedCount, availableCount, onPress,
+  team, game, teamName, label, mine, divisionLabel, playersPerGame,
+  matchDayNumber, matchDayDate, opponentName, isHome, selectedCount, availableCount, onPress,
 }: {
   team: Team; game: Game; teamName: string; label?: string; mine?: boolean
-  divisionLabel?: string; playersPerGame: number; dateShort: string
+  divisionLabel?: string; playersPerGame: number
+  matchDayNumber: number; matchDayDate: string
   opponentName: string; isHome: boolean
   selectedCount: number; availableCount: number | null; onPress: () => void
 }) {
-  const accent = team.color ?? colors.accent
-  const title = isHome
-    ? `${teamName} – ${opponentName}`
-    : `${opponentName} – ${teamName}`
   const short = selectedCount < playersPerGame || (availableCount !== null && availableCount < playersPerGame)
   return (
     <TouchableOpacity style={[mc.card, mine && mc.cardMine]} onPress={onPress} activeOpacity={0.7}>
       <View style={mc.body}>
-        <View style={mc.badgeRow}>
-          <View style={mc.teamBadge}>
-            <View style={[mc.teamDot, { backgroundColor: accent }]} />
-            <Text style={mc.teamBadgeTxt}>Équipe {team.number}{divisionLabel ? ` · ${divisionLabel}` : ''}</Text>
-          </View>
-          {label ? (
-            <View style={[mc.label, mine && label === 'Mon équipe' && mc.labelMine]}>
-              <Text style={[mc.labelTxt, mine && label === 'Mon équipe' && mc.labelTxtMine]}>{label}</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={mc.titleRow}>
-          <Ionicons name={isHome ? 'home' : 'paper-plane-outline'} size={14} color={colors.textSecondary} style={{ marginTop: 2 }} />
-          <Text style={mc.title}>{title}</Text>
-        </View>
-        <Text style={[mc.meta, short && mc.metaWarn]}>
-          {dateShort}{game.time ? ` · ${game.time}` : ''}
-          {availableCount !== null ? ` · ${availableCount} dispo` : ''}
-          {` · Compo ${selectedCount}/${playersPerGame}`}
+        <MatchHeader
+          matchDayNumber={matchDayNumber}
+          divisionLabel={divisionLabel}
+          teamColor={team.color}
+          teamNumber={team.number}
+          isHome={isHome}
+          teamName={teamName}
+          opponentName={opponentName}
+          matchDayDate={matchDayDate}
+          time={game.time}
+          label={label}
+          labelMine={!!mine && label === 'Mon équipe'}
+        />
+        <Text style={[mc.status, short && mc.statusWarn]}>
+          {availableCount !== null ? `${availableCount} dispo · ` : ''}Compo {selectedCount}/{playersPerGame}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
@@ -99,25 +93,9 @@ const mc = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8,
   },
   cardMine: { borderWidth: 2, borderColor: colors.accent },
-  body: { flex: 1, gap: 6 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  teamBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: colors.border, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
-  },
-  teamDot: { width: 8, height: 8, borderRadius: 2 },
-  teamBadgeTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
-  label: {
-    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
-  },
-  labelMine: { backgroundColor: '#fff5f5', borderColor: colors.accent },
-  labelTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
-  labelTxtMine: { color: colors.accent },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  title: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-  meta: { fontSize: 13, color: colors.textSecondary },
-  metaWarn: { color: colors.warning, fontWeight: '600' },
+  body: { flex: 1, gap: 8 },
+  status: { fontSize: 13, color: colors.textSecondary },
+  statusWarn: { color: colors.warning, fontWeight: '600' },
 })
 
 // ---------------------------------------------------------------------------
@@ -203,12 +181,10 @@ export default function JourneesScreen() {
 
   function renderCard({ team, game }: { team: Team; game: Game }) {
     const md = matchDays.find((m) => m.id === game.matchDayId)
+    if (!md) return null
     const isHome = game.homeTeamId === team.id
     const oppId = isHome ? game.awayTeamId : game.homeTeamId
     const opp = teams.find((t) => t.id === oppId)
-    const dateShort = md
-      ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })
-      : ''
     const isMine = mineLabel.has(team.id)
     const selectedCount = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds.length ?? 0
     const availableCount = isMine
@@ -224,7 +200,8 @@ export default function JourneesScreen() {
         mine={isMine}
         divisionLabel={divLabel(team)}
         playersPerGame={perGame(team)}
-        dateShort={dateShort}
+        matchDayNumber={md.number}
+        matchDayDate={md.date}
         opponentName={opp ? getTeamName(opp, clubs) : '?'}
         isHome={isHome}
         selectedCount={selectedCount}
@@ -264,19 +241,8 @@ export default function JourneesScreen() {
           <Text style={styles.empty}>Aucun match cette journée.</Text>
         )}
 
-        {mine.length > 0 && (
-          <>
-            <Text style={styles.sectionLabel}>Mes équipes</Text>
-            {mine.map(renderCard)}
-          </>
-        )}
-
-        {others.length > 0 && (
-          <>
-            <Text style={styles.sectionLabel}>Autres équipes</Text>
-            {others.map(renderCard)}
-          </>
-        )}
+        {mine.map(renderCard)}
+        {others.map(renderCard)}
       </ScrollView>
     </SafeAreaView>
   )
@@ -285,6 +251,5 @@ export default function JourneesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: 16, gap: 12 },
-  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: -4 },
   empty: { fontSize: 14, color: colors.textSecondary },
 })
