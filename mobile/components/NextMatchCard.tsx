@@ -30,7 +30,6 @@ export function NextMatchCard({
   selectedCount,
   isCaptain,
   onCompose,
-  onFeuilleDeMatch,
   onOpenDetail,
 }: {
   matchDayNumber: number
@@ -55,8 +54,6 @@ export function NextMatchCard({
   selectedCount: number
   isCaptain: boolean
   onCompose: () => void
-  /** Open the read-only feuille de match (everyone). */
-  onFeuilleDeMatch: () => void
   /** Open the match detail screen. */
   onOpenDetail: () => void
 }) {
@@ -157,15 +154,6 @@ export function NextMatchCard({
           </View>
         </TouchableOpacity>
       ) : null}
-
-      {/* Feuille de match — read-only, for everyone */}
-      <TouchableOpacity style={s.compose} onPress={onFeuilleDeMatch}>
-        <View style={s.composeLeft}>
-          <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
-          <Text style={s.composeTxt}>Feuille de match</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-      </TouchableOpacity>
     </View>
   )
 }
