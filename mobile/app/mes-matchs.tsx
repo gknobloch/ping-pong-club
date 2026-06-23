@@ -62,7 +62,7 @@ function GameCard({
   onClear,
   onPlayerPress,
   onSaveSelection,
-  onOpenWeek,
+  onOpenDetail,
   selectionData,
 }: {
   game: { id: string; time?: string }
@@ -91,8 +91,8 @@ function GameCard({
   onClear: (pid: string) => void
   onPlayerPress: (p: Player) => void
   onSaveSelection: (playerIds: string[]) => void
-  /** Open the full week (all games of this match-day). */
-  onOpenWeek: () => void
+  /** Open the match detail screen. */
+  onOpenDetail: () => void
   selectionData: SelectionData
 }) {
   const today = todayIso()
@@ -112,7 +112,7 @@ function GameCard({
   const borrowedSelected = selectedPlayers.filter((p) => !rosterIds.has(p.id))
 
   const header = (
-    <TouchableOpacity style={gc.header} onPress={onOpenWeek} activeOpacity={0.7}>
+    <TouchableOpacity style={gc.header} onPress={onOpenDetail} activeOpacity={0.7}>
       <View style={gc.headerTop}>
         <GameSummary
           style={gc.headerInfo}
@@ -484,7 +484,7 @@ export default function MesMatchsScreen() {
                     onClear={(pid) => clearAvailability(pid, game.id)}
                     onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                     onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
-                    onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
+                    onOpenDetail={() => router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: myActiveTeam.id } })}
                     selectionData={{
                       matchDayId: game.matchDayId,
                       allClubPlayers,
@@ -537,7 +537,7 @@ export default function MesMatchsScreen() {
                       onClear={(pid) => clearAvailability(pid, game.id)}
                       onPlayerPress={(p) => openPlayer(p, activePhase!.id)}
                       onSaveSelection={(playerIds) => setGameSelection(myActiveTeam.id, game.id, playerIds)}
-                      onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
+                      onOpenDetail={() => router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: myActiveTeam.id } })}
                       selectionData={{
                         matchDayId: game.matchDayId,
                         allClubPlayers,
@@ -599,7 +599,7 @@ export default function MesMatchsScreen() {
                         onClear={(pid) => clearAvailability(pid, game.id)}
                         onPlayerPress={(p) => openPlayer(p, phase.id)}
                         onSaveSelection={(playerIds) => setGameSelection(team.id, game.id, playerIds)}
-                        onOpenWeek={() => router.push(`/week/${getMondayOf(md.date)}`)}
+                        onOpenDetail={() => router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: team.id } })}
                         selectionData={{
                           matchDayId: game.matchDayId,
                           allClubPlayers: phasePlayers,

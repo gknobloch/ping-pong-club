@@ -34,20 +34,6 @@ function AuthedRoutes() {
       </Stack.Protected>
       <Stack.Protected guard={!loading && isAuthenticated}>
         <Stack.Screen name="(tabs)" />
-        {/* Week detail lives above the tabs so it can be opened from either
-            Accueil or Journées and "back" returns to the originating tab. */}
-        <Stack.Screen
-          name="week/[id]"
-          options={{
-            headerShown: true,
-            title: 'Journée',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
         {/* The player's full match list, opened from the Accueil dashboard. */}
         <Stack.Screen
           name="mes-matchs"

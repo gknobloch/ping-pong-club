@@ -19,6 +19,7 @@ import { Avatar } from '@/components/Avatar'
 import { ClubLogo } from '@/components/ClubLogo'
 import { NextMatchCard } from '@/components/NextMatchCard'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
+import { MatchSheet } from '@/components/MatchSheet'
 import { sortByName } from '@/utils/sortByName'
 import { getMondayOf, todayIso } from '@/utils/weeks'
 import type { AvailabilityStatus, Game, MatchDay, Player, Team } from '@shared/types'
@@ -41,6 +42,7 @@ export default function HomeScreen() {
   const cardWidth = width - 32 // matches the scroll container's 16px padding
 
   const [composeGameId, setComposeGameId] = useState<string | null>(null)
+  const [sheetGameId, setSheetGameId] = useState<string | null>(null)
   const [matchPage, setMatchPage] = useState(0)
 
   const today = todayIso()
@@ -173,6 +175,7 @@ export default function HomeScreen() {
     : []
 
   const composeGame = upcomingGames.find((g) => g.id === composeGameId)
+  const sheetGame = upcomingGames.find((g) => g.id === sheetGameId)
 
   return (
     <SafeAreaView style={styles.container}>
@@ -250,7 +253,8 @@ export default function HomeScreen() {
                         selectedCount={h.selectedCount}
                         isCaptain={isCaptain}
                         onCompose={() => setComposeGameId(h.game.id)}
-                        onOpenWeek={() => router.push(`/week/${getMondayOf(h.md.date)}`)}
+                        onFeuilleDeMatch={() => setSheetGameId(h.game.id)}
+                        onOpenDetail={() => router.push({ pathname: '/match/[id]', params: { id: h.game.id, teamId: myActiveTeam.id } })}
                       />
                     </View>
                   ))}
@@ -360,6 +364,33 @@ export default function HomeScreen() {
           onClose={() => setComposeGameId(null)}
         />
       )}
+
+      {sheetGame && myActiveTeam && (() => {
+        const club = clubs.find((c) => c.id === myActiveTeam.clubId)
+        const pointsFor = (pid: string) => {
+          for (const t of activeClubTeams) {
+            const pts = t.rosterInitialPoints?.[pid]
+            if (pts) return pts
+          }
+          return undefined
+        }
+        const sheetPlayers = (getSelectedForGame(myActiveTeam.id, sheetGame.id)
+          .map((pid) => playerMap.get(pid))
+          .filter(Boolean) as Player[])
+          .map((p) => ({ firstName: p.firstName, lastName: p.lastName, license: p.licenseNumber, points: pointsFor(p.id) }))
+        const isHome = sheetGame.homeTeamId === myActiveTeam.id
+        const teamName = getTeamName(myActiveTeam, clubs)
+        const opp = getOpponentName(isHome ? sheetGame.awayTeamId : sheetGame.homeTeamId)
+        return (
+          <MatchSheet
+            matchup={isHome ? `${teamName} – ${opp}` : `${opp} – ${teamName}`}
+            clubName={club?.displayName ?? ''}
+            affiliationNumber={club?.affiliationNumber ?? ''}
+            players={sheetPlayers}
+            onClose={() => setSheetGameId(null)}
+          />
+        )
+      })()}
     </SafeAreaView>
   )
 }

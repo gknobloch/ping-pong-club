@@ -30,7 +30,8 @@ export function NextMatchCard({
   selectedCount,
   isCaptain,
   onCompose,
-  onOpenWeek,
+  onFeuilleDeMatch,
+  onOpenDetail,
 }: {
   matchDayNumber: number
   matchDayDate: string
@@ -54,7 +55,10 @@ export function NextMatchCard({
   selectedCount: number
   isCaptain: boolean
   onCompose: () => void
-  onOpenWeek: () => void
+  /** Open the read-only feuille de match (everyone). */
+  onFeuilleDeMatch: () => void
+  /** Open the match detail screen. */
+  onOpenDetail: () => void
 }) {
   const stack = availablePlayers.slice(0, 3)
   const extra = Math.max(0, availableCount - stack.length)
@@ -64,8 +68,8 @@ export function NextMatchCard({
 
   return (
     <View style={s.card}>
-      {/* Tappable top → full week view */}
-      <TouchableOpacity activeOpacity={0.7} onPress={onOpenWeek}>
+      {/* Tappable top → match detail */}
+      <TouchableOpacity activeOpacity={0.7} onPress={onOpenDetail}>
         <MatchHeader
           matchDayNumber={matchDayNumber}
           divisionLabel={divisionLabel}
@@ -153,6 +157,15 @@ export function NextMatchCard({
           </View>
         </TouchableOpacity>
       ) : null}
+
+      {/* Feuille de match — read-only, for everyone */}
+      <TouchableOpacity style={s.compose} onPress={onFeuilleDeMatch}>
+        <View style={s.composeLeft}>
+          <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
+          <Text style={s.composeTxt}>Feuille de match</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
     </View>
   )
 }
