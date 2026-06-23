@@ -45,7 +45,7 @@ export function PlayerRow({
         <View style={pr.checkPlaceholder} />
       )}
 
-      <TouchableOpacity style={pr.nameBtn} onPress={onPressName} disabled={!!lockedReason}>
+      <TouchableOpacity style={pr.nameBtn} onPress={onPressName}>
         <Text style={[pr.name, isMe && pr.nameMe, lockedReason ? pr.nameLocked : null]} numberOfLines={1}>
           {player.firstName} {player.lastName}
         </Text>

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
+import { TeamBadge } from '@/components/TeamBadge'
 import type { Player, Team } from '@shared/types'
 
 export type PlayerHistoryEntry = {
@@ -37,6 +38,7 @@ export function PlayerSheet({
   phaseLabel,
   phasePoints,
   gamesPlayed,
+  gamesTotal,
   team,
   brulageTeam,
   history,
@@ -48,6 +50,8 @@ export function PlayerSheet({
   phaseLabel?: string
   phasePoints?: string
   gamesPlayed: number
+  /** When provided, "Matchs joués" reads "played / total". */
+  gamesTotal?: number
   team: Team | null
   brulageTeam: Team | null
   history: PlayerHistoryEntry[]
@@ -56,18 +60,6 @@ export function PlayerSheet({
   onProfile?: () => void
 }) {
   const { clubs } = useAppData()
-
-  function TeamBadge({ t, burned = false }: { t: Team; burned?: boolean }) {
-    const tc = t.color ?? colors.accent
-    const bg = hexToRgba(tc, 0.1)
-    const label = burned ? `Brûlé — ${getTeamName(t, clubs)}` : getTeamName(t, clubs)
-    return (
-      <View style={[s.teamBadge, { borderColor: tc, backgroundColor: bg }]}>
-        <View style={[s.teamDot, { backgroundColor: tc }]} />
-        <Text style={[s.teamBadgeTxt, { color: tc }]}>{label}</Text>
-      </View>
-    )
-  }
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -96,18 +88,20 @@ export function PlayerSheet({
               )}
               <View style={s.row}>
                 <Text style={s.label}>Matchs joués</Text>
-                <Text style={s.value}>{String(gamesPlayed)}</Text>
+                <Text style={s.value}>
+                  {gamesTotal != null ? `${gamesPlayed} / ${gamesTotal}` : String(gamesPlayed)}
+                </Text>
               </View>
               {team && (
                 <View style={s.row}>
                   <Text style={s.label}>Équipe</Text>
-                  <TeamBadge t={team} />
+                  <TeamBadge color={team.color} label={getTeamName(team, clubs)} />
                 </View>
               )}
               {brulageTeam && (
                 <View style={s.row}>
                   <Text style={s.label}>Brûlage</Text>
-                  <TeamBadge t={brulageTeam} burned />
+                  <TeamBadge color={brulageTeam.color} label={`Brûlé — ${getTeamName(brulageTeam, clubs)}`} />
                 </View>
               )}
             </View>
@@ -203,13 +197,6 @@ const s = StyleSheet.create({
     fontSize: 14, fontWeight: '600', color: colors.textPrimary,
     flexShrink: 1, textAlign: 'right',
   },
-  teamBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
-  },
-  teamDot: { width: 7, height: 7, borderRadius: 4 },
-  teamBadgeTxt: { fontSize: 13, fontWeight: '600' },
-
   historySection: { marginTop: 16, gap: 6 },
   historyRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3,

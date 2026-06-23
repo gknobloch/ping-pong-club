@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/colors'
+import { TeamBadge } from '@/components/TeamBadge'
 import { todayIso } from '@/utils/weeks'
 
 // Days-until label from a YYYY-MM-DD match date.
@@ -46,7 +47,6 @@ export function MatchHeader({
   label?: string
   labelMine?: boolean
 }) {
-  const accent = teamColor ?? colors.accent
   const dateLabel = new Date(matchDayDate + 'T12:00:00').toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -58,10 +58,7 @@ export function MatchHeader({
         <View style={s.badges}>
           <Text style={s.badge}>J{matchDayNumber}</Text>
           {divisionLabel ? <Text style={s.badge}>{divisionLabel}</Text> : null}
-          <View style={s.teamBadge}>
-            <View style={[s.teamDot, { backgroundColor: accent }]} />
-            <Text style={s.teamBadgeTxt}>Équipe {teamNumber}</Text>
-          </View>
+          <TeamBadge color={teamColor} label={`Équipe ${teamNumber}`} />
           {label ? (
             <View style={[s.label, labelMine && s.labelMine]}>
               <Text style={[s.labelTxt, labelMine && s.labelTxtMine]}>{label}</Text>
@@ -109,13 +106,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, overflow: 'hidden',
   },
-  teamBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
-  },
-  teamDot: { width: 8, height: 8, borderRadius: 2 },
-  teamBadgeTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
   label: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,

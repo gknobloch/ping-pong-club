@@ -11,6 +11,7 @@ import { PlayerRow } from '@/components/PlayerRow'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
+import { MatchSheet } from '@/components/MatchSheet'
 import { playersCommittedElsewhere } from '@/utils/matchdays'
 import { computeBrulage } from '@/utils/brulage'
 import { sortByName } from '@/utils/sortByName'
@@ -33,6 +34,7 @@ export default function MatchDetailScreen() {
   } = useAppData()
 
   const [showCompose, setShowCompose] = useState(false)
+  const [showSheet, setShowSheet] = useState(false)
   const [quickViewPlayer, setQuickViewPlayer] = useState<Player | null>(null)
 
   const game = games.find((g) => g.id === id)
@@ -83,7 +85,11 @@ export default function MatchDetailScreen() {
     const addr = homeTeam
       ? clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
       : undefined
-    return addr ? `${addr.label}, ${addr.city}` : undefined
+    if (addr) return addr.label ? `${addr.label}, ${addr.city}` : addr.city
+    // No game-location address → fall back to the home club's city.
+    const homeClub = homeTeam ? clubs.find((c) => c.id === homeTeam.clubId) : undefined
+    const cityAddr = homeClub?.addresses?.find((a) => a.isDefault) ?? homeClub?.addresses?.[0]
+    return cityAddr?.city
   })()
 
   const selection = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds ?? []
@@ -165,7 +171,7 @@ export default function MatchDetailScreen() {
                   lockedReason={`Joue en Équipe ${lockedTeam}`}
                   onPickAvailability={() => {}}
                   onClear={() => {}}
-                  onPressName={() => {}}
+                  onPressName={() => setQuickViewPlayer(p)}
                 />
               )
             }
@@ -217,6 +223,15 @@ export default function MatchDetailScreen() {
             </View>
           </TouchableOpacity>
         )}
+
+        {/* Feuille de match — read-only, for everyone */}
+        <TouchableOpacity style={styles.compose} onPress={() => setShowSheet(true)}>
+          <View style={styles.composeLeft}>
+            <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.composeTxt}>Feuille de match</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
       </ScrollView>
 
       {showCompose && (
@@ -248,16 +263,47 @@ export default function MatchDetailScreen() {
           ? teams.find((t) => t.id === brulage.burnedIntoTeamId) ?? null
           : null
         const history = historyFor(quickViewPlayer)
+        const totalPlayed = games.filter((g) => {
+          if (g.homeTeamId !== viewTeam.id && g.awayTeamId !== viewTeam.id) return false
+          const md = matchDays.find((m) => m.id === g.matchDayId)
+          return !!md && md.date < today
+        }).length
         return (
           <PlayerSheet
             player={quickViewPlayer}
             phaseLabel={viewPhase ? `Saison ${viewPhase.displayName}` : undefined}
             phasePoints={viewTeam.rosterInitialPoints?.[quickViewPlayer.id]}
             gamesPlayed={history.filter((e) => e.isPast).length}
+            gamesTotal={totalPlayed}
             team={viewTeam}
             brulageTeam={brulageTeam}
             history={history}
             onClose={() => setQuickViewPlayer(null)}
+          />
+        )
+      })()}
+
+      {showSheet && (() => {
+        const club = clubs.find((c) => c.id === team.clubId)
+        const pointsFor = (pid: string) => {
+          for (const t of clubTeamsInPhase) {
+            const pts = t.rosterInitialPoints?.[pid]
+            if (pts) return pts
+          }
+          return undefined
+        }
+        const sheetPlayers = (selection
+          .map((pid) => playerMap.get(pid))
+          .filter(Boolean) as Player[])
+          .map((p) => ({ name: `${p.firstName} ${p.lastName}`, license: p.licenseNumber, points: pointsFor(p.id) }))
+        const teamName = getTeamName(team, clubs)
+        return (
+          <MatchSheet
+            matchup={isHome ? `${teamName} – ${opponentName}` : `${opponentName} – ${teamName}`}
+            clubName={club?.displayName ?? ''}
+            affiliationNumber={club?.affiliationNumber ?? ''}
+            players={sheetPlayers}
+            onClose={() => setShowSheet(false)}
           />
         )
       })()}

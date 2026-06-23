@@ -90,7 +90,7 @@ const mc = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: colors.card, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8,
+    borderWidth: 1, borderColor: colors.border, padding: 14,
   },
   cardMine: { borderWidth: 2, borderColor: colors.accent },
   body: { flex: 1, gap: 8 },
@@ -217,9 +217,9 @@ export default function JourneesScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        {orderedPhases.length > 1 && phase ? (
+        {phase ? (
           <Switcher
-            title={phase.displayName}
+            title={`Saison ${phase.displayName}`}
             onPrev={phaseIndex > 0 ? () => selectPhase(phaseIndex - 1) : undefined}
             onNext={phaseIndex < orderedPhases.length - 1 ? () => selectPhase(phaseIndex + 1) : undefined}
           />

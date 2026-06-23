@@ -629,12 +629,20 @@ export default function MesMatchsScreen() {
           ? teams.find((t) => t.id === brulage.burnedIntoTeamId) ?? null
           : null
         const history = getGameHistoryForPlayer(selectedPlayer, selectedPhaseId)
+        const totalPlayed = viewTeam
+          ? games.filter((g) => {
+              if (g.homeTeamId !== viewTeam.id && g.awayTeamId !== viewTeam.id) return false
+              const md = mdMap.get(g.matchDayId)
+              return !!md && md.date < today
+            }).length
+          : 0
         return (
           <PlayerSheet
             player={selectedPlayer}
             phaseLabel={viewPhase ? `Saison ${viewPhase.displayName}` : undefined}
             phasePoints={viewTeam?.rosterInitialPoints?.[selectedPlayer.id]}
             gamesPlayed={history.filter((e) => e.isPast).length}
+            gamesTotal={totalPlayed}
             team={viewTeam}
             brulageTeam={viewBrulageTeam}
             history={history.map(
