@@ -95,13 +95,13 @@ export function PlayerSheet({
               {team && (
                 <View style={s.row}>
                   <Text style={s.label}>Équipe</Text>
-                  <TeamBadge color={team.color} label={getTeamName(team, clubs)} />
+                  <TeamBadge large color={team.color} label={getTeamName(team, clubs)} />
                 </View>
               )}
               {brulageTeam && (
                 <View style={s.row}>
                   <Text style={s.label}>Brûlage</Text>
-                  <TeamBadge color={brulageTeam.color} label={`Brûlé — ${getTeamName(brulageTeam, clubs)}`} />
+                  <TeamBadge large danger color={brulageTeam.color} label={getTeamName(brulageTeam, clubs)} />
                 </View>
               )}
             </View>

@@ -1,8 +1,23 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useMemo, useRef, useState } from 'react'
+import {
+  Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  PanResponder, type PanResponderInstance,
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/colors'
+
+export interface MatchSheetPlayer {
+  name: string
+  license?: string
+  points?: string
+}
+
+// Fixed row pitch — the drag maths convert finger travel into slot moves.
+const ROW_H = 56
 
 // Read-only "feuille de match" — club identity + the selected line-up with
 // licences and phase points, to help fill the official sheet on site.
+// Players can be reordered by dragging the handle (local only, not persisted).
 export function MatchSheet({
   matchup,
   clubName,
@@ -13,43 +28,83 @@ export function MatchSheet({
   matchup: string
   clubName: string
   affiliationNumber: string
-  players: { name: string; license?: string; points?: string }[]
+  players: MatchSheetPlayer[]
   onClose: () => void
 }) {
+  const byKey = useMemo(() => new Map(players.map((p, i) => [String(i), p])), [players])
+  const [order, setOrder] = useState<string[]>(() => players.map((_, i) => String(i)))
+  const [dragKey, setDragKey] = useState<string | null>(null)
+
+  const orderRef = useRef(order)
+  orderRef.current = order
+  const baseOrderRef = useRef<string[]>([])
+  const pansRef = useRef<Record<string, PanResponderInstance>>({})
+
+  function getPan(key: string): PanResponderInstance {
+    if (!pansRef.current[key]) {
+      pansRef.current[key] = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          baseOrderRef.current = orderRef.current.slice()
+          setDragKey(key)
+        },
+        onPanResponderMove: (_e, g) => {
+          const base = baseOrderRef.current
+          const from = base.indexOf(key)
+          const to = Math.max(0, Math.min(base.length - 1, from + Math.round(g.dy / ROW_H)))
+          const next = base.filter((k) => k !== key)
+          next.splice(to, 0, key)
+          setOrder(next)
+        },
+        onPanResponderRelease: () => setDragKey(null),
+        onPanResponderTerminate: () => setDragKey(null),
+      })
+    }
+    return pansRef.current[key]
+  }
+
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <View style={s.sheet} onStartShouldSetResponder={() => true}>
-          <View style={s.handle} />
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={s.handleBar} />
+          <ScrollView showsVerticalScrollIndicator={false} scrollEnabled={dragKey === null}>
             <Text style={s.title}>Feuille de match</Text>
             <Text style={s.matchup}>{matchup}</Text>
 
             <View style={s.divider} />
 
             <Text style={s.sectionHeading}>Club</Text>
-            <View style={s.row}>
+            <View style={s.kvRow}>
               <Text style={s.label}>Nom</Text>
               <Text style={s.value}>{clubName}</Text>
             </View>
-            <View style={s.row}>
+            <View style={s.kvRow}>
               <Text style={s.label}>N° club</Text>
               <Text style={s.value}>{affiliationNumber}</Text>
             </View>
 
             <View style={s.divider} />
 
-            <Text style={s.sectionHeading}>Joueurs ({players.length})</Text>
-            {players.map((p, i) => (
-              <View key={i} style={s.playerRow}>
-                <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
-                <View style={s.playerMeta}>
-                  <Text style={s.license}>{p.license ?? '—'}</Text>
-                  <Text style={s.points}>{p.points ?? '—'} pts</Text>
+            <Text style={s.sectionHeading}>Joueurs ({order.length})</Text>
+            {order.map((k) => {
+              const p = byKey.get(k)!
+              const pan = getPan(k)
+              return (
+                <View key={k} style={[s.playerRow, dragKey === k && s.playerRowActive]}>
+                  <View style={s.dragHandle} {...pan.panHandlers}>
+                    <Ionicons name="reorder-three-outline" size={24} color={colors.textSecondary} />
+                  </View>
+                  <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
+                  <View style={s.playerMeta}>
+                    <Text style={s.license}>{p.license ?? '—'}</Text>
+                    <Text style={s.points}>{p.points ?? '—'} pts</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-            {players.length === 0 && <Text style={s.empty}>Aucun joueur sélectionné.</Text>}
+              )
+            })}
+            {order.length === 0 && <Text style={s.empty}>Aucun joueur sélectionné.</Text>}
           </ScrollView>
 
           <TouchableOpacity style={s.closeBtn} onPress={onClose}>
@@ -65,31 +120,33 @@ const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40, maxHeight: '85%',
+    padding: 24, paddingBottom: 40, maxHeight: '88%',
   },
-  handle: {
+  handleBar: {
     width: 40, height: 4, borderRadius: 2,
     backgroundColor: colors.border, alignSelf: 'center', marginBottom: 12,
   },
   title: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  matchup: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+  matchup: { fontSize: 15, color: colors.textSecondary, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 14 },
   sectionHeading: {
     fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  label: { fontSize: 14, color: colors.textSecondary },
-  value: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, flexShrink: 1, textAlign: 'right' },
+  kvRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  label: { fontSize: 15, color: colors.textSecondary },
+  value: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, flexShrink: 1, textAlign: 'right' },
   playerRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, gap: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10, height: ROW_H,
+    borderTopWidth: 1, borderTopColor: colors.border,
   },
-  playerName: { flex: 1, fontSize: 15, color: colors.textPrimary },
-  playerMeta: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  license: { fontSize: 13, color: colors.textSecondary, fontVariant: ['tabular-nums'] },
-  points: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, minWidth: 56, textAlign: 'right' },
-  empty: { fontSize: 14, color: colors.textSecondary, paddingTop: 8 },
+  playerRowActive: { backgroundColor: colors.bg },
+  dragHandle: { paddingHorizontal: 4, paddingVertical: 8 },
+  playerName: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  playerMeta: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  license: { fontSize: 15, color: colors.textSecondary, fontVariant: ['tabular-nums'] },
+  points: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'right' },
+  empty: { fontSize: 15, color: colors.textSecondary, paddingTop: 8 },
   closeBtn: {
     backgroundColor: colors.bg, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 20,
   },
