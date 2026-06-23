@@ -30,7 +30,7 @@ export function NextMatchCard({
   selectedCount,
   isCaptain,
   onCompose,
-  onOpenWeek,
+  onOpenDetail,
 }: {
   matchDayNumber: number
   matchDayDate: string
@@ -54,7 +54,8 @@ export function NextMatchCard({
   selectedCount: number
   isCaptain: boolean
   onCompose: () => void
-  onOpenWeek: () => void
+  /** Open the match detail screen. */
+  onOpenDetail: () => void
 }) {
   const stack = availablePlayers.slice(0, 3)
   const extra = Math.max(0, availableCount - stack.length)
@@ -64,8 +65,8 @@ export function NextMatchCard({
 
   return (
     <View style={s.card}>
-      {/* Tappable top → full week view */}
-      <TouchableOpacity activeOpacity={0.7} onPress={onOpenWeek}>
+      {/* Tappable top → match detail */}
+      <TouchableOpacity activeOpacity={0.7} onPress={onOpenDetail}>
         <MatchHeader
           matchDayNumber={matchDayNumber}
           divisionLabel={divisionLabel}

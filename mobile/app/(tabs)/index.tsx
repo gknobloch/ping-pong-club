@@ -250,7 +250,7 @@ export default function HomeScreen() {
                         selectedCount={h.selectedCount}
                         isCaptain={isCaptain}
                         onCompose={() => setComposeGameId(h.game.id)}
-                        onOpenWeek={() => router.push(`/week/${getMondayOf(h.md.date)}`)}
+                        onOpenDetail={() => router.push({ pathname: '/match/[id]', params: { id: h.game.id, teamId: myActiveTeam.id } })}
                       />
                     </View>
                   ))}
