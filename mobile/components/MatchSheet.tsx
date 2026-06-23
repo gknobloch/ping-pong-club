@@ -133,6 +133,9 @@ export function MatchSheet({
               )
             })}
             {order.length === 0 && <Text style={s.empty}>Aucun joueur sélectionné.</Text>}
+            {order.length > 0 && (
+              <Text style={s.note}>L&apos;ordre est indicatif et n&apos;est pas enregistré.</Text>
+            )}
           </ScrollView>
 
           <TouchableOpacity style={s.closeBtn} onPress={onClose}>
@@ -187,6 +190,7 @@ const s = StyleSheet.create({
   license: { fontSize: 15, color: colors.textSecondary, fontVariant: ['tabular-nums'] },
   points: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'right' },
   empty: { fontSize: 15, color: colors.textSecondary, paddingTop: 8 },
+  note: { fontSize: 12, fontStyle: 'italic', color: colors.textSecondary, marginTop: 12 },
   closeBtn: {
     backgroundColor: colors.bg, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 20,
   },
