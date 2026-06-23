@@ -35,6 +35,15 @@ export function MatchSheet({
   const [order, setOrder] = useState<string[]>(() => players.map((_, i) => String(i)))
   const [dragKey, setDragKey] = useState<string | null>(null)
 
+  // Positional labels: A.. (from the start) or ..Z (ending at Z), e.g. ABCD /
+  // WXYZ for 4, ABC / XYZ for 3. The letter follows the row position, so
+  // reordering reassigns letters while A,B,C,D stay top-to-bottom.
+  const n = players.length
+  const firstSet = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i))
+  const lastSet = Array.from({ length: n }, (_, i) => String.fromCharCode(90 - n + 1 + i))
+  const [letterMode, setLetterMode] = useState<'first' | 'last'>('first')
+  const activeSet = letterMode === 'first' ? firstSet : lastSet
+
   const orderRef = useRef(order)
   orderRef.current = order
   const baseOrderRef = useRef<string[]>([])
@@ -87,8 +96,26 @@ export function MatchSheet({
 
             <View style={s.divider} />
 
-            <Text style={s.sectionHeading}>Joueurs ({order.length})</Text>
-            {order.map((k) => {
+            <View style={s.joueursHead}>
+              <Text style={[s.sectionHeading, { marginBottom: 0 }]}>Joueurs ({order.length})</Text>
+              {n > 0 && (
+                <View style={s.toggle}>
+                  <TouchableOpacity
+                    style={[s.toggleBtn, letterMode === 'first' && s.toggleBtnActive]}
+                    onPress={() => setLetterMode('first')}
+                  >
+                    <Text style={[s.toggleTxt, letterMode === 'first' && s.toggleTxtActive]}>{firstSet.join('')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.toggleBtn, letterMode === 'last' && s.toggleBtnActive]}
+                    onPress={() => setLetterMode('last')}
+                  >
+                    <Text style={[s.toggleTxt, letterMode === 'last' && s.toggleTxtActive]}>{lastSet.join('')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            {order.map((k, i) => {
               const p = byKey.get(k)!
               const pan = getPan(k)
               return (
@@ -96,6 +123,7 @@ export function MatchSheet({
                   <View style={s.dragHandle} {...pan.panHandlers}>
                     <Ionicons name="reorder-three-outline" size={24} color={colors.textSecondary} />
                   </View>
+                  <Text style={s.letter}>{activeSet[i]}</Text>
                   <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
                   <View style={s.playerMeta}>
                     <Text style={s.license}>{p.license ?? '—'}</Text>
@@ -133,6 +161,18 @@ const s = StyleSheet.create({
     fontSize: 12, fontWeight: '700', color: colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
   },
+  joueursHead: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+  },
+  toggle: {
+    flexDirection: 'row', borderWidth: 1, borderColor: colors.border,
+    borderRadius: 8, overflow: 'hidden',
+  },
+  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6 },
+  toggleBtnActive: { backgroundColor: colors.accent },
+  toggleTxt: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, letterSpacing: 1 },
+  toggleTxtActive: { color: '#fff' },
+  letter: { width: 22, fontSize: 16, fontWeight: '700', color: colors.accent, textAlign: 'center' },
   kvRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   label: { fontSize: 15, color: colors.textSecondary },
   value: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, flexShrink: 1, textAlign: 'right' },
