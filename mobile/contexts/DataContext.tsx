@@ -168,7 +168,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Refetch when the session token changes (e.g. after login/logout). On
     // logout (token cleared) drop the cache and reset so the next user never
     // sees the previous user's data.
-    return onSessionTokenChange(() => {
+    const unsubscribe = onSessionTokenChange(() => {
       if (getSessionToken() === null) {
         clearCache()
         setState(emptyState)
@@ -177,6 +177,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       load()
     })
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [load])
 
   // Refetch when the app returns to the foreground, so changes made elsewhere
