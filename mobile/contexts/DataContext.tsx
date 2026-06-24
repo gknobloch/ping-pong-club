@@ -28,7 +28,8 @@ import type {
   User,
 } from '@shared/types'
 import { apiUrl } from '@/constants/api'
-import { dataHeaders, onSessionTokenChange } from '@/utils/api'
+import { dataHeaders, getSessionToken, onSessionTokenChange } from '@/utils/api'
+import { clearCache, readCache, writeCache } from '@/utils/offlineCache'
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -73,6 +74,12 @@ interface DataContextValue extends DataState {
   loading: boolean
   refreshing: boolean
   error: string | null
+  /** True when the displayed data comes from cache, not a fresh fetch this
+   *  session (cold-start hydration, or the latest fetch failed). Drives the
+   *  offline banner. */
+  stale: boolean
+  /** ISO timestamp of the last successful fetch, or null if never synced. */
+  lastSyncedAt: string | null
   refresh: () => void
   updatePlayer: (id: string, patch: PlayerProfilePatch) => Promise<void>
   updateTeam: (id: string, patch: TeamPatch) => void
@@ -104,6 +111,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiAvailable, setApiAvailable] = useState(false)
+  const [stale, setStale] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const lastFetchAt = useRef(0)
 
   // `mode` decides which spinner reflects the fetch: 'initial' uses the
@@ -117,12 +126,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(apiUrl('/data'), { headers: dataHeaders() })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: DataState = await res.json()
+      const syncedAt = new Date().toISOString()
       setState(data)
       setApiAvailable(true)
+      setStale(false)
+      setLastSyncedAt(syncedAt)
       lastFetchAt.current = Date.now()
+      // Persist for the next cold start. Best-effort; never blocks the UI.
+      writeCache(data, syncedAt)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur réseau')
       setApiAvailable(false)
+      // Keep whatever data we already have (cached or previously loaded) on
+      // screen and flag it as stale so the offline banner appears.
+      setStale(true)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -132,9 +149,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(() => load('refresh'), [load])
 
   useEffect(() => {
-    load()
-    // Refetch when the session token changes (e.g. after login/logout).
-    return onSessionTokenChange(() => load())
+    let cancelled = false
+
+    // Hydrate from the offline cache before the first network fetch so the app
+    // renders instantly (and stays usable with no connectivity). The fetch
+    // below then refreshes in the background and clears the stale flag.
+    ;(async () => {
+      const cached = await readCache<DataState>()
+      if (!cancelled && cached) {
+        setState(cached.data)
+        setLastSyncedAt(cached.lastSyncedAt)
+        setStale(true)
+        setLoading(false)
+      }
+      if (!cancelled) load()
+    })()
+
+    // Refetch when the session token changes (e.g. after login/logout). On
+    // logout (token cleared) drop the cache and reset so the next user never
+    // sees the previous user's data.
+    const unsubscribe = onSessionTokenChange(() => {
+      if (getSessionToken() === null) {
+        clearCache()
+        setState(emptyState)
+        setStale(false)
+        setLastSyncedAt(null)
+      }
+      load()
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [load])
 
   // Refetch when the app returns to the foreground, so changes made elsewhere
@@ -332,6 +379,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       refreshing,
       error,
+      stale,
+      lastSyncedAt,
       refresh,
       updatePlayer,
       updateTeam,
@@ -341,7 +390,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setAvatar,
       removeAvatar,
     }),
-    [state, loading, refreshing, error, refresh, updatePlayer, updateTeam, setAvailability, clearAvailability, setGameSelection, setAvatar, removeAvatar],
+    [state, loading, refreshing, error, stale, lastSyncedAt, refresh, updatePlayer, updateTeam, setAvailability, clearAvailability, setGameSelection, setAvatar, removeAvatar],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

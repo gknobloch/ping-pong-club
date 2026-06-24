@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
+import { View } from 'react-native'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { colors } from '@/constants/colors'
+import { OfflineBanner } from '@/components/OfflineBanner'
 import { DataProvider, useAppData } from '@/contexts/DataContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 
@@ -73,7 +76,12 @@ function InnerLayout() {
 
   return (
     <AuthProvider apiUsers={users}>
-      <AuthedRoutes />
+      {/* Banner sits above the navigator so it pushes screen headers down
+          rather than overlapping them; it renders nothing when online. */}
+      <View style={{ flex: 1 }}>
+        <OfflineBanner />
+        <AuthedRoutes />
+      </View>
       <StatusBar style="auto" />
     </AuthProvider>
   )
@@ -84,8 +92,10 @@ function InnerLayout() {
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
   return (
-    <DataProvider>
-      <InnerLayout />
-    </DataProvider>
+    <SafeAreaProvider>
+      <DataProvider>
+        <InnerLayout />
+      </DataProvider>
+    </SafeAreaProvider>
   )
 }
