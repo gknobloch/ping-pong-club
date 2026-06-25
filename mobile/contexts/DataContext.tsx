@@ -68,7 +68,7 @@ const emptyState: DataState = {
 // Context value
 // ---------------------------------------------------------------------------
 type PlayerProfilePatch = Partial<Pick<Player, 'email' | 'phone' | 'birthDate' | 'birthPlace'>>
-type TeamPatch = { playerIds?: string[]; whatsappLink?: string | null }
+type TeamPatch = { playerIds?: string[]; captainId?: string; whatsappLink?: string | null }
 
 interface DataContextValue extends DataState {
   loading: boolean
@@ -221,6 +221,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           if (t.id !== id) return t
           const next = { ...t }
           if (patch.playerIds !== undefined) next.playerIds = patch.playerIds
+          if (patch.captainId !== undefined) next.captainId = patch.captainId
           if ('whatsappLink' in patch) next.whatsappLink = patch.whatsappLink ?? undefined
           return next
         }),

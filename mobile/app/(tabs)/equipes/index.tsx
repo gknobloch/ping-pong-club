@@ -1,13 +1,14 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, FlatList } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTeamName } from '@/utils/roles'
+import { Switcher } from '@/components/Switcher'
 import { colors } from '@/constants/colors'
 import { useMemo, useState } from 'react'
 
 export default function EquipesScreen() {
-  const { teams, clubs, phases, divisions } = useAppData()
+  const { teams, clubs, phases, divisions, refreshing, refresh } = useAppData()
   const { user } = useAuth()
   const router = useRouter()
 
@@ -16,79 +17,48 @@ export default function EquipesScreen() {
       ? teams
       : teams.filter((t) => t.clubId === user?.clubId)
 
-  // Group by phase, active phase first then by displayName descending
-  const phaseGroups = useMemo(() => {
-    const byPhase = new Map<string, typeof visibleTeams>()
-    for (const t of visibleTeams) {
-      const arr = byPhase.get(t.phaseId) ?? []
-      arr.push(t)
-      byPhase.set(t.phaseId, arr)
-    }
-    return [...byPhase.entries()]
-      .map(([phaseId, phaseTeams]) => {
-        const phase = phases.find((p) => p.id === phaseId)
-        return { phase, phaseTeams }
-      })
-      .sort((a, b) => {
-        if (a.phase?.isActive !== b.phase?.isActive) return a.phase?.isActive ? -1 : 1
-        return (b.phase?.displayName ?? '').localeCompare(a.phase?.displayName ?? '')
-      })
-  }, [visibleTeams, phases])
-
-  const activePhaseId = phases.find((p) => p.isActive)?.id
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(
-    () => new Set(activePhaseId ? [activePhaseId] : []),
+  // Phases ordered for the < > switcher (chronological by name); default active.
+  const orderedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [phases],
   )
+  const activePhase = phases.find((p) => p.isActive)
+  const [phaseId, setPhaseId] = useState<string | undefined>(activePhase?.id ?? orderedPhases[0]?.id)
+  const phase = phases.find((p) => p.id === phaseId) ?? activePhase
+  const phaseIndex = orderedPhases.findIndex((p) => p.id === phase?.id)
 
-  function togglePhase(id: string) {
-    setExpandedPhases((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
+  function selectPhase(next: number) {
+    const p = orderedPhases[next]
+    if (p) setPhaseId(p.id)
   }
 
-  const rows: Array<
-    | { type: 'header'; phaseId: string; label: string; expanded: boolean }
-    | { type: 'team'; team: (typeof visibleTeams)[0] }
-  > = []
-
-  for (const { phase, phaseTeams } of phaseGroups) {
-    const phaseId = phase?.id ?? 'unknown'
-    const label = phase ? `Saison ${phase.displayName}` : 'Phase inconnue'
-    const expanded = expandedPhases.has(phaseId)
-    rows.push({ type: 'header', phaseId, label, expanded })
-    if (expanded) {
-      for (const t of phaseTeams) rows.push({ type: 'team', team: t })
-    }
-  }
+  const phaseTeams = useMemo(
+    () =>
+      visibleTeams
+        .filter((t) => t.phaseId === phase?.id)
+        .sort((a, b) => a.number - b.number),
+    [visibleTeams, phase],
+  )
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={rows}
-        keyExtractor={(row) =>
-          row.type === 'header' ? `header-${row.phaseId}` : `team-${row.team.id}`
-        }
+      <ScrollView
         contentContainerStyle={styles.list}
-        renderItem={({ item: row }) => {
-          if (row.type === 'header') {
-            return (
-              <TouchableOpacity
-                style={styles.phaseHeader}
-                onPress={() => togglePhase(row.phaseId)}
-              >
-                <Text style={styles.phaseTitle}>{row.label}</Text>
-                <Text style={styles.phaseChevron}>{row.expanded ? '▾' : '▸'}</Text>
-              </TouchableOpacity>
-            )
-          }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+      >
+        {phase ? (
+          <Switcher
+            title={`Saison ${phase.displayName}`}
+            onPrev={phaseIndex > 0 ? () => selectPhase(phaseIndex - 1) : undefined}
+            onNext={phaseIndex < orderedPhases.length - 1 ? () => selectPhase(phaseIndex + 1) : undefined}
+          />
+        ) : null}
 
-          const { team } = row
+        {phaseTeams.map((team) => {
           const division = divisions.find((d) => d.id === team.divisionId)
-
           return (
             <TouchableOpacity
+              key={team.id}
               style={styles.card}
               onPress={() => router.push(`/(tabs)/equipes/${team.id}`)}
             >
@@ -100,26 +70,19 @@ export default function EquipesScreen() {
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           )
-        }}
-      />
+        })}
+
+        {phase && phaseTeams.length === 0 && (
+          <Text style={styles.empty}>Aucune équipe pour cette phase.</Text>
+        )}
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  list: { padding: 16, gap: 6 },
-
-  phaseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 6,
-  },
-  phaseTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-  phaseChevron: { fontSize: 14, color: colors.textSecondary },
+  list: { padding: 16, gap: 8 },
 
   card: {
     backgroundColor: colors.card,
@@ -146,4 +109,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   chevron: { fontSize: 22, color: colors.textSecondary, paddingRight: 12 },
+  empty: { fontSize: 14, color: colors.textSecondary, paddingHorizontal: 4 },
 })

@@ -9,7 +9,11 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTeamName, canManageTeam } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
+import { computeBrulage } from '@/utils/brulage'
 import { colors } from '@/constants/colors'
+import { ClubLogo } from '@/components/ClubLogo'
+import { PlayerSheet } from '@/components/PlayerSheet'
+import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Game, MatchDay, Player } from '@shared/types'
 
 type GameEntry = Game & { matchDay?: MatchDay }
@@ -23,16 +27,19 @@ type PhaseEntry = {
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { teams, players, clubs, phases, divisions, matchDays, games, updateTeam } = useAppData()
+  const { teams, players, clubs, phases, divisions, matchDays, games, gameSelections, updateTeam } = useAppData()
   const { user } = useAuth()
   const navigation = useNavigation()
   const router = useRouter()
   const [showRosterPicker, setShowRosterPicker] = useState(false)
   const [editingWhatsApp, setEditingWhatsApp] = useState(false)
   const [whatsappDraft, setWhatsappDraft] = useState('')
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
 
   const team = teams.find((t) => t.id === id)
+  const club = clubs.find((c) => c.id === team?.clubId)
   const division = divisions.find((d) => d.id === team?.divisionId)
+  const phase = phases.find((p) => p.id === team?.phaseId)
   const isCaptain = !!(user && team && canManageTeam(user, team))
 
   const members = useMemo(
@@ -43,6 +50,12 @@ export default function TeamDetailScreen() {
           .filter(Boolean) as Player[],
       ),
     [team, players],
+  )
+
+  // Club teams in the same phase (for brûlage + cross-team history)
+  const clubTeamsInPhase = useMemo(
+    () => (team ? teams.filter((t) => t.clubId === team.clubId && t.phaseId === team.phaseId) : []),
+    [team, teams],
   )
 
   // One entry per phase this team (by club+number) has participated in
@@ -92,6 +105,50 @@ export default function TeamDetailScreen() {
     )
   }, [team, teams, players])
 
+  // --- Player quick-view (PlayerSheet) data, computed for the tapped player ---
+  const today = new Date().toISOString().slice(0, 10)
+
+  const playerHistory = useMemo(() => {
+    if (!selectedPlayer) return []
+    const entries: Array<{
+      rawDate: string; jNumber?: number; isHome: boolean
+      oppName: string; team: typeof clubTeamsInPhase[0]; date: string; isPast: boolean
+    }> = []
+    for (const t of clubTeamsInPhase) {
+      const mdInGroup = new Set(
+        matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
+      )
+      for (const g of games) {
+        if ((g.homeTeamId !== t.id && g.awayTeamId !== t.id) || !mdInGroup.has(g.matchDayId)) continue
+        const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
+        if (!sel?.playerIds.includes(selectedPlayer.id)) continue
+        const md = matchDays.find((md) => md.id === g.matchDayId)
+        if (!md) continue
+        const isHome = g.homeTeamId === t.id
+        const oppTeam = teams.find((ot) => ot.id === (isHome ? g.awayTeamId : g.homeTeamId))
+        entries.push({
+          rawDate: md.date,
+          jNumber: md.number,
+          isHome,
+          oppName: oppTeam ? getTeamName(oppTeam, clubs) : '—',
+          team: t,
+          date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+            day: 'numeric', month: 'short',
+          }),
+          isPast: md.date < today,
+        })
+      }
+    }
+    return entries.sort((a, b) => a.rawDate.localeCompare(b.rawDate))
+  }, [selectedPlayer, clubTeamsInPhase, matchDays, games, gameSelections, teams, clubs, today])
+
+  const brulageInfo = useMemo(() => {
+    if (!selectedPlayer || !team) return null
+    const info = computeBrulage(selectedPlayer.id, clubTeamsInPhase, matchDays, games, gameSelections)
+    if (!info.burnedIntoTeamId) return null
+    return teams.find((t) => t.id === info.burnedIntoTeamId) ?? null
+  }, [selectedPlayer, team, clubTeamsInPhase, matchDays, games, gameSelections, teams])
+
   useEffect(() => {
     if (team) navigation.setOptions({ title: getTeamName(team, clubs) })
   }, [team, clubs, navigation])
@@ -106,10 +163,18 @@ export default function TeamDetailScreen() {
 
   function togglePlayer(pid: string) {
     const current = team!.playerIds
-    const next = current.includes(pid)
+    const removing = current.includes(pid)
+    const next = removing
       ? current.filter((x) => x !== pid)
       : [...current, pid]
-    updateTeam(team!.id, { playerIds: next })
+    // Dropping the current captain clears the captaincy.
+    const patch: { playerIds: string[]; captainId?: string } = { playerIds: next }
+    if (removing && pid === team!.captainId) patch.captainId = ''
+    updateTeam(team!.id, patch)
+  }
+
+  function setCaptain(pid: string) {
+    updateTeam(team!.id, { captainId: team!.captainId === pid ? '' : pid })
   }
 
   function saveWhatsApp() {
@@ -124,11 +189,21 @@ export default function TeamDetailScreen() {
 
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: team.color ?? colors.accent }]}>
-          <Text style={styles.bannerName}>{getTeamName(team, clubs)}</Text>
-          {division && (
-            <View style={styles.levelBadgeWrap}>
-              <Text style={styles.levelBadge}>{division.displayName}</Text>
-            </View>
+          <View style={styles.bannerText}>
+            <Text style={styles.bannerName}>{getTeamName(team, clubs)}</Text>
+            {division && (
+              <View style={styles.levelBadgeWrap}>
+                <Text style={styles.levelBadge}>{division.displayName}</Text>
+              </View>
+            )}
+          </View>
+          {club && (
+            <ClubLogo
+              clubId={club.id}
+              logoUpdatedAt={club.logoUpdatedAt}
+              name={club.displayName}
+              size={48}
+            />
           )}
         </View>
 
@@ -192,10 +267,14 @@ export default function TeamDetailScreen() {
         <View style={styles.sectionList}>
           <Text style={styles.sectionListTitle}>Joueurs ({members.length})</Text>
           {members.map((p) => (
-            <View key={p.id} style={styles.playerRow}>
+            <TouchableOpacity
+              key={p.id}
+              style={styles.playerRow}
+              onPress={() => setSelectedPlayer(p)}
+            >
               <Text style={styles.playerName}>{p.firstName} {p.lastName}</Text>
               {p.id === team.captainId && <Text style={styles.badge}>Cap.</Text>}
-            </View>
+            </TouchableOpacity>
           ))}
           {members.length === 0 && (
             <Text style={[styles.empty, { paddingHorizontal: 16, paddingBottom: 16 }]}>
@@ -241,6 +320,39 @@ export default function TeamDetailScreen() {
 
       </ScrollView>
 
+      {/* Player quick view */}
+      {selectedPlayer && (
+        <PlayerSheet
+          player={selectedPlayer}
+          phaseLabel={phase ? `Saison ${phase.displayName}` : undefined}
+          phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
+          gamesPlayed={playerHistory.filter((e) => e.isPast).length}
+          gamesTotal={games.filter((g) => {
+            if (g.homeTeamId !== team.id && g.awayTeamId !== team.id) return false
+            const md = matchDays.find((m) => m.id === g.matchDayId)
+            return !!md && md.date < today
+          }).length}
+          team={team}
+          brulageTeam={brulageInfo}
+          history={playerHistory.map(
+            (e): PlayerHistoryEntry => ({
+              jNumber: e.jNumber,
+              icon: e.isHome ? 'home' : 'paper-plane-outline',
+              text: e.oppName,
+              team: e.team,
+              date: e.date,
+              isPast: e.isPast,
+            }),
+          )}
+          onClose={() => setSelectedPlayer(null)}
+          onProfile={() => {
+            const p = selectedPlayer
+            setSelectedPlayer(null)
+            router.push({ pathname: '/(tabs)/equipes/player-detail', params: { id: p.id } })
+          }}
+        />
+      )}
+
       {/* Roster picker modal (captain only) */}
       {isCaptain && (
         <Modal
@@ -251,7 +363,10 @@ export default function TeamDetailScreen() {
         >
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Composition</Text>
+              <View>
+                <Text style={styles.modalTitle}>Composition</Text>
+                <Text style={styles.modalSubtitle}>Touchez ★ pour le capitaine</Text>
+              </View>
               <TouchableOpacity onPress={() => setShowRosterPicker(false)}>
                 <Text style={styles.modalClose}>Fermer</Text>
               </TouchableOpacity>
@@ -262,6 +377,7 @@ export default function TeamDetailScreen() {
               contentContainerStyle={styles.listContent}
               renderItem={({ item: p }) => {
                 const selected = team.playerIds.includes(p.id)
+                const isCap = p.id === team.captainId
                 return (
                   <TouchableOpacity
                     style={[styles.pickerRow, selected && styles.pickerRowSelected]}
@@ -271,7 +387,19 @@ export default function TeamDetailScreen() {
                     <Text style={[styles.playerName, selected && styles.pickerNameSelected]}>
                       {p.firstName} {p.lastName}
                     </Text>
-                    {p.id === team.captainId && <Text style={styles.badge}>Cap.</Text>}
+                    {selected && (
+                      <TouchableOpacity
+                        onPress={() => setCaptain(p.id)}
+                        hitSlop={8}
+                        style={styles.captainBtn}
+                      >
+                        <Ionicons
+                          name={isCap ? 'star' : 'star-outline'}
+                          size={20}
+                          color={isCap ? colors.warning : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
                 )
               }}
@@ -288,7 +416,14 @@ const styles = StyleSheet.create({
   scroll: { gap: 12, paddingBottom: 24 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
 
-  banner: { padding: 24, gap: 8 },
+  banner: {
+    padding: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  bannerText: { flex: 1, gap: 8 },
   bannerName: { fontSize: 24, fontWeight: '700', color: '#fff' },
   levelBadgeWrap: { alignSelf: 'flex-start' },
   levelBadge: {
@@ -352,9 +487,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.accent,
     backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 6,
   },
   empty: { fontSize: 14, color: colors.textSecondary },
   infoText: { fontSize: 14, color: colors.textPrimary },
@@ -426,6 +561,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary },
+  modalSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   modalClose: { fontSize: 15, color: colors.accent },
   listContent: { padding: 16, gap: 1 },
 
@@ -445,4 +581,5 @@ const styles = StyleSheet.create({
   pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
   pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
   pickerNameSelected: { fontWeight: '600' },
+  captainBtn: { marginLeft: 'auto', padding: 2 },
 })
