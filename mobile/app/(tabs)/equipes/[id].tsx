@@ -1,6 +1,6 @@
 import {
   ScrollView, View, Text, StyleSheet, SafeAreaView,
-  TouchableOpacity, Modal, FlatList, Linking, TextInput,
+  TouchableOpacity, Modal, FlatList, Linking, TextInput, Alert,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
@@ -173,8 +173,19 @@ export default function TeamDetailScreen() {
     updateTeam(team!.id, patch)
   }
 
-  function setCaptain(pid: string) {
-    updateTeam(team!.id, { captainId: team!.captainId === pid ? '' : pid })
+  function promptSetCaptain(p: Player) {
+    if (p.id === team!.captainId) return
+    const apply = () => updateTeam(team!.id, { captainId: p.id })
+    const current = players.find((pl) => pl.id === team!.captainId)
+    if (!current) { apply(); return }
+    Alert.alert(
+      'Changer de capitaine ?',
+      `${p.firstName} ${p.lastName} deviendra capitaine. ${current.firstName} ${current.lastName} perdra la gestion de l'équipe.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Confirmer', onPress: apply },
+      ],
+    )
   }
 
   function saveWhatsApp() {
@@ -365,7 +376,7 @@ export default function TeamDetailScreen() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Composition</Text>
-                <Text style={styles.modalSubtitle}>Touchez ★ pour le capitaine</Text>
+                <Text style={styles.modalSubtitle}>Touchez « Capitaine » pour le définir</Text>
               </View>
               <TouchableOpacity onPress={() => setShowRosterPicker(false)}>
                 <Text style={styles.modalClose}>Fermer</Text>
@@ -388,17 +399,19 @@ export default function TeamDetailScreen() {
                       {p.firstName} {p.lastName}
                     </Text>
                     {selected && (
-                      <TouchableOpacity
-                        onPress={() => setCaptain(p.id)}
-                        hitSlop={8}
-                        style={styles.captainBtn}
-                      >
-                        <Ionicons
-                          name={isCap ? 'star' : 'star-outline'}
-                          size={20}
-                          color={isCap ? colors.warning : colors.textSecondary}
-                        />
-                      </TouchableOpacity>
+                      isCap ? (
+                        <View style={[styles.capChip, styles.capChipActive]}>
+                          <Text style={styles.capChipActiveText}>Capitaine</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => promptSetCaptain(p)}
+                          hitSlop={8}
+                          style={[styles.capChip, styles.capChipGhost]}
+                        >
+                          <Text style={styles.capChipGhostText}>Capitaine</Text>
+                        </TouchableOpacity>
+                      )
                     )}
                   </TouchableOpacity>
                 )
@@ -581,5 +594,16 @@ const styles = StyleSheet.create({
   pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
   pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
   pickerNameSelected: { fontWeight: '600' },
-  captainBtn: { marginLeft: 'auto', padding: 2 },
+  // Captain chip — same family as the roster "Cap." badge (accent on light tint),
+  // with a neutral ghost variant for the "tap to assign" state. No yellow.
+  capChip: {
+    marginLeft: 'auto',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  capChipActive: { backgroundColor: '#eff6ff' },
+  capChipActiveText: { fontSize: 11, fontWeight: '600', color: colors.accent },
+  capChipGhost: { borderWidth: 1, borderColor: colors.border },
+  capChipGhostText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
 })
