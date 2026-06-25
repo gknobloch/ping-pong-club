@@ -1,4 +1,5 @@
 import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
@@ -14,12 +15,13 @@ const STATUS_LABELS = {
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { players, teams, clubs, phases } = useAppData()
+  const { players, teams, clubs, phases, seasons } = useAppData()
   const navigation = useNavigation()
   const router = useRouter()
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
+  const activeSeason = seasons.find((s) => s.isActive)
 
   const activePhase = phases.find((p) => p.isActive && !p.isArchived)
   const playerTeams = teams.filter(
@@ -75,10 +77,10 @@ export default function PlayerDetailScreen() {
           )}
         </View>
 
-        {/* Active phase teams */}
+        {/* Active phase teams — list style, aligned with the team detail roster */}
         {playerTeams.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Équipe</Text>
+          <View style={styles.sectionList}>
+            <Text style={styles.sectionListTitle}>Équipe</Text>
             {playerTeams.map((t) => (
               <View key={t.id} style={styles.teamRow}>
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
@@ -94,8 +96,16 @@ export default function PlayerDetailScreen() {
           style={styles.matchesBtn}
           onPress={() => router.push({ pathname: '/mes-matchs', params: { playerId: player.id } })}
         >
-          <Text style={styles.matchesBtnText}>Matchs</Text>
-          <Text style={styles.matchesBtnChevron}>›</Text>
+          <View style={styles.matchesLeft}>
+            <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            <View>
+              <Text style={styles.matchesTitle}>Matchs</Text>
+              {activeSeason ? (
+                <Text style={styles.matchesSub} numberOfLines={1}>Saison {activeSeason.displayName}</Text>
+              ) : null}
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
       </ScrollView>
@@ -140,6 +150,8 @@ const styles = StyleSheet.create({
   statusBadgeMuted: { backgroundColor: '#f1f5f9' },
   statusText: { fontSize: 12, fontWeight: '600', color: '#16a34a' },
   statusTextMuted: { color: colors.textSecondary },
+
+  // Padded section (Informations)
   section: {
     backgroundColor: colors.card,
     marginHorizontal: 16,
@@ -156,6 +168,27 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+
+  // List-style section (Équipe) — matches the team detail roster
+  sectionList: {
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  sectionListTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   infoLabel: { fontSize: 14, color: colors.textSecondary },
   infoValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
@@ -164,13 +197,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   colorDot: { width: 10, height: 10, borderRadius: 5 },
   teamName: { flex: 1, fontSize: 15, color: colors.textPrimary },
-  cap: { fontSize: 11, fontWeight: '600', color: colors.accent },
+  cap: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.accent,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+
+  // Matches button — mirrors the Accueil "Tous mes matchs" card
   matchesBtn: {
     marginHorizontal: 16,
     flexDirection: 'row',
@@ -180,9 +224,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 14,
   },
-  matchesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-  matchesBtnChevron: { fontSize: 22, color: colors.textSecondary },
+  matchesLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
+  matchesTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  matchesSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 })

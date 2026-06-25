@@ -63,6 +63,20 @@ function AuthedRoutes() {
             headerBackButtonDisplayMode: 'minimal',
           }}
         />
+        {/* Player detail — on the root stack so it always gets a back button,
+            whatever tab/screen opened it (Joueurs, Équipes, a quick view…). */}
+        <Stack.Screen
+          name="player/[id]"
+          options={{
+            headerShown: true,
+            title: 'Joueur',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '600' },
+            headerBackTitle: '',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
       </Stack.Protected>
     </Stack>
   )

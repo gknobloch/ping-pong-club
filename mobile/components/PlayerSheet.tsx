@@ -65,7 +65,7 @@ export function PlayerSheet({
   const router = useRouter()
 
   const openProfile =
-    onProfile ?? (() => { onClose(); router.push(`/(tabs)/joueurs/${player.id}`) })
+    onProfile ?? (() => { onClose(); router.push(`/player/${player.id}`) })
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>

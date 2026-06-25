@@ -9,15 +9,15 @@ import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { Switcher } from '@/components/Switcher'
-import { TeamBadge } from '@/components/TeamBadge'
-import { todayIso } from '@/utils/weeks'
+import { MatchHeader } from '@/components/MatchHeader'
 import type { Game, MatchDay, Team } from '@shared/types'
 
 // ---------------------------------------------------------------------------
-// Player match list — a player's matches for a phase, aligned with the
-// Équipes / Journées screens: a < > phase switcher, then a team-style match
-// list. Each row opens the match detail (like a Journées card). Games played
-// for a team other than the one the player is rostered on are tagged "Renfort".
+// Player match list — the games a player was selected for in a phase, aligned
+// with the Équipes / Journées screens: a < > phase switcher, then the regular
+// match cards (MatchHeader, no availability). Each card opens the match detail.
+// Games played for a team other than the player's rostered one are tagged
+// "Renfort".
 //
 // Defaults to the logged-in player (Accueil → "Tous mes matchs"); pass a
 // `playerId` param to show any player's matches (Joueur detail → "Matchs").
@@ -28,10 +28,9 @@ export default function MesMatchsScreen() {
   const { playerId } = useLocalSearchParams<{ playerId?: string }>()
   const { user } = useAuth()
   const {
-    clubs, teams, players, matchDays, games, phases, gameSelections, refreshing, refresh,
+    clubs, teams, players, matchDays, games, phases, divisions, gameSelections, refreshing, refresh,
   } = useAppData()
 
-  const today = todayIso()
   // The player whose matches we show — the param, else the logged-in player.
   const targetPlayerId = playerId ?? (user?.isPlayer ? user.id : undefined)
   const targetPlayer = useMemo(
@@ -40,6 +39,7 @@ export default function MesMatchsScreen() {
   )
   const targetClubId = targetPlayer?.clubId
   const mdMap = useMemo(() => new Map(matchDays.map((md) => [md.id, md])), [matchDays])
+  const divMap = useMemo(() => new Map(divisions.map((d) => [d.id, d])), [divisions])
 
   // Title: "Mes matchs" for the current user, the player's name otherwise.
   useEffect(() => {
@@ -98,8 +98,9 @@ export default function MesMatchsScreen() {
     if (p) setPhaseId(p.id)
   }
 
-  // The player's games for the selected phase: every game of their rostered
-  // team, plus any game they were fielded in for another team of their club.
+  // The player's games for the selected phase: only the games they were
+  // selected for, across any team of their club. A game for a team other than
+  // the one they're rostered on is flagged as a renfort.
   const playerGames = useMemo(() => {
     if (!phase || !targetPlayerId) return [] as { game: Game; team: Team; md: MatchDay; isRenfort: boolean }[]
     const assigned = teamByPhase.get(phase.id)
@@ -112,10 +113,8 @@ export default function MesMatchsScreen() {
       const isAssigned = assigned ? t.id === assigned.id : false
       for (const g of games) {
         if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) continue
-        if (!isAssigned) {
-          const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
-          if (!sel?.playerIds.includes(targetPlayerId)) continue
-        }
+        const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
+        if (!sel?.playerIds.includes(targetPlayerId)) continue
         const md = mdMap.get(g.matchDayId)
         if (!md || seen.has(g.id)) continue
         seen.add(g.id)
@@ -154,55 +153,32 @@ export default function MesMatchsScreen() {
             {playerGames.length === 0 ? (
               <Text style={styles.empty}>Aucun match pour cette phase.</Text>
             ) : (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Matchs ({playerGames.length})</Text>
-                {playerGames.map(({ game, team, md, isRenfort }) => {
-                  const isHome = game.homeTeamId === team.id
-                  const isPast = md.date < today
-                  const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                  })
-                  return (
-                    <TouchableOpacity
-                      key={game.id}
-                      style={styles.gameBlock}
-                      onPress={() =>
-                        router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: team.id } })
-                      }
-                    >
-                      <View style={styles.gameHeader}>
-                        <View style={styles.gameLeft}>
-                          <Text style={[styles.gameJ, isPast && styles.gameJPast]}>J{md.number}</Text>
-                          <Ionicons
-                            name={isHome ? 'home' : 'paper-plane-outline'}
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text style={styles.gameOpponent} numberOfLines={1}>{opponentName(game, team)}</Text>
-                        </View>
-                        <View style={styles.gameRight}>
-                          <Text style={styles.gameDate}>{dateLabel}</Text>
-                          {game.time && <Text style={styles.gameTime}>{game.time}</Text>}
-                        </View>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color={colors.textSecondary}
-                          style={styles.chevron}
-                        />
-                      </View>
-                      <View style={styles.badgeRow}>
-                        <TeamBadge color={team.color} label={`Équipe ${team.number}`} />
-                        {isRenfort && (
-                          <View style={styles.renfortTag}>
-                            <Text style={styles.renfortText}>Renfort</Text>
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
+              playerGames.map(({ game, team, md, isRenfort }) => (
+                <TouchableOpacity
+                  key={game.id}
+                  style={styles.card}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push({ pathname: '/match/[id]', params: { id: game.id, teamId: team.id } })
+                  }
+                >
+                  <View style={styles.cardBody}>
+                    <MatchHeader
+                      matchDayNumber={md.number}
+                      divisionLabel={divMap.get(team.divisionId)?.displayName}
+                      teamColor={team.color}
+                      teamNumber={team.number}
+                      isHome={game.homeTeamId === team.id}
+                      teamName={getTeamName(team, clubs)}
+                      opponentName={opponentName(game, team)}
+                      matchDayDate={md.date}
+                      time={game.time}
+                      label={isRenfort ? 'Renfort' : undefined}
+                    />
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ))
             )}
           </>
         )}
@@ -216,56 +192,15 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 12 },
   empty: { fontSize: 14, color: colors.textSecondary },
 
-  section: {
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
+    padding: 14,
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-
-  gameBlock: { borderTopWidth: 1, borderTopColor: colors.border },
-  gameHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  gameLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
-  gameJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 24 },
-  gameJPast: { color: colors.textSecondary },
-  gameOpponent: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.textPrimary },
-  gameRight: { alignItems: 'flex-end' },
-  gameDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
-  gameTime: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-  chevron: { marginLeft: 2 },
-
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  renfortTag: {
-    backgroundColor: '#fff5f5',
-    borderWidth: 1,
-    borderColor: colors.accent,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  renfortText: { fontSize: 11, fontWeight: '600', color: colors.accent },
+  cardBody: { flex: 1, gap: 8 },
 })

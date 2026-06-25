@@ -64,7 +64,7 @@ export default function JoueursScreen() {
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push(`/(tabs)/joueurs/${p.id}`)}
+              onPress={() => router.push(`/player/${p.id}`)}
             >
               <Avatar
                 playerId={p.id}

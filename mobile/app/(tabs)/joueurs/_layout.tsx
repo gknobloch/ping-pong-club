@@ -11,7 +11,6 @@ export default function JoueursLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'Joueurs' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Joueur' }} />
     </Stack>
   )
 }
