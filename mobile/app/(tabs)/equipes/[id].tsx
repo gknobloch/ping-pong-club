@@ -32,6 +32,9 @@ export default function TeamDetailScreen() {
   const navigation = useNavigation()
   const router = useRouter()
   const [showRosterPicker, setShowRosterPicker] = useState(false)
+  // Draft line-up edited inside the modal; only committed on "Enregistrer".
+  const [draftPlayerIds, setDraftPlayerIds] = useState<string[]>([])
+  const [draftCaptainId, setDraftCaptainId] = useState<string>('')
   const [editingWhatsApp, setEditingWhatsApp] = useState(false)
   const [whatsappDraft, setWhatsappDraft] = useState('')
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
@@ -161,46 +164,58 @@ export default function TeamDetailScreen() {
     )
   }
 
-  function togglePlayer(pid: string) {
-    const current = team!.playerIds
-    const removing = current.includes(pid)
-    const next = removing
-      ? current.filter((x) => x !== pid)
-      : [...current, pid]
-    // Removing the current captain leaves the team with no captain — confirm first.
-    if (removing && pid === team!.captainId) {
-      const p = players.find((pl) => pl.id === pid)
-      const name = p ? `${p.firstName} ${p.lastName}` : 'Ce joueur'
+  function openRosterPicker() {
+    setDraftPlayerIds(team!.playerIds)
+    setDraftCaptainId(team!.captainId)
+    setShowRosterPicker(true)
+  }
+
+  function toggleDraftPlayer(pid: string) {
+    const removing = draftPlayerIds.includes(pid)
+    setDraftPlayerIds(removing ? draftPlayerIds.filter((x) => x !== pid) : [...draftPlayerIds, pid])
+    // Removing the draft captain leaves the draft without one (warned on save).
+    if (removing && pid === draftCaptainId) setDraftCaptainId('')
+  }
+
+  function toggleDraftCaptain(pid: string) {
+    setDraftCaptainId((prev) => (prev === pid ? '' : pid))
+  }
+
+  function saveRoster() {
+    const apply = () => {
+      updateTeam(team!.id, { playerIds: draftPlayerIds, captainId: draftCaptainId })
+      setShowRosterPicker(false)
+    }
+
+    // No captain selected — warn before saving.
+    if (!draftCaptainId) {
       Alert.alert(
-        'Retirer le capitaine ?',
-        `${name} est capitaine. En le retirant, l'équipe n'aura plus de capitaine.`,
+        'Aucun capitaine',
+        "L'équipe n'aura plus de capitaine. Enregistrer quand même ?",
         [
           { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Retirer',
-            style: 'destructive',
-            onPress: () => updateTeam(team!.id, { playerIds: next, captainId: '' }),
-          },
+          { text: 'Enregistrer', style: 'destructive', onPress: apply },
         ],
       )
       return
     }
-    updateTeam(team!.id, { playerIds: next })
-  }
 
-  function promptSetCaptain(p: Player) {
-    if (p.id === team!.captainId) return
-    const apply = () => updateTeam(team!.id, { captainId: p.id })
-    const current = players.find((pl) => pl.id === team!.captainId)
-    if (!current) { apply(); return }
-    Alert.alert(
-      'Changer de capitaine ?',
-      `${p.firstName} ${p.lastName} deviendra capitaine. ${current.firstName} ${current.lastName} perdra la gestion de l'équipe.`,
-      [
+    // Captain changed — warn that the outgoing captain loses team management.
+    if (draftCaptainId !== team!.captainId) {
+      const next = players.find((p) => p.id === draftCaptainId)
+      const current = players.find((p) => p.id === team!.captainId)
+      const nextName = next ? `${next.firstName} ${next.lastName}` : 'Ce joueur'
+      const msg = current
+        ? `${nextName} deviendra capitaine. ${current.firstName} ${current.lastName} perdra la gestion de l'équipe.`
+        : `${nextName} deviendra capitaine.`
+      Alert.alert('Changer de capitaine ?', msg, [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Confirmer', onPress: apply },
-      ],
-    )
+      ])
+      return
+    }
+
+    apply()
   }
 
   function saveWhatsApp() {
@@ -308,7 +323,7 @@ export default function TeamDetailScreen() {
             </Text>
           )}
           {isCaptain && (
-            <TouchableOpacity style={styles.addBtn} onPress={() => setShowRosterPicker(true)}>
+            <TouchableOpacity style={styles.addBtn} onPress={openRosterPicker}>
               <Text style={styles.addBtnText}>Modifier la composition</Text>
             </TouchableOpacity>
           )}
@@ -389,25 +404,21 @@ export default function TeamDetailScreen() {
         >
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Composition</Text>
-                <Text style={styles.modalSubtitle}>Touchez ★ pour le capitaine</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowRosterPicker(false)}>
-                <Text style={styles.modalClose}>Fermer</Text>
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Composition</Text>
+              <Text style={styles.modalSubtitle}>Touchez ★ pour le capitaine</Text>
             </View>
             <FlatList
+              style={styles.modalList}
               data={eligiblePlayers}
               keyExtractor={(p) => p.id}
               contentContainerStyle={styles.listContent}
               renderItem={({ item: p }) => {
-                const selected = team.playerIds.includes(p.id)
-                const isCap = p.id === team.captainId
+                const selected = draftPlayerIds.includes(p.id)
+                const isCap = p.id === draftCaptainId
                 return (
                   <TouchableOpacity
                     style={[styles.pickerRow, selected && styles.pickerRowSelected]}
-                    onPress={() => togglePlayer(p.id)}
+                    onPress={() => toggleDraftPlayer(p.id)}
                   >
                     <Text style={styles.pickerCheck}>{selected ? '✓' : ''}</Text>
                     <Text style={[styles.playerName, selected && styles.pickerNameSelected]}>
@@ -415,7 +426,7 @@ export default function TeamDetailScreen() {
                     </Text>
                     {selected && (
                       <TouchableOpacity
-                        onPress={() => promptSetCaptain(p)}
+                        onPress={() => toggleDraftCaptain(p.id)}
                         hitSlop={8}
                         style={styles.captainBtn}
                       >
@@ -430,6 +441,17 @@ export default function TeamDetailScreen() {
                 )
               }}
             />
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.footerBtn, styles.footerCancel]}
+                onPress={() => setShowRosterPicker(false)}
+              >
+                <Text style={styles.footerCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.footerBtn, styles.footerSave]} onPress={saveRoster}>
+                <Text style={styles.footerSaveText}>Enregistrer</Text>
+              </TouchableOpacity>
+            </View>
           </SafeAreaView>
         </Modal>
       )}
@@ -579,17 +601,28 @@ const styles = StyleSheet.create({
   // Modal shared (roster picker)
   modalContainer: { flex: 1, backgroundColor: colors.bg },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary },
   modalSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  modalClose: { fontSize: 15, color: colors.accent },
+  modalList: { flex: 1 },
   listContent: { padding: 16, gap: 1 },
+
+  // Cancel / Save footer — mirrors the PlayerSheet footer.
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  footerBtn: { flex: 1, borderRadius: 10, padding: 14, alignItems: 'center' },
+  footerCancel: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  footerSave: { backgroundColor: colors.accent },
+  footerCancelText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  footerSaveText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 
   // Roster picker rows
   pickerRow: {
