@@ -187,15 +187,12 @@ export default function TeamDetailScreen() {
       setShowRosterPicker(false)
     }
 
-    // No captain selected — warn before saving.
+    // A captain is required — block saving without one.
     if (!draftCaptainId) {
       Alert.alert(
-        'Aucun capitaine',
-        "L'équipe n'aura plus de capitaine. Enregistrer quand même ?",
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Enregistrer', style: 'destructive', onPress: apply },
-        ],
+        'Capitaine requis',
+        "Veuillez désigner un capitaine (★) avant d'enregistrer.",
+        [{ text: 'OK' }],
       )
       return
     }
@@ -424,7 +421,7 @@ export default function TeamDetailScreen() {
                     <Text style={[styles.playerName, selected && styles.pickerNameSelected]}>
                       {p.firstName} {p.lastName}
                     </Text>
-                    {selected && (
+                    {selected ? (
                       <TouchableOpacity
                         onPress={() => toggleDraftCaptain(p.id)}
                         hitSlop={8}
@@ -436,6 +433,9 @@ export default function TeamDetailScreen() {
                           color={isCap ? colors.accent : colors.textSecondary}
                         />
                       </TouchableOpacity>
+                    ) : (
+                      // Reserve the star slot so every row has the same height.
+                      <View style={styles.captainBtn} />
                     )}
                   </TouchableOpacity>
                 )
@@ -640,5 +640,11 @@ const styles = StyleSheet.create({
   pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
   pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
   pickerNameSelected: { fontWeight: '600' },
-  captainBtn: { marginLeft: 'auto', padding: 2 },
+  captainBtn: {
+    marginLeft: 'auto',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })
