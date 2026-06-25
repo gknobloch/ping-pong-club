@@ -1,5 +1,6 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
@@ -56,10 +57,15 @@ export function PlayerSheet({
   brulageTeam: Team | null
   history: PlayerHistoryEntry[]
   onClose: () => void
-  /** When provided, the footer shows "Fermer" + "Profil". Otherwise just "Fermer". */
+  /** Overrides the "Profil" action. When omitted, it closes the sheet and opens
+   *  the player's profile in the Joueurs tab. The button is always shown. */
   onProfile?: () => void
 }) {
   const { clubs } = useAppData()
+  const router = useRouter()
+
+  const openProfile =
+    onProfile ?? (() => { onClose(); router.push(`/(tabs)/joueurs/${player.id}`) })
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -149,20 +155,14 @@ export function PlayerSheet({
               </View>
             )}
 
-            {onProfile ? (
-              <View style={s.footer}>
-                <TouchableOpacity style={[s.footerBtn, s.footerClose]} onPress={onClose}>
-                  <Text style={s.footerCloseTxt}>Fermer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.footerBtn, s.footerProfile]} onPress={onProfile}>
-                  <Text style={s.footerProfileTxt}>Profil</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={s.closeBtn} onPress={onClose}>
-                <Text style={s.closeTxt}>Fermer</Text>
+            <View style={s.footer}>
+              <TouchableOpacity style={[s.footerBtn, s.footerClose]} onPress={onClose}>
+                <Text style={s.footerCloseTxt}>Fermer</Text>
               </TouchableOpacity>
-            )}
+              <TouchableOpacity style={[s.footerBtn, s.footerProfile]} onPress={openProfile}>
+                <Text style={s.footerProfileTxt}>Profil</Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </View>
       </Pressable>
@@ -219,10 +219,4 @@ const s = StyleSheet.create({
   footerProfile: { backgroundColor: colors.accent },
   footerCloseTxt: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   footerProfileTxt: { fontSize: 15, fontWeight: '600', color: '#fff' },
-
-  closeBtn: {
-    backgroundColor: colors.bg, borderRadius: 10,
-    padding: 14, alignItems: 'center', marginTop: 20,
-  },
-  closeTxt: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
 })

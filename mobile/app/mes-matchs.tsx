@@ -2,8 +2,8 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, RefreshControl,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useMemo, useState } from 'react'
-import { useRouter } from 'expo-router'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
@@ -14,49 +14,67 @@ import { todayIso } from '@/utils/weeks'
 import type { Game, MatchDay, Team } from '@shared/types'
 
 // ---------------------------------------------------------------------------
-// Mes matchs — the player's matches for a phase, aligned with the Équipes /
-// Journées screens: a < > phase switcher, then a team-style match list.
-// Each row opens the match detail (like a Journées card). Games played for a
-// team other than the one the player is rostered on are tagged "Renfort".
-// Reached from the Accueil dashboard's "Tous mes matchs".
+// Player match list — a player's matches for a phase, aligned with the
+// Équipes / Journées screens: a < > phase switcher, then a team-style match
+// list. Each row opens the match detail (like a Journées card). Games played
+// for a team other than the one the player is rostered on are tagged "Renfort".
+//
+// Defaults to the logged-in player (Accueil → "Tous mes matchs"); pass a
+// `playerId` param to show any player's matches (Joueur detail → "Matchs").
 // ---------------------------------------------------------------------------
 export default function MesMatchsScreen() {
   const router = useRouter()
+  const navigation = useNavigation()
+  const { playerId } = useLocalSearchParams<{ playerId?: string }>()
   const { user } = useAuth()
   const {
     clubs, teams, players, matchDays, games, phases, gameSelections, refreshing, refresh,
   } = useAppData()
 
   const today = todayIso()
-  const myPlayerId = user?.isPlayer ? user.id : undefined
-  const myClubId = useMemo(
-    () => players.find((p) => p.id === myPlayerId)?.clubId,
-    [players, myPlayerId],
+  // The player whose matches we show — the param, else the logged-in player.
+  const targetPlayerId = playerId ?? (user?.isPlayer ? user.id : undefined)
+  const targetPlayer = useMemo(
+    () => players.find((p) => p.id === targetPlayerId),
+    [players, targetPlayerId],
   )
+  const targetClubId = targetPlayer?.clubId
   const mdMap = useMemo(() => new Map(matchDays.map((md) => [md.id, md])), [matchDays])
 
+  // Title: "Mes matchs" for the current user, the player's name otherwise.
+  useEffect(() => {
+    const isSelf = targetPlayerId === user?.id
+    navigation.setOptions({
+      title: isSelf
+        ? 'Mes matchs'
+        : targetPlayer
+          ? `${targetPlayer.firstName} ${targetPlayer.lastName}`
+          : 'Matchs',
+    })
+  }, [navigation, targetPlayerId, targetPlayer, user?.id])
+
   // The team the player is rostered on, per phase.
-  const myTeamByPhase = useMemo(() => {
+  const teamByPhase = useMemo(() => {
     const map = new Map<string, Team>()
-    if (myPlayerId) {
-      for (const t of teams) if (t.playerIds.includes(myPlayerId)) map.set(t.phaseId, t)
+    if (targetPlayerId) {
+      for (const t of teams) if (t.playerIds.includes(targetPlayerId)) map.set(t.phaseId, t)
     }
     return map
-  }, [teams, myPlayerId])
+  }, [teams, targetPlayerId])
 
   // Phases the player took part in (rostered or fielded as a renfort).
   const participated = useMemo(() => {
     const s = new Set<string>()
-    for (const phaseId of myTeamByPhase.keys()) s.add(phaseId)
-    if (myPlayerId) {
+    for (const phaseId of teamByPhase.keys()) s.add(phaseId)
+    if (targetPlayerId) {
       for (const sel of gameSelections) {
-        if (!sel.playerIds.includes(myPlayerId)) continue
+        if (!sel.playerIds.includes(targetPlayerId)) continue
         const t = teams.find((x) => x.id === sel.teamId)
         if (t) s.add(t.phaseId)
       }
     }
     return s
-  }, [myTeamByPhase, gameSelections, teams, myPlayerId])
+  }, [teamByPhase, gameSelections, teams, targetPlayerId])
 
   // Phases for the < > switcher (chronological by name); default active.
   const orderedPhases = useMemo(
@@ -82,11 +100,11 @@ export default function MesMatchsScreen() {
 
   // The player's games for the selected phase: every game of their rostered
   // team, plus any game they were fielded in for another team of their club.
-  const myGames = useMemo(() => {
-    if (!phase || !myPlayerId) return [] as { game: Game; team: Team; md: MatchDay; isRenfort: boolean }[]
-    const assigned = myTeamByPhase.get(phase.id)
+  const playerGames = useMemo(() => {
+    if (!phase || !targetPlayerId) return [] as { game: Game; team: Team; md: MatchDay; isRenfort: boolean }[]
+    const assigned = teamByPhase.get(phase.id)
     const phaseTeams = teams.filter(
-      (t) => t.phaseId === phase.id && (myClubId ? t.clubId === myClubId : t.id === assigned?.id),
+      (t) => t.phaseId === phase.id && (targetClubId ? t.clubId === targetClubId : t.id === assigned?.id),
     )
     const out: { game: Game; team: Team; md: MatchDay; isRenfort: boolean }[] = []
     const seen = new Set<string>()
@@ -96,7 +114,7 @@ export default function MesMatchsScreen() {
         if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) continue
         if (!isAssigned) {
           const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
-          if (!sel?.playerIds.includes(myPlayerId)) continue
+          if (!sel?.playerIds.includes(targetPlayerId)) continue
         }
         const md = mdMap.get(g.matchDayId)
         if (!md || seen.has(g.id)) continue
@@ -105,7 +123,7 @@ export default function MesMatchsScreen() {
       }
     }
     return out.sort((a, b) => a.md.date.localeCompare(b.md.date))
-  }, [phase, myPlayerId, myClubId, myTeamByPhase, teams, games, gameSelections, mdMap])
+  }, [phase, targetPlayerId, targetClubId, teamByPhase, teams, games, gameSelections, mdMap])
 
   function opponentName(game: Game, team: Team): string {
     const oppId = game.homeTeamId === team.id ? game.awayTeamId : game.homeTeamId
@@ -119,7 +137,7 @@ export default function MesMatchsScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        {!myPlayerId || orderedPhases.length === 0 ? (
+        {!targetPlayerId || orderedPhases.length === 0 ? (
           <Text style={styles.empty}>Aucun match à afficher.</Text>
         ) : (
           <>
@@ -133,12 +151,12 @@ export default function MesMatchsScreen() {
               />
             ) : null}
 
-            {myGames.length === 0 ? (
+            {playerGames.length === 0 ? (
               <Text style={styles.empty}>Aucun match pour cette phase.</Text>
             ) : (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Matchs ({myGames.length})</Text>
-                {myGames.map(({ game, team, md, isRenfort }) => {
+                <Text style={styles.sectionTitle}>Matchs ({playerGames.length})</Text>
+                {playerGames.map(({ game, team, md, isRenfort }) => {
                   const isHome = game.homeTeamId === team.id
                   const isPast = md.date < today
                   const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {

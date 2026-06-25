@@ -1,5 +1,5 @@
 import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking } from 'react-native'
-import { useLocalSearchParams, useNavigation } from 'expo-router'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
@@ -16,6 +16,7 @@ export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { players, teams, clubs, phases } = useAppData()
   const navigation = useNavigation()
+  const router = useRouter()
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
@@ -87,6 +88,15 @@ export default function PlayerDetailScreen() {
             ))}
           </View>
         )}
+
+        {/* Matches — opens the shared player match list for this player */}
+        <TouchableOpacity
+          style={styles.matchesBtn}
+          onPress={() => router.push({ pathname: '/mes-matchs', params: { playerId: player.id } })}
+        >
+          <Text style={styles.matchesBtnText}>Matchs</Text>
+          <Text style={styles.matchesBtnChevron}>›</Text>
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
@@ -161,4 +171,18 @@ const styles = StyleSheet.create({
   colorDot: { width: 10, height: 10, borderRadius: 5 },
   teamName: { flex: 1, fontSize: 15, color: colors.textPrimary },
   cap: { fontSize: 11, fontWeight: '600', color: colors.accent },
+  matchesBtn: {
+    marginHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  matchesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  matchesBtnChevron: { fontSize: 22, color: colors.textSecondary },
 })
