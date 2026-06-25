@@ -167,10 +167,25 @@ export default function TeamDetailScreen() {
     const next = removing
       ? current.filter((x) => x !== pid)
       : [...current, pid]
-    // Dropping the current captain clears the captaincy.
-    const patch: { playerIds: string[]; captainId?: string } = { playerIds: next }
-    if (removing && pid === team!.captainId) patch.captainId = ''
-    updateTeam(team!.id, patch)
+    // Removing the current captain leaves the team with no captain — confirm first.
+    if (removing && pid === team!.captainId) {
+      const p = players.find((pl) => pl.id === pid)
+      const name = p ? `${p.firstName} ${p.lastName}` : 'Ce joueur'
+      Alert.alert(
+        'Retirer le capitaine ?',
+        `${name} est capitaine. En le retirant, l'équipe n'aura plus de capitaine.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Retirer',
+            style: 'destructive',
+            onPress: () => updateTeam(team!.id, { playerIds: next, captainId: '' }),
+          },
+        ],
+      )
+      return
+    }
+    updateTeam(team!.id, { playerIds: next })
   }
 
   function promptSetCaptain(p: Player) {
@@ -376,7 +391,7 @@ export default function TeamDetailScreen() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Composition</Text>
-                <Text style={styles.modalSubtitle}>Touchez « Capitaine » pour le définir</Text>
+                <Text style={styles.modalSubtitle}>Touchez ★ pour le capitaine</Text>
               </View>
               <TouchableOpacity onPress={() => setShowRosterPicker(false)}>
                 <Text style={styles.modalClose}>Fermer</Text>
@@ -399,19 +414,17 @@ export default function TeamDetailScreen() {
                       {p.firstName} {p.lastName}
                     </Text>
                     {selected && (
-                      isCap ? (
-                        <View style={[styles.capChip, styles.capChipActive]}>
-                          <Text style={styles.capChipActiveText}>Capitaine</Text>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => promptSetCaptain(p)}
-                          hitSlop={8}
-                          style={[styles.capChip, styles.capChipGhost]}
-                        >
-                          <Text style={styles.capChipGhostText}>Capitaine</Text>
-                        </TouchableOpacity>
-                      )
+                      <TouchableOpacity
+                        onPress={() => promptSetCaptain(p)}
+                        hitSlop={8}
+                        style={styles.captainBtn}
+                      >
+                        <Ionicons
+                          name={isCap ? 'star' : 'star-outline'}
+                          size={20}
+                          color={isCap ? colors.accent : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
                     )}
                   </TouchableOpacity>
                 )
@@ -594,16 +607,5 @@ const styles = StyleSheet.create({
   pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
   pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
   pickerNameSelected: { fontWeight: '600' },
-  // Captain chip — same family as the roster "Cap." badge (accent on light tint),
-  // with a neutral ghost variant for the "tap to assign" state. No yellow.
-  capChip: {
-    marginLeft: 'auto',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  capChipActive: { backgroundColor: '#eff6ff' },
-  capChipActiveText: { fontSize: 11, fontWeight: '600', color: colors.accent },
-  capChipGhost: { borderWidth: 1, borderColor: colors.border },
-  capChipGhostText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  captainBtn: { marginLeft: 'auto', padding: 2 },
 })
