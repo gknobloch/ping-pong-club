@@ -4,6 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTeamName } from '@/utils/roles'
 import { Switcher } from '@/components/Switcher'
+import { TeamColorBadge } from '@/components/TeamColorBadge'
 import { colors } from '@/constants/colors'
 import { useMemo, useState } from 'react'
 
@@ -62,7 +63,7 @@ export default function EquipesScreen() {
               style={styles.card}
               onPress={() => router.push(`/team/${team.id}`)}
             >
-              <View style={[styles.colorBar, { backgroundColor: team.color ?? colors.accent }]} />
+              <TeamColorBadge color={team.color} number={team.number} size={40} />
               <View style={styles.cardBody}>
                 <Text style={styles.teamName}>{getTeamName(team, clubs)}</Text>
                 {division && <Text style={styles.levelBadge}>{division.displayName}</Text>}
@@ -91,10 +92,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
+    padding: 12,
+    gap: 12,
   },
-  colorBar: { width: 6, alignSelf: 'stretch' },
-  cardBody: { flex: 1, padding: 14, gap: 4 },
+  cardBody: { flex: 1, gap: 4 },
   teamName: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   levelBadge: {
     alignSelf: 'flex-start',

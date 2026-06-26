@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { usePathname } from 'expo-router'
+import { usePathname, useGlobalSearchParams } from 'expo-router'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { colors } from '@/constants/colors'
 
@@ -8,12 +8,15 @@ import { colors } from '@/constants/colors'
 // (detail) stack, so when you drill in no real tab is focused. We derive the
 // section that should stay highlighted from the current path instead — the
 // (detail) group elides from the URL, so e.g. a player detail is "/player/123".
-//   /player/…, /mes-matchs        → Joueurs
+//   /player/…                     → Joueurs
+//   /mes-matchs?playerId=…        → Joueurs (a player's matches, from Joueurs)
+//   /mes-matchs                   → Accueil (the "Tous mes matchs" shortcut)
 //   /team/…  (incl. phase-games)  → Équipes
 //   /match/…                      → Journées
 // This keeps the menu reflecting where you conceptually are (#153).
-function pathToTab(path: string): string {
-  if (path.startsWith('/player') || path.startsWith('/mes-matchs')) return 'joueurs'
+function pathToTab(path: string, hasPlayerId: boolean): string {
+  if (path.startsWith('/mes-matchs')) return hasPlayerId ? 'joueurs' : 'index'
+  if (path.startsWith('/player')) return 'joueurs'
   if (path.startsWith('/team')) return 'equipes'
   if (path.startsWith('/match')) return 'journees'
   if (path.startsWith('/journees')) return 'journees'
@@ -26,7 +29,8 @@ function pathToTab(path: string): string {
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
-  const activeName = pathToTab(usePathname())
+  const { playerId } = useGlobalSearchParams<{ playerId?: string }>()
+  const activeName = pathToTab(usePathname(), !!playerId)
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>

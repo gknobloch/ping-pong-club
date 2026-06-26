@@ -12,21 +12,10 @@ import { sortByName } from '@/utils/sortByName'
 import { computeBrulage } from '@/utils/brulage'
 import { colors } from '@/constants/colors'
 import { ClubLogo } from '@/components/ClubLogo'
+import { TeamColorBadge } from '@/components/TeamColorBadge'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Game, MatchDay, Player } from '@shared/types'
-
-// Pick black or white text for legibility on top of an arbitrary team colour.
-function readableTextOn(hex?: string): string {
-  const c = hex ?? colors.accent
-  const h = c.length === 4 ? `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}` : c
-  const r = parseInt(h.slice(1, 3), 16)
-  const g = parseInt(h.slice(3, 5), 16)
-  const b = parseInt(h.slice(5, 7), 16)
-  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#fff'
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? colors.primary : '#fff'
-}
 
 type GameEntry = Game & { matchDay?: MatchDay }
 
@@ -240,11 +229,7 @@ export default function TeamDetailScreen() {
         {/* Identity header — mirrors the player header: a round team-colour
             badge (the team number) on the left, where a player's avatar sits. */}
         <View style={styles.identityCard}>
-          <View style={[styles.teamBadge, { backgroundColor: team.color ?? colors.accent }]}>
-            <Text style={[styles.teamBadgeNum, { color: readableTextOn(team.color) }]}>
-              {team.number}
-            </Text>
-          </View>
+          <TeamColorBadge color={team.color} number={team.number} size={48} />
           <View style={styles.identityText}>
             <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
             {division && <Text style={styles.levelBadge}>{division.displayName}</Text>}
@@ -491,10 +476,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   identityText: { flex: 1, gap: 6 },
-  // Round team-colour badge that stands in for a player avatar (size 48 to
-  // match Avatar / ClubLogo, so the header lines up across screens).
-  teamBadge: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  teamBadgeNum: { fontSize: 20, fontWeight: '800' },
   teamName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   levelBadge: {
     alignSelf: 'flex-start',
