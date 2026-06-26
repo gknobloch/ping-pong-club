@@ -16,6 +16,18 @@ import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Game, MatchDay, Player } from '@shared/types'
 
+// Pick black or white text for legibility on top of an arbitrary team colour.
+function readableTextOn(hex?: string): string {
+  const c = hex ?? colors.accent
+  const h = c.length === 4 ? `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}` : c
+  const r = parseInt(h.slice(1, 3), 16)
+  const g = parseInt(h.slice(3, 5), 16)
+  const b = parseInt(h.slice(5, 7), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#fff'
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6 ? colors.primary : '#fff'
+}
+
 type GameEntry = Game & { matchDay?: MatchDay }
 
 type PhaseEntry = {
@@ -225,13 +237,16 @@ export default function TeamDetailScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* Identity header — mirrors the player header (no colored banner) */}
+        {/* Identity header — mirrors the player header: a round team-colour
+            badge (the team number) on the left, where a player's avatar sits. */}
         <View style={styles.identityCard}>
+          <View style={[styles.teamBadge, { backgroundColor: team.color ?? colors.accent }]}>
+            <Text style={[styles.teamBadgeNum, { color: readableTextOn(team.color) }]}>
+              {team.number}
+            </Text>
+          </View>
           <View style={styles.identityText}>
-            <View style={styles.nameRow}>
-              <View style={[styles.colorDot, { backgroundColor: team.color ?? colors.accent }]} />
-              <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
-            </View>
+            <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
             {division && <Text style={styles.levelBadge}>{division.displayName}</Text>}
           </View>
           {club && (
@@ -476,13 +491,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   identityText: { flex: 1, gap: 6 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  colorDot: { width: 12, height: 12, borderRadius: 6 },
-  teamName: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  // Round team-colour badge that stands in for a player avatar (size 48 to
+  // match Avatar / ClubLogo, so the header lines up across screens).
+  teamBadge: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  teamBadgeNum: { fontSize: 20, fontWeight: '800' },
+  teamName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   levelBadge: {
     alignSelf: 'flex-start',
-    // Indent to line up with the team name (color dot 12 + nameRow gap 8).
-    marginLeft: 20,
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,

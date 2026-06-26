@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
+import { TabBar } from '@/components/TabBar'
 
 type IconName = ComponentProps<typeof Ionicons>['name']
 
@@ -20,10 +21,8 @@ export default function TabLayout() {
   return (
     <Tabs
       backBehavior="history"
+      tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: colors.tabActive,
-        tabBarInactiveTintColor: colors.tabInactive,
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
         headerStyle: { backgroundColor: colors.primary },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '600' },
