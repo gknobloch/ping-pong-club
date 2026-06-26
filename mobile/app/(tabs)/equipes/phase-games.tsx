@@ -132,7 +132,7 @@ export default function PhaseGamesScreen() {
 
   function openProfile(player: Player) {
     setSelectedPlayer(null)
-    router.push({ pathname: '/(tabs)/equipes/player-detail', params: { id: player.id } })
+    router.push({ pathname: '/player/[id]', params: { id: player.id } })
   }
 
   return (

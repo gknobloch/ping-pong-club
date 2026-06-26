@@ -386,7 +386,7 @@ export default function TeamDetailScreen() {
           onProfile={() => {
             const p = selectedPlayer
             setSelectedPlayer(null)
-            router.push({ pathname: '/(tabs)/equipes/player-detail', params: { id: p.id } })
+            router.push({ pathname: '/player/[id]', params: { id: p.id } })
           }}
         />
       )}
