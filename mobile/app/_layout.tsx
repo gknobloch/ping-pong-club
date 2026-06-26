@@ -4,7 +4,6 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { colors } from '@/constants/colors'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { DataProvider, useAppData } from '@/contexts/DataContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
@@ -36,73 +35,10 @@ function AuthedRoutes() {
         <Stack.Screen name="login" />
       </Stack.Protected>
       <Stack.Protected guard={!loading && isAuthenticated}>
+        {/* The tabs host everything, including the shared detail screens (in the
+            hidden (detail) group), so the tab bar stays visible while drilling
+            in — see app/(tabs)/(detail)/_layout.tsx (#153). */}
         <Stack.Screen name="(tabs)" />
-        {/* The player's full match list, opened from the Accueil dashboard. */}
-        <Stack.Screen
-          name="mes-matchs"
-          options={{
-            headerShown: true,
-            title: 'Mes matchs',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
-        {/* Match detail (availabilities + line-up), opened from Journées. */}
-        <Stack.Screen
-          name="match/[id]"
-          options={{
-            headerShown: true,
-            title: 'Match',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
-        {/* Player detail — on the root stack so it always gets a back button,
-            whatever tab/screen opened it (Joueurs, Équipes, a quick view…). */}
-        <Stack.Screen
-          name="player/[id]"
-          options={{
-            headerShown: true,
-            title: 'Joueur',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
-        {/* Team detail + its games — on the root stack (same reason as player),
-            so they're reachable with a back button from anywhere. */}
-        <Stack.Screen
-          name="team/[id]"
-          options={{
-            headerShown: true,
-            title: 'Équipe',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
-        <Stack.Screen
-          name="team/phase-games"
-          options={{
-            headerShown: true,
-            title: 'Matchs',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '600' },
-            headerBackTitle: '',
-            headerBackButtonDisplayMode: 'minimal',
-          }}
-        />
       </Stack.Protected>
     </Stack>
   )

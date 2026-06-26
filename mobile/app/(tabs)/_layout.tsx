@@ -19,6 +19,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
@@ -57,6 +58,9 @@ export default function TabLayout() {
         name="compte"
         options={{ title: 'Mon Compte', tabBarIcon: tabIcon('person-circle-outline') }}
       />
+      {/* Shared detail screens (player, team, match, match list) — a hidden tab
+          hosting a Stack, so the tab bar stays visible while drilling in (#153). */}
+      <Tabs.Screen name="(detail)" options={{ href: null, headerShown: false }} />
     </Tabs>
   )
 }
