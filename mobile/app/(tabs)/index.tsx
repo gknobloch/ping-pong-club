@@ -15,8 +15,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { canManageTeam, getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
-import { Avatar } from '@/components/Avatar'
-import { ClubLogo } from '@/components/ClubLogo'
+import { PlayerIdentityCard } from '@/components/PlayerIdentityCard'
 import { NextMatchCard } from '@/components/NextMatchCard'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
 import { sortByName } from '@/utils/sortByName'
@@ -180,30 +179,16 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        {/* Identity header */}
-        <View style={styles.welcomeCard}>
-          <Avatar
-            playerId={me?.id ?? user?.id ?? ''}
-            avatarUpdatedAt={me?.avatarUpdatedAt}
-            firstName={me?.firstName ?? user?.firstName}
-            lastName={me?.lastName ?? user?.lastName}
-            size={48}
-          />
-          <View style={styles.welcomeText}>
-            <Text style={styles.identityName} numberOfLines={1}>{displayName}</Text>
-            {myClub ? (
-              <Text style={styles.identityClub} numberOfLines={1}>{myClub.displayName}</Text>
-            ) : null}
-          </View>
-          {myClub ? (
-            <ClubLogo
-              clubId={myClub.id}
-              logoUpdatedAt={myClub.logoUpdatedAt}
-              name={myClub.displayName}
-              size={48}
-            />
-          ) : null}
-        </View>
+        {/* Identity header — shared with the player detail screen */}
+        <PlayerIdentityCard
+          style={styles.welcomeCard}
+          playerId={me?.id ?? user?.id ?? ''}
+          avatarUpdatedAt={me?.avatarUpdatedAt}
+          firstName={me?.firstName ?? user?.firstName}
+          lastName={me?.lastName ?? user?.lastName}
+          name={displayName}
+          club={myClub}
+        />
 
         {/* ── Player dashboard ── */}
         {isPlayer && myActiveTeam && (
@@ -367,14 +352,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: 16, gap: 12 },
-  welcomeCard: {
-    backgroundColor: colors.card, borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: colors.border, marginBottom: 4,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  welcomeText: { flex: 1, gap: 2 },
-  identityName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
-  identityClub: { fontSize: 16, fontWeight: '400', color: colors.textSecondary, textAlign: 'center' },
+  welcomeCard: { marginBottom: 4 },
 
   sectionLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: -4 },
   empty: { fontSize: 14, color: colors.textSecondary },

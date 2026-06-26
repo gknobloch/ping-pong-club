@@ -5,14 +5,7 @@ import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
-import { Avatar } from '@/components/Avatar'
-import { ClubLogo } from '@/components/ClubLogo'
-
-const STATUS_LABELS = {
-  active: 'Actif',
-  pending_validation: 'En attente de validation',
-  archived: 'Archivé',
-}
+import { PlayerIdentityCard } from '@/components/PlayerIdentityCard'
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -49,33 +42,17 @@ export default function PlayerDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Identity header — matches the Accueil welcome header (avatar + club) */}
-        <View style={styles.identityCard}>
-          <Avatar
-            playerId={player.id}
-            avatarUpdatedAt={player.avatarUpdatedAt}
-            firstName={player.firstName}
-            lastName={player.lastName}
-            size={48}
-          />
-          <View style={styles.identityText}>
-            <Text style={styles.identityName} numberOfLines={1}>{player.firstName} {player.lastName}</Text>
-            {club ? <Text style={styles.identityClub} numberOfLines={1}>{club.displayName}</Text> : null}
-            {player.status !== 'active' ? (
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{STATUS_LABELS[player.status] ?? player.status}</Text>
-              </View>
-            ) : null}
-          </View>
-          {club ? (
-            <ClubLogo
-              clubId={club.id}
-              logoUpdatedAt={club.logoUpdatedAt}
-              name={club.displayName}
-              size={48}
-            />
-          ) : null}
-        </View>
+        {/* Identity header — shared with the Accueil welcome header */}
+        <PlayerIdentityCard
+          style={styles.identityCard}
+          playerId={player.id}
+          avatarUpdatedAt={player.avatarUpdatedAt}
+          firstName={player.firstName}
+          lastName={player.lastName}
+          name={`${player.firstName} ${player.lastName}`}
+          club={club}
+          status={player.status}
+        />
 
         {/* Info */}
         <View style={styles.section}>
@@ -156,30 +133,7 @@ const styles = StyleSheet.create({
   scroll: { gap: 12, paddingTop: 16, paddingBottom: 32 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
 
-  // Identity header — mirrors the Accueil welcome card
-  identityCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  identityText: { flex: 1, gap: 2 },
-  identityName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  identityClub: { fontSize: 16, fontWeight: '400', color: colors.textSecondary },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  statusText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  identityCard: { marginHorizontal: 16 },
 
   // Padded section (Informations)
   section: {
