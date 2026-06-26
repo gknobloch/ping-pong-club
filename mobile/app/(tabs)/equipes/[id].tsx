@@ -225,15 +225,14 @@ export default function TeamDetailScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* Banner */}
-        <View style={[styles.banner, { backgroundColor: team.color ?? colors.accent }]}>
-          <View style={styles.bannerText}>
-            <Text style={styles.bannerName}>{getTeamName(team, clubs)}</Text>
-            {division && (
-              <View style={styles.levelBadgeWrap}>
-                <Text style={styles.levelBadge}>{division.displayName}</Text>
-              </View>
-            )}
+        {/* Identity header — mirrors the player header (no colored banner) */}
+        <View style={styles.identityCard}>
+          <View style={styles.identityText}>
+            <View style={styles.nameRow}>
+              <View style={[styles.colorDot, { backgroundColor: team.color ?? colors.accent }]} />
+              <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
+            </View>
+            {division && <Text style={styles.levelBadge}>{division.displayName}</Text>}
           </View>
           {club && (
             <ClubLogo
@@ -461,26 +460,35 @@ export default function TeamDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { gap: 12, paddingBottom: 24 },
+  scroll: { gap: 12, paddingTop: 16, paddingBottom: 24 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
 
-  banner: {
-    padding: 24,
+  // Identity header — mirrors the player header card
+  identityCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
   },
-  bannerText: { flex: 1, gap: 8 },
-  bannerName: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  levelBadgeWrap: { alignSelf: 'flex-start' },
+  identityText: { flex: 1, gap: 6 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  colorDot: { width: 12, height: 12, borderRadius: 6 },
+  teamName: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   levelBadge: {
-    fontSize: 12,
+    alignSelf: 'flex-start',
+    fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    color: colors.textSecondary,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 6,
   },
 

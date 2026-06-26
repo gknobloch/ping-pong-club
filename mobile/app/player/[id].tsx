@@ -6,6 +6,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
 import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 
 const STATUS_LABELS = {
   active: 'Actif',
@@ -48,27 +49,37 @@ export default function PlayerDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Avatar header */}
-        <View style={styles.header}>
+        {/* Identity header — matches the Accueil welcome header (avatar + club) */}
+        <View style={styles.identityCard}>
           <Avatar
             playerId={player.id}
             avatarUpdatedAt={player.avatarUpdatedAt}
             firstName={player.firstName}
             lastName={player.lastName}
-            size={72}
+            size={48}
           />
-          <Text style={styles.name}>{player.firstName} {player.lastName}</Text>
-          <View style={[styles.statusBadge, player.status !== 'active' && styles.statusBadgeMuted]}>
-            <Text style={[styles.statusText, player.status !== 'active' && styles.statusTextMuted]}>
-              {STATUS_LABELS[player.status] ?? player.status}
-            </Text>
+          <View style={styles.identityText}>
+            <Text style={styles.identityName} numberOfLines={1}>{player.firstName} {player.lastName}</Text>
+            {club ? <Text style={styles.identityClub} numberOfLines={1}>{club.displayName}</Text> : null}
+            {player.status !== 'active' ? (
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>{STATUS_LABELS[player.status] ?? player.status}</Text>
+              </View>
+            ) : null}
           </View>
+          {club ? (
+            <ClubLogo
+              clubId={club.id}
+              logoUpdatedAt={club.logoUpdatedAt}
+              name={club.displayName}
+              size={48}
+            />
+          ) : null}
         </View>
 
         {/* Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informations</Text>
-          {club && <InfoRow label="Club" value={club.displayName} />}
           {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
           {phasePoints && <InfoRow label="Points" value={phasePoints} />}
           {player.email && <InfoRow label="Email" value={player.email} />}
@@ -137,19 +148,33 @@ function PhoneRow({ phone }: { phone: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { gap: 12, paddingBottom: 32 },
+  scroll: { gap: 12, paddingTop: 16, paddingBottom: 32 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
-  header: { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  name: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  statusBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+
+  // Identity header — mirrors the Accueil welcome card
+  identityCard: {
+    backgroundColor: colors.card,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  statusBadgeMuted: { backgroundColor: '#f1f5f9' },
-  statusText: { fontSize: 12, fontWeight: '600', color: '#16a34a' },
-  statusTextMuted: { color: colors.textSecondary },
+  identityText: { flex: 1, gap: 2 },
+  identityName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  identityClub: { fontSize: 16, fontWeight: '400', color: colors.textSecondary },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  statusText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
 
   // Padded section (Informations)
   section: {
