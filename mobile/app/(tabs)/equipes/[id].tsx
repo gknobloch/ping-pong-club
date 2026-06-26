@@ -481,6 +481,8 @@ const styles = StyleSheet.create({
   teamName: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   levelBadge: {
     alignSelf: 'flex-start',
+    // Indent to line up with the team name (color dot 12 + nameRow gap 8).
+    marginLeft: 20,
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
