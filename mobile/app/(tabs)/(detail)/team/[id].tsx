@@ -12,6 +12,7 @@ import { sortByName } from '@/utils/sortByName'
 import { computeBrulage } from '@/utils/brulage'
 import { colors } from '@/constants/colors'
 import { ClubLogo } from '@/components/ClubLogo'
+import { TeamColorBadge } from '@/components/TeamColorBadge'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Game, MatchDay, Player } from '@shared/types'
@@ -225,13 +226,12 @@ export default function TeamDetailScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* Identity header — mirrors the player header (no colored banner) */}
+        {/* Identity header — mirrors the player header: a round team-colour
+            badge (the team number) on the left, where a player's avatar sits. */}
         <View style={styles.identityCard}>
+          <TeamColorBadge color={team.color} number={team.number} size={48} />
           <View style={styles.identityText}>
-            <View style={styles.nameRow}>
-              <View style={[styles.colorDot, { backgroundColor: team.color ?? colors.accent }]} />
-              <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
-            </View>
+            <Text style={styles.teamName} numberOfLines={1}>{getTeamName(team, clubs)}</Text>
             {division && <Text style={styles.levelBadge}>{division.displayName}</Text>}
           </View>
           {club && (
@@ -476,13 +476,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   identityText: { flex: 1, gap: 6 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  colorDot: { width: 12, height: 12, borderRadius: 6 },
-  teamName: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  teamName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   levelBadge: {
     alignSelf: 'flex-start',
-    // Indent to line up with the team name (color dot 12 + nameRow gap 8).
-    marginLeft: 20,
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
