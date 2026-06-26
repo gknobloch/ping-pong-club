@@ -78,7 +78,6 @@ export default function PlayerDetailScreen() {
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
                 <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
                 {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             ))}
           </View>
