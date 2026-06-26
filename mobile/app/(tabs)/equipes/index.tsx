@@ -60,7 +60,7 @@ export default function EquipesScreen() {
             <TouchableOpacity
               key={team.id}
               style={styles.card}
-              onPress={() => router.push(`/(tabs)/equipes/${team.id}`)}
+              onPress={() => router.push(`/team/${team.id}`)}
             >
               <View style={[styles.colorBar, { backgroundColor: team.color ?? colors.accent }]} />
               <View style={styles.cardBody}>

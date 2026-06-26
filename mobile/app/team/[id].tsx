@@ -345,7 +345,7 @@ export default function TeamDetailScreen() {
             style={styles.gamesBtn}
             onPress={() =>
               router.push({
-                pathname: '/(tabs)/equipes/phase-games',
+                pathname: '/team/phase-games',
                 params: { teamId: entry.teamId, label: entry.label },
               })
             }

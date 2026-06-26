@@ -93,11 +93,16 @@ export default function PlayerDetailScreen() {
           <View style={styles.sectionList}>
             <Text style={styles.sectionListTitle}>Équipe</Text>
             {playerTeams.map((t) => (
-              <View key={t.id} style={styles.teamRow}>
+              <TouchableOpacity
+                key={t.id}
+                style={styles.teamRow}
+                onPress={() => router.push({ pathname: '/team/[id]', params: { id: t.id } })}
+              >
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
                 <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
                 {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
-              </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
             ))}
           </View>
         )}

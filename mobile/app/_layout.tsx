@@ -77,6 +77,32 @@ function AuthedRoutes() {
             headerBackButtonDisplayMode: 'minimal',
           }}
         />
+        {/* Team detail + its games — on the root stack (same reason as player),
+            so they're reachable with a back button from anywhere. */}
+        <Stack.Screen
+          name="team/[id]"
+          options={{
+            headerShown: true,
+            title: 'Équipe',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '600' },
+            headerBackTitle: '',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        <Stack.Screen
+          name="team/phase-games"
+          options={{
+            headerShown: true,
+            title: 'Matchs',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: '600' },
+            headerBackTitle: '',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
       </Stack.Protected>
     </Stack>
   )
