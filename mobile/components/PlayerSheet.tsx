@@ -203,9 +203,10 @@ const s = StyleSheet.create({
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
   historyJ: { fontSize: 12, fontWeight: '700', color: colors.accent, width: 18 },
+  // Circle for a 1-digit team number; grows to a pill for 2-digit numbers.
   historyTeamBadge: {
-    borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 5, paddingVertical: 1,
+    minWidth: 18, height: 18, borderRadius: 9, borderWidth: 1,
+    paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
   },
   historyTeamNum: { fontSize: 11, fontWeight: '700' },
   historyDot: { fontSize: 13, color: colors.textSecondary },

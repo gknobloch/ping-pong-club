@@ -5,13 +5,7 @@ import { useEffect } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
-import { Avatar } from '@/components/Avatar'
-
-const STATUS_LABELS = {
-  active: 'Actif',
-  pending_validation: 'En attente de validation',
-  archived: 'Archivé',
-}
+import { PlayerIdentityCard } from '@/components/PlayerIdentityCard'
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -48,27 +42,21 @@ export default function PlayerDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Avatar header */}
-        <View style={styles.header}>
-          <Avatar
-            playerId={player.id}
-            avatarUpdatedAt={player.avatarUpdatedAt}
-            firstName={player.firstName}
-            lastName={player.lastName}
-            size={72}
-          />
-          <Text style={styles.name}>{player.firstName} {player.lastName}</Text>
-          <View style={[styles.statusBadge, player.status !== 'active' && styles.statusBadgeMuted]}>
-            <Text style={[styles.statusText, player.status !== 'active' && styles.statusTextMuted]}>
-              {STATUS_LABELS[player.status] ?? player.status}
-            </Text>
-          </View>
-        </View>
+        {/* Identity header — shared with the Accueil welcome header */}
+        <PlayerIdentityCard
+          style={styles.identityCard}
+          playerId={player.id}
+          avatarUpdatedAt={player.avatarUpdatedAt}
+          firstName={player.firstName}
+          lastName={player.lastName}
+          name={`${player.firstName} ${player.lastName}`}
+          club={club}
+          status={player.status}
+        />
 
         {/* Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informations</Text>
-          {club && <InfoRow label="Club" value={club.displayName} />}
           {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
           {phasePoints && <InfoRow label="Points" value={phasePoints} />}
           {player.email && <InfoRow label="Email" value={player.email} />}
@@ -82,11 +70,15 @@ export default function PlayerDetailScreen() {
           <View style={styles.sectionList}>
             <Text style={styles.sectionListTitle}>Équipe</Text>
             {playerTeams.map((t) => (
-              <View key={t.id} style={styles.teamRow}>
+              <TouchableOpacity
+                key={t.id}
+                style={styles.teamRow}
+                onPress={() => router.push({ pathname: '/team/[id]', params: { id: t.id } })}
+              >
                 <View style={[styles.colorDot, { backgroundColor: t.color ?? colors.accent }]} />
                 <Text style={styles.teamName}>{getTeamName(t, clubs)}</Text>
                 {t.captainId === player.id && <Text style={styles.cap}>Cap.</Text>}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -137,19 +129,10 @@ function PhoneRow({ phone }: { phone: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { gap: 12, paddingBottom: 32 },
+  scroll: { gap: 12, paddingTop: 16, paddingBottom: 32 },
   notFound: { padding: 24, color: colors.textSecondary, textAlign: 'center' },
-  header: { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  name: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  statusBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeMuted: { backgroundColor: '#f1f5f9' },
-  statusText: { fontSize: 12, fontWeight: '600', color: '#16a34a' },
-  statusTextMuted: { color: colors.textSecondary },
+
+  identityCard: { marginHorizontal: 16 },
 
   // Padded section (Informations)
   section: {
