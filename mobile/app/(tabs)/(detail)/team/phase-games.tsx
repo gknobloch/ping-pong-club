@@ -204,6 +204,20 @@ export default function PhaseGamesScreen() {
           </View>
         )}
 
+        {/* Not a dead-end: jump to the team's own page (for the selected phase). */}
+        {team && (
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => router.push({ pathname: '/team/[id]', params: { id: team.id } })}
+          >
+            <View style={styles.linkLeft}>
+              <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.linkText}>Voir la fiche équipe</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+
         {/* Games list — tappable cards aligned with Journées / Mes matchs. */}
         <Text style={styles.listLabel}>Matchs ({totalGames})</Text>
         {teamGames.map((g) => {
@@ -252,20 +266,6 @@ export default function PhaseGamesScreen() {
           )
         })}
         {totalGames === 0 && <Text style={styles.empty}>Aucun match trouvé.</Text>}
-
-        {/* Not a dead-end: jump to the team's own page (for the selected phase). */}
-        {team && (
-          <TouchableOpacity
-            style={styles.linkRow}
-            onPress={() => router.push({ pathname: '/team/[id]', params: { id: team.id } })}
-          >
-            <View style={styles.linkLeft}>
-              <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-              <Text style={styles.linkText}>Voir la fiche équipe</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
 
       </ScrollView>
 
