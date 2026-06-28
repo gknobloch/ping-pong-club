@@ -1,7 +1,6 @@
 import { Image, View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { useEffect, useState } from 'react'
-import { apiUrl } from '@/constants/api'
-import { getSessionToken } from '@/utils/api'
+import { avatarImageSource } from '@/utils/avatarSource'
 import { colors } from '@/constants/colors'
 
 // Round player avatar. Loads the image from GET /api/players/:id/avatar
@@ -26,7 +25,6 @@ export function Avatar({
   // Retry the image if a new version arrives after a previous load failed.
   useEffect(() => setFailed(false), [avatarUpdatedAt])
 
-  const token = getSessionToken()
   const showImage = !!avatarUpdatedAt && !failed
   const initials =
     `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '?'
@@ -36,10 +34,7 @@ export function Avatar({
     <View style={[styles.base, dim, style]}>
       {showImage ? (
         <Image
-          source={{
-            uri: `${apiUrl(`/players/${playerId}/avatar`)}?v=${encodeURIComponent(avatarUpdatedAt!)}`,
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          }}
+          source={avatarImageSource(playerId, avatarUpdatedAt!)}
           style={dim}
           onError={() => setFailed(true)}
         />

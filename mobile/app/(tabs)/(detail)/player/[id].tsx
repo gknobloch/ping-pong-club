@@ -1,17 +1,19 @@
 import { ScrollView, View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Linking } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppData } from '@/contexts/DataContext'
 import { colors } from '@/constants/colors'
 import { getTeamName } from '@/utils/roles'
 import { PlayerIdentityCard } from '@/components/PlayerIdentityCard'
+import { AvatarViewer } from '@/components/AvatarViewer'
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { players, teams, clubs, phases, seasons } = useAppData()
   const navigation = useNavigation()
   const router = useRouter()
+  const [avatarOpen, setAvatarOpen] = useState(false)
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
@@ -52,6 +54,7 @@ export default function PlayerDetailScreen() {
           name={`${player.firstName} ${player.lastName}`}
           club={club}
           status={player.status}
+          onAvatarPress={player.avatarUpdatedAt ? () => setAvatarOpen(true) : undefined}
         />
 
         {/* Info */}
@@ -101,6 +104,14 @@ export default function PlayerDetailScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {avatarOpen && player.avatarUpdatedAt && (
+        <AvatarViewer
+          playerId={player.id}
+          avatarUpdatedAt={player.avatarUpdatedAt}
+          onClose={() => setAvatarOpen(false)}
+        />
+      )}
     </SafeAreaView>
   )
 }
