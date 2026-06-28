@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   memberName: { flex: 1, fontSize: 14, color: colors.textPrimary },
   capBadge: {
     fontSize: 11, fontWeight: '600', color: colors.accent,
-    backgroundColor: '#fff5f5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: colors.accentSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
   },
   renforceBadge: {
     fontSize: 11, fontWeight: '500', color: colors.textSecondary,

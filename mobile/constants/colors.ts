@@ -1,6 +1,8 @@
 export const colors = {
   primary: '#0f172a',    // slate-900
   accent: '#e23b3b',     // paddle red (brand accent)
+  accentSoft: '#fff5f5', // red-tinted badge/surface background
+  accentSoftBorder: '#fecaca', // red-tinted border (red-200)
   success: '#22c55e',    // green-500
   warning: '#f59e0b',    // amber-500
   danger: '#ef4444',     // red-500 (errors/destructive)
