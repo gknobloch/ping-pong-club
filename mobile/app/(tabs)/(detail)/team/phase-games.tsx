@@ -12,6 +12,7 @@ import { computeBrulage } from '@/utils/brulage'
 import { teamPhaseEntries } from '@/utils/teamPhases'
 import { colors } from '@/constants/colors'
 import { Switcher } from '@/components/Switcher'
+import { MatchHeader } from '@/components/MatchHeader'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Player } from '@shared/types'
@@ -25,7 +26,7 @@ import type { Player } from '@shared/types'
 // ---------------------------------------------------------------------------
 export default function PhaseGamesScreen() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>()
-  const { teams, players, clubs, phases, matchDays, games, gameSelections } = useAppData()
+  const { teams, players, clubs, phases, divisions, matchDays, games, gameSelections } = useAppData()
   const navigation = useNavigation()
   const router = useRouter()
 
@@ -203,60 +204,54 @@ export default function PhaseGamesScreen() {
           </View>
         )}
 
-        {/* Games list */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Matchs ({totalGames})</Text>
-          {teamGames.map((g) => {
-            const md = g.matchDay
-            const dateLabel = md
-              ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                  weekday: 'short', day: 'numeric', month: 'short',
-                })
-              : ''
-            const isHome = g.homeTeamId === team?.id
-            const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
-            const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
-            const isPast = md ? md.date < today : false
+        {/* Games list — tappable cards aligned with Journées / Mes matchs. */}
+        <Text style={styles.listLabel}>Matchs ({totalGames})</Text>
+        {teamGames.map((g) => {
+          const md = g.matchDay
+          if (!md || !team) return null
+          const isHome = g.homeTeamId === team.id
+          const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
+          const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
 
-            const sel = teamSelections.find((s) => s.gameId === g.id)
-            const gamePlayers = (sel?.playerIds ?? [])
-              .map((pid) => players.find((p) => p.id === pid))
-              .filter(Boolean) as Player[]
+          const sel = teamSelections.find((s) => s.gameId === g.id)
+          const gamePlayers = (sel?.playerIds ?? [])
+            .map((pid) => players.find((p) => p.id === pid))
+            .filter(Boolean) as Player[]
 
-            return (
-              <View key={g.id} style={styles.gameBlock}>
-                <View style={styles.gameHeader}>
-                  <View style={styles.gameLeft}>
-                    {md && (
-                      <Text style={[styles.gameJ, isPast && styles.gameJPast]}>J{md.number}</Text>
-                    )}
-                    <Ionicons
-                      name={isHome ? 'home' : 'paper-plane-outline'}
-                      size={14}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.gameOpponent} numberOfLines={1}>{oppName}</Text>
-                  </View>
-                  <View style={styles.gameRight}>
-                    <Text style={styles.gameDate}>{dateLabel}</Text>
-                    {g.time && <Text style={styles.gameTime}>{g.time}</Text>}
-                  </View>
-                </View>
-
+          return (
+            <TouchableOpacity
+              key={g.id}
+              style={styles.matchCard}
+              activeOpacity={0.7}
+              onPress={() =>
+                router.push({ pathname: '/match/[id]', params: { id: g.id, teamId: team.id } })
+              }
+            >
+              <View style={styles.matchCardBody}>
+                <MatchHeader
+                  matchDayNumber={md.number}
+                  divisionLabel={divisions.find((d) => d.id === team.divisionId)?.displayName}
+                  teamColor={team.color}
+                  teamNumber={team.number}
+                  isHome={isHome}
+                  teamName={getTeamName(team, clubs)}
+                  opponentName={oppName}
+                  matchDayDate={md.date}
+                  time={g.time}
+                />
                 {gamePlayers.length > 0 && (
                   <View style={styles.gamePlayers}>
                     {gamePlayers.map((p) => (
-                      <TouchableOpacity key={p.id} onPress={() => setSelectedPlayer(p)}>
-                        <Text style={styles.gamePlayer}>{p.firstName} {p.lastName}</Text>
-                      </TouchableOpacity>
+                      <Text key={p.id} style={styles.gamePlayer}>{p.firstName} {p.lastName}</Text>
                     ))}
                   </View>
                 )}
               </View>
-            )
-          })}
-          {totalGames === 0 && <Text style={styles.empty}>Aucun match trouvé.</Text>}
-        </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )
+        })}
+        {totalGames === 0 && <Text style={styles.empty}>Aucun match trouvé.</Text>}
 
         {/* Not a dead-end: jump to the team's own page (for the selected phase). */}
         {team && (
@@ -355,25 +350,28 @@ const styles = StyleSheet.create({
     minWidth: 36, textAlign: 'right',
   },
 
-  gameBlock: { borderTopWidth: 1, borderTopColor: colors.border },
-  gameHeader: {
+  // Standalone label above the match-card list (parallels the Joueurs title).
+  listLabel: {
+    fontSize: 12, fontWeight: '600', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5,
+    paddingHorizontal: 4, marginTop: 4,
+  },
+
+  // Tappable match card — mirrors the Mes matchs / Journées card.
+  matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     gap: 8,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
   },
-  gameLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
-  gameJ: { fontSize: 12, fontWeight: '700', color: colors.accent, minWidth: 24 },
-  gameJPast: { color: colors.textSecondary },
-  gameOpponent: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.textPrimary },
-  gameRight: { alignItems: 'flex-end' },
-  gameDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
-  gameTime: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  matchCardBody: { flex: 1, gap: 8 },
 
   gamePlayers: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-    paddingHorizontal: 16, paddingBottom: 12,
   },
   gamePlayer: {
     fontSize: 12, color: colors.textSecondary,
