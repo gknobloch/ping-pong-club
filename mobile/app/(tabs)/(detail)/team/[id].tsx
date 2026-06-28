@@ -316,7 +316,10 @@ export default function TeamDetailScreen() {
               })
             }
           >
-            <Text style={styles.gamesBtnText}>Tous les matchs de cette équipe</Text>
+            <View style={styles.gamesBtnLeft}>
+              <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.gamesBtnText}>Tous les matchs de cette équipe</Text>
+            </View>
             <Text style={styles.gamesBtnChevron}>›</Text>
           </TouchableOpacity>
         )}
@@ -567,6 +570,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  gamesBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gamesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   gamesBtnChevron: { fontSize: 22, color: colors.textSecondary },
 
