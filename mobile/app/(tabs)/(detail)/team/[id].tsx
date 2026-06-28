@@ -10,21 +10,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getTeamName, canManageTeam } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
 import { computeBrulage } from '@/utils/brulage'
+import { teamPhaseEntries } from '@/utils/teamPhases'
 import { colors } from '@/constants/colors'
 import { ClubLogo } from '@/components/ClubLogo'
 import { TeamColorBadge } from '@/components/TeamColorBadge'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
-import type { Game, MatchDay, Player } from '@shared/types'
-
-type GameEntry = Game & { matchDay?: MatchDay }
-
-type PhaseEntry = {
-  teamId: string
-  label: string  // e.g. "Saison 2025/2026 Phase 2"
-  isActive: boolean
-  games: GameEntry[]
-}
+import type { Player } from '@shared/types'
 
 export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -62,37 +54,12 @@ export default function TeamDetailScreen() {
     [team, teams],
   )
 
-  // One entry per phase this team (by club+number) has participated in
-  const phaseEntries = useMemo<PhaseEntry[]>(() => {
-    if (!team) return []
-    return teams
-      .filter((t) => t.clubId === team.clubId && t.number === team.number)
-      .map((t) => {
-        const ph = phases.find((p) => p.id === t.phaseId)
-        const mdInGroup = new Set(
-          matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
-        )
-        const phaseGames: GameEntry[] = games
-          .filter(
-            (g) =>
-              (g.homeTeamId === t.id || g.awayTeamId === t.id) && mdInGroup.has(g.matchDayId),
-          )
-          .map((g) => ({ ...g, matchDay: matchDays.find((md) => md.id === g.matchDayId) }))
-          .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
-        return {
-          teamId: t.id,
-          label: ph ? `Saison ${ph.displayName}` : 'Matchs',
-          isActive: !!ph?.isActive,
-          games: phaseGames,
-        }
-      })
-      .filter((e) => e.games.length > 0)
-      // Active phase first, then most-recent label first (lexicographic desc works for "Saison 2025/2026 …")
-      .sort((a, b) => {
-        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
-        return b.label.localeCompare(a.label)
-      })
-  }, [team, teams, phases, matchDays, games])
+  // Whether this team (by club+number) has any games across phases — drives the
+  // single "Tous les matchs de cette équipe" link.
+  const hasGames = useMemo(
+    () => (team ? teamPhaseEntries(team, teams, phases, matchDays, games).length > 0 : false),
+    [team, teams, phases, matchDays, games],
+  )
 
   // Players available to join this team: active, same club, not on another team in the same phase
   const eligiblePlayers = useMemo(() => {
@@ -338,22 +305,24 @@ export default function TeamDetailScreen() {
           </View>
         )}
 
-        {/* One button per phase this team has participated in */}
-        {phaseEntries.map((entry) => (
+        {/* All matches for this team (phase switcher lives on the target screen) */}
+        {hasGames && (
           <TouchableOpacity
-            key={entry.teamId}
             style={styles.gamesBtn}
             onPress={() =>
               router.push({
                 pathname: '/team/phase-games',
-                params: { teamId: entry.teamId, label: entry.label },
+                params: { teamId: team.id },
               })
             }
           >
-            <Text style={styles.gamesBtnText}>{entry.label}</Text>
+            <View style={styles.gamesBtnLeft}>
+              <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.gamesBtnText}>Tous les matchs de cette équipe</Text>
+            </View>
             <Text style={styles.gamesBtnChevron}>›</Text>
           </TouchableOpacity>
-        ))}
+        )}
 
       </ScrollView>
 
@@ -540,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.accent,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#fff5f5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -601,6 +570,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  gamesBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gamesBtnText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   gamesBtnChevron: { fontSize: 22, color: colors.textSecondary },
 

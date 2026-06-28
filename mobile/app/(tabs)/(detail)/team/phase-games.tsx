@@ -9,45 +9,69 @@ import { useAppData } from '@/contexts/DataContext'
 import { getTeamName } from '@/utils/roles'
 import { sortByName } from '@/utils/sortByName'
 import { computeBrulage } from '@/utils/brulage'
+import { teamPhaseEntries } from '@/utils/teamPhases'
 import { colors } from '@/constants/colors'
+import { Switcher } from '@/components/Switcher'
 import { PlayerSheet } from '@/components/PlayerSheet'
 import type { PlayerHistoryEntry } from '@/components/PlayerSheet'
 import type { Player } from '@shared/types'
 
 // ---------------------------------------------------------------------------
-// Main screen
+// A team's full phase view: roster (with play-counts) + every match of the
+// phase. A < > switcher pages through the phases this team (club + number) has
+// played, in place — aligned with the Équipes / Mes matchs screens. The nav
+// title shows the team name; a footer row links to the team's own page so the
+// screen is never a dead-end when reached from a match.
 // ---------------------------------------------------------------------------
 export default function PhaseGamesScreen() {
-  const { teamId, label } = useLocalSearchParams<{ teamId: string; label: string }>()
-  const { teams, players, clubs, matchDays, games, gameSelections } = useAppData()
+  const { teamId } = useLocalSearchParams<{ teamId: string }>()
+  const { teams, players, clubs, phases, matchDays, games, gameSelections } = useAppData()
   const navigation = useNavigation()
   const router = useRouter()
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  const [phaseId, setPhaseId] = useState<string | undefined>(undefined)
+
+  // The tapped team identifies the logical team (club + number); its name and
+  // games are stable across phases.
+  const baseTeam = teams.find((t) => t.id === teamId)
 
   useEffect(() => {
-    if (label) navigation.setOptions({ title: label })
-  }, [label, navigation])
+    if (baseTeam) navigation.setOptions({ title: getTeamName(baseTeam, clubs) })
+  }, [baseTeam, clubs, navigation])
 
-  const team = teams.find((t) => t.id === teamId)
+  // Phases this team has played, chronological for the switcher.
+  const entries = useMemo(
+    () => (baseTeam ? teamPhaseEntries(baseTeam, teams, phases, matchDays, games) : []),
+    [baseTeam, teams, phases, matchDays, games],
+  )
+  const ordered = useMemo(
+    () => [...entries].sort((a, b) => a.label.localeCompare(b.label)),
+    [entries],
+  )
 
-  const teamGames = useMemo(() => {
-    if (!team) return []
-    const mdInGroup = new Set(
-      matchDays.filter((md) => md.groupId === team.groupId).map((md) => md.id),
-    )
-    return games
-      .filter(
-        (g) =>
-          (g.homeTeamId === teamId || g.awayTeamId === teamId) && mdInGroup.has(g.matchDayId),
-      )
-      .map((g) => ({ ...g, matchDay: matchDays.find((md) => md.id === g.matchDayId) }))
-      .sort((a, b) => (a.matchDay?.date ?? '').localeCompare(b.matchDay?.date ?? ''))
-  }, [team, teamId, matchDays, games])
+  // Default: the tapped team's own phase, else the active one, else most recent.
+  const fallbackPhaseId =
+    entries.find((e) => e.phaseId === baseTeam?.phaseId)?.phaseId ??
+    entries.find((e) => e.isActive)?.phaseId ??
+    ordered[ordered.length - 1]?.phaseId
+
+  const currentEntry =
+    ordered.find((e) => e.phaseId === (phaseId ?? fallbackPhaseId)) ?? ordered[ordered.length - 1]
+  const phaseIndex = ordered.findIndex((e) => e.phaseId === currentEntry?.phaseId)
+
+  function selectPhase(i: number) {
+    const e = ordered[i]
+    if (e) setPhaseId(e.phaseId)
+  }
+
+  // The team record for the selected phase — everything below keys off it.
+  const team = teams.find((t) => t.id === currentEntry?.teamId)
+  const teamGames = currentEntry?.games ?? []
 
   const teamSelections = useMemo(
-    () => gameSelections.filter((s) => s.teamId === teamId),
-    [gameSelections, teamId],
+    () => (team ? gameSelections.filter((s) => s.teamId === team.id) : []),
+    [gameSelections, team],
   )
 
   const { rosterPlayers, borrowedPlayers, playedCount } = useMemo(() => {
@@ -122,7 +146,7 @@ export default function PhaseGamesScreen() {
   const totalGames = teamGames.length
   const today = new Date().toISOString().slice(0, 10)
 
-  if (!team) {
+  if (!baseTeam) {
     return (
       <SafeAreaView style={styles.container}>
         <Text style={styles.empty}>Équipe introuvable.</Text>
@@ -139,8 +163,17 @@ export default function PhaseGamesScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
+        {/* Phase switcher — aligned with Équipes / Mes matchs */}
+        {currentEntry && (
+          <Switcher
+            title={currentEntry.label}
+            onPrev={phaseIndex > 0 ? () => selectPhase(phaseIndex - 1) : undefined}
+            onNext={phaseIndex < ordered.length - 1 ? () => selectPhase(phaseIndex + 1) : undefined}
+          />
+        )}
+
         {/* Member stats */}
-        {(rosterPlayers.length > 0 || borrowedPlayers.length > 0) && (
+        {(rosterPlayers.length > 0 || borrowedPlayers.length > 0) && team && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Joueurs ({rosterPlayers.length + borrowedPlayers.length})
@@ -180,7 +213,7 @@ export default function PhaseGamesScreen() {
                   weekday: 'short', day: 'numeric', month: 'short',
                 })
               : ''
-            const isHome = g.homeTeamId === teamId
+            const isHome = g.homeTeamId === team?.id
             const oppTeam = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
             const oppName = oppTeam ? getTeamName(oppTeam, clubs) : '—'
             const isPast = md ? md.date < today : false
@@ -225,12 +258,26 @@ export default function PhaseGamesScreen() {
           {totalGames === 0 && <Text style={styles.empty}>Aucun match trouvé.</Text>}
         </View>
 
+        {/* Not a dead-end: jump to the team's own page (for the selected phase). */}
+        {team && (
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => router.push({ pathname: '/team/[id]', params: { id: team.id } })}
+          >
+            <View style={styles.linkLeft}>
+              <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.linkText}>Voir la fiche équipe</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+
       </ScrollView>
 
-      {selectedPlayer && (
+      {selectedPlayer && team && (
         <PlayerSheet
           player={selectedPlayer}
-          phaseLabel={label}
+          phaseLabel={currentEntry?.label}
           phasePoints={team.rosterInitialPoints?.[selectedPlayer.id]}
           gamesPlayed={playerHistory.filter((e) => e.isPast).length}
           gamesTotal={games.filter((g) => {
@@ -296,7 +343,7 @@ const styles = StyleSheet.create({
   memberName: { flex: 1, fontSize: 14, color: colors.textPrimary },
   capBadge: {
     fontSize: 11, fontWeight: '600', color: colors.accent,
-    backgroundColor: '#eff6ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: '#fff5f5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
   },
   renforceBadge: {
     fontSize: 11, fontWeight: '500', color: colors.textSecondary,
@@ -333,5 +380,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden',
   },
-})
 
+  // Footer link to the team's own page — mirrors the match-detail row style.
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+  },
+  linkLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  linkText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+})

@@ -72,11 +72,6 @@ export default function MatchDetailScreen() {
     )
   }
 
-  // Label for the team's phase view, matching the team detail screen
-  // (e.g. "Saison 2025/2026 Phase 2").
-  const teamPhase = phases.find((p) => p.id === team.phaseId)
-  const teamPhaseLabel = teamPhase ? `Saison ${teamPhase.displayName}` : 'Matchs'
-
   const isHome = game.homeTeamId === team.id
   const oppTeamId = isHome ? game.awayTeamId : game.homeTeamId
   const oppTeam = teams.find((t) => t.id === oppTeamId)
@@ -245,7 +240,7 @@ export default function MatchDetailScreen() {
           onPress={() =>
             router.push({
               pathname: '/team/phase-games',
-              params: { teamId: team.id, label: teamPhaseLabel },
+              params: { teamId: team.id },
             })
           }
         >
