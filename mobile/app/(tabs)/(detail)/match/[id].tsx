@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useLocalSearchParams, useNavigation } from 'expo-router'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
@@ -26,6 +26,7 @@ import type { Player } from '@shared/types'
 export default function MatchDetailScreen() {
   const { id, teamId } = useLocalSearchParams<{ id: string; teamId: string }>()
   const navigation = useNavigation()
+  const router = useRouter()
   const { user } = useAuth()
   const {
     clubs, teams, players, matchDays, games, phases, divisions, groups,
@@ -70,6 +71,11 @@ export default function MatchDetailScreen() {
       </SafeAreaView>
     )
   }
+
+  // Label for the team's phase view, matching the team detail screen
+  // (e.g. "Saison 2025/2026 Phase 2").
+  const teamPhase = phases.find((p) => p.id === team.phaseId)
+  const teamPhaseLabel = teamPhase ? `Saison ${teamPhase.displayName}` : 'Matchs'
 
   const isHome = game.homeTeamId === team.id
   const oppTeamId = isHome ? game.awayTeamId : game.homeTeamId
@@ -229,6 +235,23 @@ export default function MatchDetailScreen() {
           <View style={styles.composeLeft}>
             <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.composeTxt}>Feuille de match</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Jump to the team's full phase view (roster + all matches) */}
+        <TouchableOpacity
+          style={styles.compose}
+          onPress={() =>
+            router.push({
+              pathname: '/team/phase-games',
+              params: { teamId: team.id, label: teamPhaseLabel },
+            })
+          }
+        >
+          <View style={styles.composeLeft}>
+            <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.composeTxt}>Tous les matchs de l'équipe</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
