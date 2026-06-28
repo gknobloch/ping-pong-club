@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.accent,
-    backgroundColor: '#fff5f5',
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: 10,
   },
-  pickerRowSelected: { borderColor: colors.accent, backgroundColor: '#fff5f5' },
+  pickerRowSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   pickerCheck: { width: 20, fontSize: 14, color: colors.accent, fontWeight: '700' },
   pickerNameSelected: { fontWeight: '600' },
   captainBtn: {

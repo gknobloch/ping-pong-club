@@ -320,9 +320,9 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
   roleBadge: {
-    backgroundColor: '#e0e7ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+    backgroundColor: colors.accentSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
   },
-  roleText: { fontSize: 12, fontWeight: '600', color: '#4338ca' },
+  roleText: { fontSize: 12, fontWeight: '600', color: colors.accent },
   section: {
     backgroundColor: colors.card, marginHorizontal: 16, borderRadius: 12,
     borderWidth: 1, borderColor: colors.border, padding: 16, gap: 8,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   cap: { fontSize: 11, fontWeight: '600', color: colors.accent },
   logoutBtn: {
     marginHorizontal: 16, marginTop: 8, borderRadius: 12,
-    borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff5f5',
+    borderWidth: 1, borderColor: colors.accentSoftBorder, backgroundColor: colors.accentSoft,
     paddingVertical: 14, alignItems: 'center',
   },
   logoutText: { fontSize: 15, fontWeight: '600', color: '#dc2626' },

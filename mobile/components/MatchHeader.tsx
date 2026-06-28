@@ -110,7 +110,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
   },
-  labelMine: { backgroundColor: '#fff5f5', borderColor: colors.accent },
+  labelMine: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   labelTxt: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
   labelTxtMine: { color: colors.accent },
   countdown: {

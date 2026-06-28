@@ -84,7 +84,7 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.accent,
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
