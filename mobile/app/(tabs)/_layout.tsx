@@ -55,7 +55,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="compte"
-        options={{ title: 'Mon Compte', tabBarIcon: tabIcon('person-circle-outline') }}
+        options={{ title: 'Compte', tabBarIcon: tabIcon('person-circle-outline') }}
       />
       {/* Shared detail screens (player, team, match, match list) — a hidden tab
           hosting a Stack, so the tab bar stays visible while drilling in (#153). */}
