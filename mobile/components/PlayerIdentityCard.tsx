@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native'
 import { colors } from '@/constants/colors'
 import { Avatar } from '@/components/Avatar'
 import { ClubLogo } from '@/components/ClubLogo'
@@ -22,6 +22,7 @@ export function PlayerIdentityCard({
   club,
   status,
   style,
+  onAvatarPress,
 }: {
   playerId: string
   avatarUpdatedAt?: string
@@ -32,16 +33,25 @@ export function PlayerIdentityCard({
   /** When provided and not 'active', a status badge is shown under the club. */
   status?: PlayerStatus
   style?: StyleProp<ViewStyle>
+  /** When set, the avatar becomes tappable (e.g. to open it enlarged). */
+  onAvatarPress?: () => void
 }) {
+  const avatar = (
+    <Avatar
+      playerId={playerId}
+      avatarUpdatedAt={avatarUpdatedAt}
+      firstName={firstName}
+      lastName={lastName}
+      size={48}
+    />
+  )
   return (
     <View style={[s.card, style]}>
-      <Avatar
-        playerId={playerId}
-        avatarUpdatedAt={avatarUpdatedAt}
-        firstName={firstName}
-        lastName={lastName}
-        size={48}
-      />
+      {onAvatarPress ? (
+        <TouchableOpacity onPress={onAvatarPress} activeOpacity={0.8}>{avatar}</TouchableOpacity>
+      ) : (
+        avatar
+      )}
       <View style={s.text}>
         <Text style={s.name} numberOfLines={1}>{name}</Text>
         {club ? <Text style={s.club} numberOfLines={1}>{club.displayName}</Text> : null}
