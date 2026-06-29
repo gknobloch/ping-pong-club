@@ -189,6 +189,7 @@ export function PlayerDetailPage() {
                     name={teamName(b.team, clubs)}
                     color={b.team.color}
                     captain={b.isCaptain}
+                    to={`/equipes/${b.team.id}`}
                   />
                 )}
                 {b.brulageTeam && (
@@ -197,6 +198,7 @@ export function PlayerDetailPage() {
                     name={teamName(b.brulageTeam, clubs)}
                     color={b.brulageTeam.color}
                     danger
+                    to={`/equipes/${b.brulageTeam.id}`}
                   />
                 )}
               </dl>
@@ -302,13 +304,16 @@ function TeamRow({
   color,
   captain,
   danger,
+  to,
 }: {
   label: string
   name: string
   color?: string
   captain?: boolean
   danger?: boolean
+  to?: string
 }) {
+  const badge = <TeamBadge color={color} label={name} danger={danger} />
   return (
     <div className="flex items-center justify-between gap-2 py-2.5">
       <dt className="text-sm text-slate-500">{label}</dt>
@@ -318,7 +323,13 @@ function TeamRow({
             Cap.
           </span>
         )}
-        <TeamBadge color={color} label={name} danger={danger} />
+        {to ? (
+          <Link to={to} className="hover:opacity-80" title="Voir la fiche équipe">
+            {badge}
+          </Link>
+        ) : (
+          badge
+        )}
       </dd>
     </div>
   )
