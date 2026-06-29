@@ -1,4 +1,7 @@
-import type { Team, Game, MatchDay, GameSelection } from '@/types'
+// Shared domain logic — imported by the web app (@/lib/brulage) and the mobile
+// app (@shared/lib/brulage). Keep this module free of any browser/RN/Node deps.
+// The type import below is type-only, so it carries no runtime dependency.
+import type { Team, Game, MatchDay, GameSelection } from '../types'
 
 export interface BrulageInfo {
   /** The highest team number the player can play for (burned into this level). null = no restriction. */

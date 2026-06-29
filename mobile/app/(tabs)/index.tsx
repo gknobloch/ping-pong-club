@@ -18,7 +18,7 @@ import { colors } from '@/constants/colors'
 import { PlayerIdentityCard } from '@/components/PlayerIdentityCard'
 import { NextMatchCard } from '@/components/NextMatchCard'
 import { CaptainSelectionSheet } from '@/components/CaptainSelectionSheet'
-import { sortByName } from '@/utils/sortByName'
+import { sortByName } from '@shared/lib/sortByName'
 import { getMondayOf, todayIso } from '@/utils/weeks'
 import type { AvailabilityStatus, Game, MatchDay, Player, Team } from '@shared/types'
 

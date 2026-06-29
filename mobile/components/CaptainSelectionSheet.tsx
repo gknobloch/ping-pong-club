@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { getTeamName } from '@/utils/roles'
 import { colors } from '@/constants/colors'
 import { AVAIL } from '@/constants/availability'
-import { isPlayerEligibleForTeam } from '@/utils/brulage'
+import { isPlayerEligibleForTeam } from '@shared/lib/brulage'
 import { playersCommittedElsewhere } from '@/utils/matchdays'
 import type { AvailabilityStatus, Club, Player, Team, MatchDay, Game, GameSelection } from '@shared/types'
 
