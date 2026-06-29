@@ -20,6 +20,16 @@ type HistoryEntry = {
   isPast: boolean
 }
 
+type PhaseBlock = {
+  phaseId: string
+  label: string
+  team?: Team
+  isCaptain: boolean
+  points?: string
+  brulageTeam: Team | null
+  history: HistoryEntry[]
+}
+
 export function PlayerDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { players, teams, clubs, phases, matchDays, games, gameSelections } = useAppData()
@@ -29,62 +39,74 @@ export function PlayerDetailPage() {
   const club = clubs.find((c) => c.id === player?.clubId)
   const today = new Date().toISOString().slice(0, 10)
 
-  const activePhase = phases.find((p) => p.isActive && !p.isArchived)
-  const playerTeams = useMemo(
-    () => teams.filter((t) => t.phaseId === activePhase?.id && t.playerIds?.includes(id)),
-    [teams, activePhase, id],
-  )
-  const phasePoints = playerTeams[0]?.rosterInitialPoints?.[id]
-
-  // Club teams in the active phase — basis for brûlage + cross-team history.
-  const clubTeamsInPhase = useMemo(
-    () =>
-      player && activePhase
-        ? teams.filter((t) => t.clubId === player.clubId && t.phaseId === activePhase.id)
-        : [],
-    [teams, player, activePhase],
-  )
-
-  const brulageTeam = useMemo(() => {
-    if (!player) return null
-    const info = computeBrulage(id, clubTeamsInPhase, matchDays, games, gameSelections)
-    return info.burnedIntoTeamId ? teams.find((t) => t.id === info.burnedIntoTeamId) ?? null : null
-  }, [player, id, clubTeamsInPhase, matchDays, games, gameSelections, teams])
-
-  const history = useMemo<HistoryEntry[]>(() => {
+  // One block per phase the player took part in (rostered or fielded), each with
+  // its own team / points / brûlage / games — all relative to that phase.
+  const phaseBlocks = useMemo<PhaseBlock[]>(() => {
     if (!player) return []
-    const rows: { e: HistoryEntry; raw: string }[] = []
-    for (const t of clubTeamsInPhase) {
-      const mdInGroup = new Set(
-        matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
-      )
-      for (const g of games) {
-        if ((g.homeTeamId !== t.id && g.awayTeamId !== t.id) || !mdInGroup.has(g.matchDayId)) continue
-        const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
-        if (!sel?.playerIds.includes(id)) continue
-        const md = matchDays.find((m) => m.id === g.matchDayId)
-        if (!md) continue
-        const isHome = g.homeTeamId === t.id
-        const opp = teams.find((ot) => ot.id === (isHome ? g.awayTeamId : g.homeTeamId))
-        rows.push({
-          raw: md.date,
-          e: {
-            jNumber: md.number,
-            isHome,
-            oppName: opp ? teamName(opp, clubs) : '—',
-            teamNumber: t.number,
-            teamColor: t.color,
-            date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'short',
-            }),
-            isPast: md.date < today,
-          },
-        })
-      }
+
+    const participated = new Set<string>()
+    for (const t of teams) if (t.playerIds?.includes(id)) participated.add(t.phaseId)
+    for (const sel of gameSelections) {
+      if (!sel.playerIds.includes(id)) continue
+      const t = teams.find((x) => x.id === sel.teamId)
+      if (t) participated.add(t.phaseId)
     }
-    return rows.sort((a, b) => a.raw.localeCompare(b.raw)).map((r) => r.e)
-  }, [player, id, clubTeamsInPhase, matchDays, games, gameSelections, teams, clubs, today])
+
+    return phases
+      .filter((p) => participated.has(p.id))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      .map((ph) => {
+        const clubTeamsInPhase = teams.filter(
+          (t) => t.clubId === player.clubId && t.phaseId === ph.id,
+        )
+        const rosterTeam = clubTeamsInPhase.find((t) => t.playerIds?.includes(id))
+        const info = computeBrulage(id, clubTeamsInPhase, matchDays, games, gameSelections)
+        const brulageTeam = info.burnedIntoTeamId
+          ? teams.find((t) => t.id === info.burnedIntoTeamId) ?? null
+          : null
+
+        const rows: { e: HistoryEntry; raw: string }[] = []
+        for (const t of clubTeamsInPhase) {
+          const mdInGroup = new Set(
+            matchDays.filter((md) => md.groupId === t.groupId).map((md) => md.id),
+          )
+          for (const g of games) {
+            if ((g.homeTeamId !== t.id && g.awayTeamId !== t.id) || !mdInGroup.has(g.matchDayId)) continue
+            const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
+            if (!sel?.playerIds.includes(id)) continue
+            const md = matchDays.find((m) => m.id === g.matchDayId)
+            if (!md) continue
+            const isHome = g.homeTeamId === t.id
+            const opp = teams.find((ot) => ot.id === (isHome ? g.awayTeamId : g.homeTeamId))
+            rows.push({
+              raw: md.date,
+              e: {
+                jNumber: md.number,
+                isHome,
+                oppName: opp ? teamName(opp, clubs) : '—',
+                teamNumber: t.number,
+                teamColor: t.color,
+                date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+                  day: 'numeric',
+                  month: 'short',
+                }),
+                isPast: md.date < today,
+              },
+            })
+          }
+        }
+
+        return {
+          phaseId: ph.id,
+          label: `Saison ${ph.displayName}`,
+          team: rosterTeam,
+          isCaptain: rosterTeam?.captainId === id,
+          points: rosterTeam?.rosterInitialPoints?.[id],
+          brulageTeam,
+          history: rows.sort((a, b) => a.raw.localeCompare(b.raw)).map((r) => r.e),
+        }
+      })
+  }, [player, id, teams, phases, matchDays, games, gameSelections, clubs, today])
 
   if (!player) {
     return (
@@ -100,7 +122,7 @@ export function PlayerDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       <Link to="/joueurs" className="text-sm font-medium text-accent-600 hover:text-accent-800">
         ← Joueurs
       </Link>
@@ -129,92 +151,90 @@ export function PlayerDetailPage() {
         </div>
       </div>
 
-      {/* Informations */}
+      {/* Informations (player-level — not phase-relative) */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Informations
         </h2>
         <dl className="divide-y divide-slate-100">
           {player.licenseNumber && <InfoRow label="Licence" value={player.licenseNumber} />}
-          {phasePoints && <InfoRow label="Points" value={phasePoints} />}
           {player.email && <InfoRow label="Email" value={player.email} />}
           {player.phone && <InfoRow label="Téléphone" value={player.phone} />}
-          {brulageTeam && (
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-sm text-slate-500">Brûlage</dt>
-              <dd>
-                <TeamPill number={brulageTeam.number} color={brulageTeam.color} danger />
-              </dd>
-            </div>
-          )}
         </dl>
       </section>
 
-      {/* Teams */}
-      {playerTeams.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Équipe{activePhase ? ` — Saison ${activePhase.displayName}` : ''}
-          </h2>
-          <ul>
-            {playerTeams.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 border-t border-slate-100 px-5 py-3"
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: t.color ?? '#e23b3b' }}
-                />
-                <span className="flex-1 text-sm text-slate-800">{teamName(t, clubs)}</span>
-                {t.captainId === player.id && (
-                  <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-xs font-semibold text-accent-600">
-                    Cap.
-                  </span>
+      {/* One card per phase — side by side on wide screens, stacked otherwise */}
+      {phaseBlocks.length > 0 && (
+        <div className={`grid gap-5 ${phaseBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+          {phaseBlocks.map((b) => (
+            <section
+              key={b.phaseId}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+            >
+              <h2 className="border-b border-slate-100 px-5 py-3 font-display text-base font-semibold text-slate-800">
+                {b.label}
+              </h2>
+              <dl className="divide-y divide-slate-100 px-5">
+                {b.team && (
+                  <TeamRow
+                    label="Équipe"
+                    label2={teamName(b.team, clubs)}
+                    number={b.team.number}
+                    color={b.team.color}
+                    captain={b.isCaptain}
+                  />
                 )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+                {b.points && <InfoRow label="Points" value={b.points} />}
+                {b.brulageTeam && (
+                  <TeamRow
+                    label="Brûlage"
+                    label2={teamName(b.brulageTeam, clubs)}
+                    number={b.brulageTeam.number}
+                    color={b.brulageTeam.color}
+                    danger
+                  />
+                )}
+              </dl>
 
-      {/* Game history */}
-      {history.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Matchs
-          </h2>
-          <ul>
-            {history.map((e, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-2.5"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  {e.jNumber != null && (
-                    <span
-                      className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-400' : 'text-accent-600'}`}
-                    >
-                      J{e.jNumber}
-                    </span>
-                  )}
-                  <TeamPill number={e.teamNumber} color={e.teamColor} small />
-                  <span className={`text-xs ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {e.isHome ? 'Dom.' : 'Ext.'}
-                  </span>
-                  <span
-                    className={`truncate text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-800'}`}
-                  >
-                    {e.oppName}
-                  </span>
-                </div>
-                <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {e.date}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+              <div className="border-t border-slate-100 px-5 pb-3 pt-3">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Matchs ({b.history.length})
+                </p>
+                {b.history.length === 0 ? (
+                  <p className="py-2 text-sm text-slate-400">Aucun match.</p>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {b.history.map((e, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {e.jNumber != null && (
+                            <span
+                              className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-400' : 'text-accent-600'}`}
+                            >
+                              J{e.jNumber}
+                            </span>
+                          )}
+                          <TeamPill number={e.teamNumber} color={e.teamColor} small />
+                          <span className={`text-xs ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {e.isHome ? 'Dom.' : 'Ext.'}
+                          </span>
+                          <span
+                            className={`truncate text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-800'}`}
+                          >
+                            {e.oppName}
+                          </span>
+                        </div>
+                        <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {e.date}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
 
       {/* Avatar lightbox */}
@@ -243,6 +263,38 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between py-2.5">
       <dt className="text-sm text-slate-500">{label}</dt>
       <dd className="text-sm font-medium text-slate-800">{value}</dd>
+    </div>
+  )
+}
+
+// Aligned team / brûlage row: label + colored pill + team name (+ Cap. badge).
+function TeamRow({
+  label,
+  label2,
+  number,
+  color,
+  captain,
+  danger,
+}: {
+  label: string
+  label2: string
+  number: number
+  color?: string
+  captain?: boolean
+  danger?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-2.5">
+      <dt className="text-sm text-slate-500">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-2">
+        <TeamPill number={number} color={color} danger={danger} />
+        <span className="truncate text-sm font-medium text-slate-800">{label2}</span>
+        {captain && (
+          <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-xs font-semibold text-accent-600">
+            Cap.
+          </span>
+        )}
+      </dd>
     </div>
   )
 }
