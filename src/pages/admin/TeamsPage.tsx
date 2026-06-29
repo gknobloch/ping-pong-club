@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Team } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
@@ -313,7 +314,9 @@ export function TeamsPage() {
             {teams.map((team) => (
               <tr key={team.id} className={`hover:bg-slate-50/50 ${team.isArchived ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                  {getClubName(team.clubId)}
+                  <Link to={`/equipes/${team.id}`} className="hover:text-accent-600 hover:underline">
+                    {getClubName(team.clubId)} {team.number}
+                  </Link>
                   {team.isArchived && (
                     <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
                       Archivé

@@ -1,4 +1,4 @@
-import type { Game, MatchDay, Phase, Team } from '@shared/types'
+import type { Game, MatchDay, Phase, Team } from '../types'
 
 export type GameWithMatchDay = Game & { matchDay?: MatchDay }
 
