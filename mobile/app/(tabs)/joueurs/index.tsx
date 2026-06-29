@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router'
 import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
-import { sortByName } from '@/utils/sortByName'
+import { sortByName } from '@shared/lib/sortByName'
 import { Avatar } from '@/components/Avatar'
 
 const STATUS_LABELS = {

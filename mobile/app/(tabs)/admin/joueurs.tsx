@@ -4,7 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { colors } from '@/constants/colors'
 import type { PlayerStatus } from '@shared/types'
-import { sortByName } from '@/utils/sortByName'
+import { sortByName } from '@shared/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerStatus, string> = {
   active: 'Actif',

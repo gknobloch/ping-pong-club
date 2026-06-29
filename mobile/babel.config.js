@@ -10,6 +10,7 @@ module.exports = function (api) {
           alias: {
             '@': './',
             '@shared/types': '../src/types/index.ts',
+            '@shared/lib': '../src/lib',
           },
         },
       ],

@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 const welcomeBg = require('../assets/welcome-bg.jpg')
 import { useAuth, DEV_LOGIN } from '@/contexts/AuthContext'
 import { getRoleLabel, getDisplayName } from '@/utils/roles'
-import { sortByName } from '@/utils/sortByName'
+import { sortByName } from '@shared/lib/sortByName'
 import { colors } from '@/constants/colors'
 import type { ApiError } from '@/utils/api'
 import type { User } from '@shared/types'
