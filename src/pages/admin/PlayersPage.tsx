@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Player as PlayerType } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
@@ -199,8 +200,13 @@ export function PlayersPage() {
           <tbody className="divide-y divide-slate-200 bg-white">
             {filteredPlayers.map((player) => (
               <tr key={player.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                  {player.firstName} {player.lastName}
+                <td className="px-4 py-3 text-sm font-medium">
+                  <Link
+                    to={`/joueurs/${player.id}`}
+                    className="text-slate-900 hover:text-accent-600 hover:underline"
+                  >
+                    {player.firstName} {player.lastName}
+                  </Link>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600 font-mono">
                   {player.licenseNumber}
