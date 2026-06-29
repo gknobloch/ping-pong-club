@@ -1,0 +1,202 @@
+import { useMemo } from 'react'
+import { useAppData } from '@/contexts/DataContext'
+import { TeamBadge } from '@/components/TeamBadge'
+import type { Club, Team } from '@/types'
+
+const teamName = (t: Team, clubs: Club[]) => {
+  const club = clubs.find((c) => c.id === t.clubId)
+  return club ? `${club.displayName} ${t.number}` : `Équipe ${t.number}`
+}
+
+// Read-only quick view of a single game from one team's perspective — match
+// header + availabilities / line-up. Mirrors the mobile match detail screen
+// (mobile/app/(tabs)/(detail)/match/[id].tsx) without the editing controls.
+export function GameQuickView({
+  gameId,
+  teamId,
+  onClose,
+}: {
+  gameId: string
+  teamId: string
+  onClose: () => void
+}) {
+  const {
+    clubs, teams, players, groups, divisions, matchDays, games,
+    gameAvailabilities, gameSelections,
+  } = useAppData()
+
+  const game = games.find((g) => g.id === gameId)
+  const team = teams.find((t) => t.id === teamId)
+  const matchDay = game ? matchDays.find((md) => md.id === game.matchDayId) : undefined
+
+  const roster = useMemo(
+    () =>
+      team
+        ? (team.playerIds.map((pid) => players.find((p) => p.id === pid)).filter(Boolean) as typeof players)
+            .slice()
+            .sort((a, b) =>
+              a.lastName.localeCompare(b.lastName, 'fr', { sensitivity: 'base' }) ||
+              a.firstName.localeCompare(b.firstName, 'fr', { sensitivity: 'base' }),
+            )
+        : [],
+    [team, players],
+  )
+
+  // Players selected for another of the club's teams on this same round number.
+  const committed = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!team || !matchDay) return map
+    const clubTeams = teams.filter((t) => t.clubId === team.clubId && t.phaseId === team.phaseId)
+    const clubTeamById = new Map(clubTeams.map((t) => [t.id, t]))
+    const mdNumberById = new Map(matchDays.map((md) => [md.id, md.number]))
+    for (const sel of gameSelections) {
+      if (sel.teamId === team.id) continue
+      const t = clubTeamById.get(sel.teamId)
+      if (!t) continue
+      const g = games.find((x) => x.id === sel.gameId)
+      if (!g || mdNumberById.get(g.matchDayId) !== matchDay.number) continue
+      for (const pid of sel.playerIds) if (!map.has(pid)) map.set(pid, t.number)
+    }
+    return map
+  }, [team, matchDay, teams, games, matchDays, gameSelections])
+
+  if (!game || !team || !matchDay) return null
+
+  const isHome = game.homeTeamId === team.id
+  const oppTeam = teams.find((t) => t.id === (isHome ? game.awayTeamId : game.homeTeamId))
+  const opponentName = oppTeam ? teamName(oppTeam, clubs) : '?'
+  const group = groups.find((g) => g.id === team.groupId)
+  const division = group ? divisions.find((d) => d.id === group.divisionId) : undefined
+
+  const homeTeam = teams.find((t) => t.id === game.homeTeamId)
+  const venue = (() => {
+    const addr = homeTeam
+      ? clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
+      : undefined
+    if (addr) return addr.label ? `${addr.label}, ${addr.city}` : addr.city
+    const homeClub = homeTeam ? clubs.find((c) => c.id === homeTeam.clubId) : undefined
+    const cityAddr = homeClub?.addresses?.find((a) => a.isDefault) ?? homeClub?.addresses?.[0]
+    return cityAddr?.city
+  })()
+
+  const selection = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds ?? []
+  const rosterIds = new Set(roster.map((p) => p.id))
+  const borrowed = selection
+    .filter((pid) => !rosterIds.has(pid))
+    .map((pid) => players.find((p) => p.id === pid))
+    .filter(Boolean) as typeof players
+  const availOf = (pid: string) =>
+    gameAvailabilities.find((a) => a.playerId === pid && a.gameId === game.id)?.status
+
+  const matchup = isHome ? `${teamName(team, clubs)} – ${opponentName}` : `${opponentName} – ${teamName(team, clubs)}`
+  const dateLabel = new Date(matchDay.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge>J{matchDay.number}</Badge>
+          {division && <Badge>{division.displayName}</Badge>}
+          <TeamBadge color={team.color} label={`Équipe ${team.number}`} />
+        </div>
+        <h2 className="mt-2 font-display text-lg font-semibold text-slate-800">{matchup}</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {dateLabel}
+          {game.time ? ` · ${game.time}` : ''}
+          {venue ? ` · ${venue}` : ''}
+        </p>
+
+        {/* Availabilities + line-up */}
+        <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Disponibilités
+        </h3>
+        <ul className="mt-2 divide-y divide-slate-100">
+          {roster.map((p) => {
+            const selected = selection.includes(p.id)
+            const lockedTeam = !selected ? committed.get(p.id) : undefined
+            return (
+              <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Check on={selected} />
+                  <span className={`truncate text-sm ${selected ? 'font-semibold text-accent-600' : 'text-slate-800'}`}>
+                    {p.firstName} {p.lastName}
+                  </span>
+                </span>
+                {lockedTeam !== undefined ? (
+                  <span className="shrink-0 text-xs italic text-slate-500">Joue en Équipe {lockedTeam}</span>
+                ) : (
+                  <AvailPills status={availOf(p.id)} />
+                )}
+              </li>
+            )
+          })}
+          {borrowed.map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <Check on />
+                <span className="truncate text-sm font-semibold text-accent-600">
+                  {p.firstName} {p.lastName}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs italic text-slate-500">Renfort</span>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 w-full rounded-lg bg-slate-100 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
+      {children}
+    </span>
+  )
+}
+
+function Check({ on }: { on?: boolean }) {
+  if (!on) return <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+  return (
+    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent-600 text-white" aria-label="Sélectionné">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </span>
+  )
+}
+
+// Read-only OUI / PE / NON triplet with the player's status highlighted.
+function AvailPills({ status }: { status?: 'available' | 'maybe' | 'unavailable' }) {
+  const pill = (active: boolean, on: string, off: string, label: string) => (
+    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${active ? on : off}`}>
+      {label}
+    </span>
+  )
+  return (
+    <span className="flex shrink-0 gap-1">
+      {pill(status === 'available', 'border-green-500 bg-green-50 text-green-700', 'border-slate-200 text-slate-300', 'OUI')}
+      {pill(status === 'maybe', 'border-amber-500 bg-amber-50 text-amber-700', 'border-slate-200 text-slate-300', 'PE')}
+      {pill(status === 'unavailable', 'border-accent-500 bg-accent-50 text-accent-600', 'border-slate-200 text-slate-300', 'NON')}
+    </span>
+  )
+}

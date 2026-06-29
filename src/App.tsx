@@ -14,6 +14,7 @@ import { TeamsPage } from '@/pages/admin/TeamsPage'
 import { PlayersPage } from '@/pages/admin/PlayersPage'
 import { MatchDaysPage } from '@/pages/admin/MatchDaysPage'
 import { MyClubPage } from '@/pages/MyClubPage'
+import { PlayerDetailPage } from '@/pages/PlayerDetailPage'
 
 function AuthLoading() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="groupes" element={<GroupsPage />} />
             <Route path="equipes" element={<TeamsPage />} />
             <Route path="joueurs" element={<PlayersPage />} />
+            <Route path="joueurs/:id" element={<PlayerDetailPage />} />
             <Route path="journees" element={<MatchDaysPage />} />
             <Route path="mon-club" element={<MyClubPage />} />
           </Route>
