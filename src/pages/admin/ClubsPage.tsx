@@ -47,7 +47,7 @@ export function ClubsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
         >
           Ajouter un club
         </button>
@@ -104,7 +104,7 @@ export function ClubsPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(club)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    className="text-sm font-medium text-accent-600 hover:text-accent-800"
                   >
                     Modifier
                   </button>
@@ -148,7 +148,7 @@ export function ClubsPage() {
                   type="text"
                   value={form.affiliationNumber}
                   onChange={(e) => setForm((f) => ({ ...f, affiliationNumber: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
@@ -163,7 +163,7 @@ export function ClubsPage() {
                   type="text"
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
             </div>
@@ -178,7 +178,7 @@ export function ClubsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>

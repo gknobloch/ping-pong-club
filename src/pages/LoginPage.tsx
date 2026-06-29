@@ -87,14 +87,14 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleRequestCode()}
                 placeholder="vous@exemple.com"
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
               />
             </div>
             <button
               type="button"
               onClick={handleRequestCode}
               disabled={busy}
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-600 px-4 py-3 font-medium text-white shadow-sm hover:bg-accent-700 disabled:opacity-50"
             >
               {busy ? 'Envoi…' : 'Recevoir un code'}
             </button>
@@ -119,7 +119,7 @@ export function LoginPage() {
                 onKeyDown={(e) => e.key === 'Enter' && code.length === 6 && handleVerify()}
                 placeholder="123456"
                 autoFocus
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] text-slate-900 placeholder-slate-300 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] text-slate-900 placeholder-slate-300 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
               />
             </div>
             {devCode && <p className="text-sm text-slate-500">Code (dev) : {devCode}</p>}
@@ -127,12 +127,12 @@ export function LoginPage() {
               type="button"
               onClick={handleVerify}
               disabled={busy || code.length < 6}
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-600 px-4 py-3 font-medium text-white shadow-sm hover:bg-accent-700 disabled:opacity-50"
             >
               {busy ? 'Connexion…' : 'Se connecter'}
             </button>
             <div className="flex justify-between text-sm">
-              <button type="button" onClick={handleRequestCode} disabled={busy} className="text-blue-600 hover:underline">
+              <button type="button" onClick={handleRequestCode} disabled={busy} className="text-accent-600 hover:underline">
                 Renvoyer le code
               </button>
               <button
@@ -143,7 +143,7 @@ export function LoginPage() {
                   setDevCode(null)
                   setError(null)
                 }}
-                className="text-blue-600 hover:underline"
+                className="text-accent-600 hover:underline"
               >
                 Modifier l’e-mail
               </button>
@@ -200,7 +200,7 @@ function DevLogin() {
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           placeholder="Nom ou adresse email..."
-          className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
           autoComplete="off"
         />
         {(focused || query) && (

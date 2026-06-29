@@ -15,7 +15,7 @@ export function ClubDetailPage() {
     return (
       <div className="space-y-6">
         <p className="text-slate-600">Club introuvable.</p>
-        <Link to="/clubs" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+        <Link to="/clubs" className="text-sm font-medium text-accent-600 hover:text-accent-800">
           ← Retour à la liste des clubs
         </Link>
       </div>

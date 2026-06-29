@@ -838,7 +838,7 @@ export function MatchDaysPage() {
                     key={t.id}
                     type="button"
                     onClick={() => scrollToTeam(t.id)}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
                   >
                     {t.number}
                   </button>
@@ -847,7 +847,7 @@ export function MatchDaysPage() {
                   <button
                     type="button"
                     onClick={scrollToOtherPlayers}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
                   >
                     Autres
                   </button>
@@ -1035,7 +1035,7 @@ export function MatchDaysPage() {
                                   openGameEditModal(team.id, md.id)
                                 }
                               }}
-                              className="whitespace-nowrap border-l border-slate-200 px-2 py-2 text-center font-medium text-slate-700 cursor-pointer hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
+                              className="whitespace-nowrap border-l border-slate-200 px-2 py-2 text-center font-medium text-slate-700 cursor-pointer hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-inset"
                             >
                               <span className="block">J{md.number}</span>
                               {game ? (
@@ -1527,7 +1527,7 @@ export function MatchDaysPage() {
                     onChange={(e) =>
                       setMatchDayForm((f) => ({ ...f, groupId: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   >
                     <option value="">—</option>
                     {groupOptionsInPhase.map((g) => (
@@ -1558,7 +1558,7 @@ export function MatchDaysPage() {
                   onChange={(e) =>
                     setMatchDayForm((f) => ({ ...f, number: Number(e.target.value) || 1 }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
@@ -1570,7 +1570,7 @@ export function MatchDaysPage() {
                   type="date"
                   value={matchDayForm.date}
                   onChange={(e) => setMatchDayForm((f) => ({ ...f, date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
             </div>
@@ -1585,7 +1585,7 @@ export function MatchDaysPage() {
               <button
                 type="button"
                 onClick={handleSaveMatchDay}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>
@@ -1628,7 +1628,7 @@ export function MatchDaysPage() {
                   onChange={(e) =>
                     setGameEditForm((f) => ({ ...f, date: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
@@ -1643,7 +1643,7 @@ export function MatchDaysPage() {
                   onChange={(e) =>
                     setGameEditForm((f) => ({ ...f, time: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
@@ -1654,7 +1654,7 @@ export function MatchDaysPage() {
                     onClick={() => setGameEditForm((f) => ({ ...f, isHome: true }))}
                     className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       gameEditForm.isHome
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        ? 'border-accent-600 bg-accent-50 text-accent-700'
                         : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -1668,7 +1668,7 @@ export function MatchDaysPage() {
                     onClick={() => setGameEditForm((f) => ({ ...f, isHome: false }))}
                     className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       !gameEditForm.isHome
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        ? 'border-accent-600 bg-accent-50 text-accent-700'
                         : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -1689,7 +1689,7 @@ export function MatchDaysPage() {
                   onChange={(e) =>
                     setGameEditForm((f) => ({ ...f, opponentTeamId: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 >
                   <option value="">—</option>
                   {gameEditOpponentOptions.map((t) => (
@@ -1712,7 +1712,7 @@ export function MatchDaysPage() {
                 type="button"
                 onClick={handleSaveGameEdit}
                 disabled={!gameEditForm.opponentTeamId}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>
