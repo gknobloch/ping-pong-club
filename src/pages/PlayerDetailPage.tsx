@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage } from '@/lib/brulage'
 import { Avatar } from '@/components/Avatar'
+import { TeamBadge } from '@/components/TeamBadge'
 import type { Club, Team } from '@/types'
 
 const teamName = (t: Team, clubs: Club[]) => {
@@ -178,8 +179,7 @@ export function PlayerDetailPage() {
                 {b.team && (
                   <TeamRow
                     label="Équipe"
-                    label2={teamName(b.team, clubs)}
-                    number={b.team.number}
+                    name={teamName(b.team, clubs)}
                     color={b.team.color}
                     captain={b.isCaptain}
                   />
@@ -188,8 +188,7 @@ export function PlayerDetailPage() {
                 {b.brulageTeam && (
                   <TeamRow
                     label="Brûlage"
-                    label2={teamName(b.brulageTeam, clubs)}
-                    number={b.brulageTeam.number}
+                    name={teamName(b.brulageTeam, clubs)}
                     color={b.brulageTeam.color}
                     danger
                   />
@@ -215,8 +214,11 @@ export function PlayerDetailPage() {
                             </span>
                           )}
                           <TeamPill number={e.teamNumber} color={e.teamColor} small />
-                          <span className={`text-xs ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {e.isHome ? 'Dom.' : 'Ext.'}
+                          <span
+                            className={e.isPast ? 'text-slate-400' : 'text-slate-500'}
+                            title={e.isHome ? 'Domicile' : 'Extérieur'}
+                          >
+                            {e.isHome ? <HomeIcon /> : <AwayIcon />}
                           </span>
                           <span
                             className={`truncate text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-800'}`}
@@ -267,18 +269,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-// Aligned team / brûlage row: label + colored pill + team name (+ Cap. badge).
+// Aligned team / brûlage row: label + TeamBadge (+ Cap. badge), matching the
+// mobile player quick view.
 function TeamRow({
   label,
-  label2,
-  number,
+  name,
   color,
   captain,
   danger,
 }: {
   label: string
-  label2: string
-  number: number
+  name: string
   color?: string
   captain?: boolean
   danger?: boolean
@@ -287,8 +288,7 @@ function TeamRow({
     <div className="flex items-center justify-between gap-2 py-2.5">
       <dt className="text-sm text-slate-500">{label}</dt>
       <dd className="flex min-w-0 items-center gap-2">
-        <TeamPill number={number} color={color} danger={danger} />
-        <span className="truncate text-sm font-medium text-slate-800">{label2}</span>
+        <TeamBadge color={color} label={name} danger={danger} />
         {captain && (
           <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-xs font-semibold text-accent-600">
             Cap.
@@ -296,6 +296,26 @@ function TeamRow({
         )}
       </dd>
     </div>
+  )
+}
+
+// Home / away glyphs for the match rows — matches the mobile home / paper-plane
+// icons. currentColor lets the row tint them (muted when the match is past).
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+      <path d="M3 9.5 12 3l9 6.5" />
+      <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
+    </svg>
+  )
+}
+
+function AwayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
   )
 }
 
