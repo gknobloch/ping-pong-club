@@ -87,7 +87,7 @@ export function GroupsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 shrink-0"
+          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 shrink-0"
         >
           Ajouter un groupe
         </button>
@@ -149,7 +149,7 @@ export function GroupsPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(group)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
                     >
                       Modifier
                     </button>
@@ -199,7 +199,7 @@ export function GroupsPage() {
                   id="group-divisionId"
                   value={form.divisionId}
                   onChange={(e) => setForm((f) => ({ ...f, divisionId: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 >
                   {divisions.map((d) => (
                     <option key={d.id} value={d.id}>{d.displayName}</option>
@@ -216,7 +216,7 @@ export function GroupsPage() {
                   min={1}
                   value={form.number}
                   onChange={(e) => setForm((f) => ({ ...f, number: Number(e.target.value) || 1 }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
             </div>
@@ -231,7 +231,7 @@ export function GroupsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>

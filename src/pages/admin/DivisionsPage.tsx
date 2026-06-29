@@ -117,7 +117,7 @@ export function DivisionsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
         >
           Ajouter une division
         </button>
@@ -128,7 +128,7 @@ export function DivisionsPage() {
           id="filter-phase"
           value={filterPhaseId}
           onChange={(e) => setFilterPhaseId(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
         >
           <option value="">Toutes les phases</option>
           {phases.filter((p) => !p.isArchived).map((p) => (
@@ -216,7 +216,7 @@ export function DivisionsPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(div)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
                     >
                       Modifier
                     </button>
@@ -272,7 +272,7 @@ export function DivisionsPage() {
                       const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
                       setForm((f) => ({ ...f, phaseId, rank: maxRank }))
                     }}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   >
                     {phases.map((p) => (
                       <option key={p.id} value={p.id}>{p.displayName}</option>
@@ -289,7 +289,7 @@ export function DivisionsPage() {
                   type="text"
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               {creating && (
@@ -303,7 +303,7 @@ export function DivisionsPage() {
                     min={1}
                     value={form.rank}
                     onChange={(e) => setForm((f) => ({ ...f, rank: Number(e.target.value) || 1 }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   />
                 </div>
               )}
@@ -319,7 +319,7 @@ export function DivisionsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, playersPerGame: Number(e.target.value) || 1 }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
             </div>
@@ -334,7 +334,7 @@ export function DivisionsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>

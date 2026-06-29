@@ -261,7 +261,7 @@ export function TeamsPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
           >
             Ajouter une équipe
           </button>
@@ -333,7 +333,7 @@ export function TeamsPage() {
                       <button
                         type="button"
                         onClick={() => openEdit(team)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                        className="text-sm font-medium text-accent-600 hover:text-accent-800"
                       >
                         Modifier
                       </button>
@@ -387,7 +387,7 @@ export function TeamsPage() {
                       setForm((f) => ({ ...f, clubId: e.target.value, gameLocationId: '', captainId: '', playerIds: [] }))
                     }
                     disabled={!!editing}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:bg-slate-100"
                   >
                     {clubsForSelect.map((c) => (
                       <option key={c.id} value={c.id}>{c.displayName}</option>
@@ -402,7 +402,7 @@ export function TeamsPage() {
                     min={1}
                     value={form.number}
                     onChange={(e) => setForm((f) => ({ ...f, number: Number(e.target.value) || 1 }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   />
                 </div>
               </div>
@@ -416,7 +416,7 @@ export function TeamsPage() {
                       id="team-phaseId"
                       value={form.phaseId}
                       onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value, divisionId: '', groupId: '' }))}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                     >
                       {phases.map((p) => (
                         <option key={p.id} value={p.id}>{p.displayName}</option>
@@ -429,7 +429,7 @@ export function TeamsPage() {
                       id="team-divisionId"
                       value={form.divisionId}
                       onChange={(e) => setForm((f) => ({ ...f, divisionId: e.target.value, groupId: '' }))}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                     >
                       {divisionsInPhase.map((d) => (
                         <option key={d.id} value={d.id}>{d.displayName}</option>
@@ -442,7 +442,7 @@ export function TeamsPage() {
                       id="team-groupId"
                       value={form.groupId}
                       onChange={(e) => setForm((f) => ({ ...f, groupId: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                     >
                       {groupsInDivision.map((g) => (
                         <option key={g.id} value={g.id}>Groupe {g.number}</option>
@@ -460,7 +460,7 @@ export function TeamsPage() {
                     id="team-gameLocationId"
                     value={form.gameLocationId}
                     onChange={(e) => setForm((f) => ({ ...f, gameLocationId: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   >
                     {addressesForClub.map((a) => (
                       <option key={a.id} value={a.id}>{a.label}</option>
@@ -473,7 +473,7 @@ export function TeamsPage() {
                     id="team-defaultDay"
                     value={form.defaultDay}
                     onChange={(e) => setForm((f) => ({ ...f, defaultDay: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   >
                     <option value="">—</option>
                     {DAYS_OF_WEEK.map((d) => (
@@ -487,7 +487,7 @@ export function TeamsPage() {
                     <select
                       value={timeHour}
                       onChange={(e) => setTimeFromParts(e.target.value, timeMinute)}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                     >
                       <option value="">—</option>
                       {HOURS.map((h) => (
@@ -499,7 +499,7 @@ export function TeamsPage() {
                       value={timeMinute}
                       onChange={(e) => setTimeFromParts(String(timeHour), e.target.value)}
                       disabled={!timeHour}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:bg-slate-100"
                     >
                       {MINUTES.map((m) => (
                         <option key={m} value={m}>{m}</option>
@@ -552,7 +552,7 @@ export function TeamsPage() {
                                   }))
                                 }
                                 placeholder="—"
-                                className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                                className="w-20 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500/20"
                               />
                             </td>
                             <td className="px-3 py-2 text-center">
@@ -561,7 +561,7 @@ export function TeamsPage() {
                                 name="captain"
                                 checked={form.captainId === p.id}
                                 onChange={() => setForm((f) => ({ ...f, captainId: p.id }))}
-                                className="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                className="h-4 w-4 text-accent-600 border-slate-300 focus:ring-accent-500"
                               />
                             </td>
                             <td className="px-3 py-2 text-right">
@@ -608,7 +608,7 @@ export function TeamsPage() {
                         }
                         e.target.value = ''
                       }}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                     >
                       <option value="">+ Ajouter un joueur</option>
                       {availablePlayersToAdd.map((p) => (
@@ -632,7 +632,7 @@ export function TeamsPage() {
                   value={form.whatsappLink}
                   onChange={(e) => setForm((f) => ({ ...f, whatsappLink: e.target.value }))}
                   placeholder="https://chat.whatsapp.com/..."
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
             </div>
@@ -657,7 +657,7 @@ export function TeamsPage() {
                     form.playerIds.length === 0 ||
                     !form.playerIds.includes(form.captainId))
                 }
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>

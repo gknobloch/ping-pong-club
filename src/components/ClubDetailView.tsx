@@ -238,7 +238,7 @@ export function ClubDetailView({
                 setForm((f) => ({ ...f, affiliationNumber: e.target.value }))
               }
               readOnly={!canEdit || !canEditAffiliationNumber}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-600"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:bg-slate-50 disabled:text-slate-600"
             />
           </div>
           <div>
@@ -254,7 +254,7 @@ export function ClubDetailView({
               value={form.displayName}
               onChange={(e) => canEdit && setForm((f) => ({ ...f, displayName: e.target.value }))}
               readOnly={!canEdit}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-600"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:bg-slate-50 disabled:text-slate-600"
             />
           </div>
         </div>
@@ -263,7 +263,7 @@ export function ClubDetailView({
             <button
               type="button"
               onClick={handleSaveClub}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
             >
               Enregistrer
             </button>
@@ -280,7 +280,7 @@ export function ClubDetailView({
             <button
               type="button"
               onClick={openAddAddress}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+              className="text-sm font-medium text-accent-600 hover:text-accent-800"
             >
               Ajouter une adresse
             </button>
@@ -311,7 +311,7 @@ export function ClubDetailView({
                   <button
                     type="button"
                     onClick={() => openEditAddress(a)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-accent-600 hover:text-accent-800"
                   >
                     Modifier
                   </button>
@@ -407,7 +407,7 @@ export function ClubDetailView({
               <button
                 type="button"
                 onClick={handleSaveAddress}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                className="rounded bg-accent-600 px-3 py-1.5 text-sm text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>
@@ -439,7 +439,7 @@ export function ClubDetailView({
               <button
                 type="button"
                 onClick={() => logoInputRef.current?.click()}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 {logoUrl ? 'Remplacer le logo' : 'Ajouter un logo'}
               </button>
@@ -467,7 +467,7 @@ export function ClubDetailView({
             <button
               type="button"
               onClick={openAddChannel}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+              className="text-sm font-medium text-accent-600 hover:text-accent-800"
             >
               Ajouter un canal
             </button>
@@ -529,7 +529,7 @@ export function ClubDetailView({
                   <button
                     type="button"
                     onClick={() => openEditChannel(ch)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-accent-600 hover:text-accent-800"
                   >
                     Modifier
                   </button>
@@ -603,7 +603,7 @@ export function ClubDetailView({
                 type="button"
                 onClick={handleSaveChannel}
                 disabled={!channelFields.link.trim()}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded bg-accent-600 px-3 py-1.5 text-sm text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>

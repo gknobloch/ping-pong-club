@@ -58,7 +58,7 @@ export function SeasonsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
         >
           Ajouter une saison
         </button>
@@ -116,7 +116,7 @@ export function SeasonsPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(season)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
                     >
                       Modifier
                     </button>
@@ -167,7 +167,7 @@ export function SeasonsPage() {
                   type="text"
                   value={form.displayName}
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div className="flex gap-4">
@@ -176,7 +176,7 @@ export function SeasonsPage() {
                     type="checkbox"
                     checked={form.isActive}
                     onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-accent-600 focus:ring-accent-500"
                   />
                   <span className="text-sm text-slate-700">Active</span>
                 </label>
@@ -193,7 +193,7 @@ export function SeasonsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
               >
                 Enregistrer
               </button>
