@@ -4,6 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage } from '@/lib/brulage'
 import { Avatar } from '@/components/Avatar'
 import { TeamBadge } from '@/components/TeamBadge'
+import { GameQuickView } from '@/components/GameQuickView'
 import type { Club, Team } from '@/types'
 
 const teamName = (t: Team, clubs: Club[]) => {
@@ -12,6 +13,8 @@ const teamName = (t: Team, clubs: Club[]) => {
 }
 
 type HistoryEntry = {
+  gameId: string
+  teamId: string
   jNumber?: number
   isHome: boolean
   oppName: string
@@ -35,6 +38,7 @@ export function PlayerDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { players, teams, clubs, phases, matchDays, games, gameSelections } = useAppData()
   const [zoom, setZoom] = useState(false)
+  const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
@@ -82,6 +86,8 @@ export function PlayerDetailPage() {
             rows.push({
               raw: md.date,
               e: {
+                gameId: g.id,
+                teamId: t.id,
                 jNumber: md.number,
                 isHome,
                 oppName: opp ? teamName(opp, clubs) : '—',
@@ -176,6 +182,7 @@ export function PlayerDetailPage() {
                 {b.label}
               </h2>
               <dl className="divide-y divide-slate-100 px-5">
+                {b.points && <InfoRow label="Points" value={b.points} />}
                 {b.team && (
                   <TeamRow
                     label="Équipe"
@@ -184,7 +191,6 @@ export function PlayerDetailPage() {
                     captain={b.isCaptain}
                   />
                 )}
-                {b.points && <InfoRow label="Points" value={b.points} />}
                 {b.brulageTeam && (
                   <TeamRow
                     label="Brûlage"
@@ -226,9 +232,20 @@ export function PlayerDetailPage() {
                             {e.oppName}
                           </span>
                         </div>
-                        <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {e.date}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {e.date}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuickGame({ gameId: e.gameId, teamId: e.teamId })}
+                            className="text-slate-300 hover:text-accent-600"
+                            title="Détails du match"
+                            aria-label="Détails du match"
+                          >
+                            <InfoIcon />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -237,6 +254,14 @@ export function PlayerDetailPage() {
             </section>
           ))}
         </div>
+      )}
+
+      {quickGame && (
+        <GameQuickView
+          gameId={quickGame.gameId}
+          teamId={quickGame.teamId}
+          onClose={() => setQuickGame(null)}
+        />
       )}
 
       {/* Avatar lightbox */}
@@ -286,16 +311,28 @@ function TeamRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 py-2.5">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="flex min-w-0 items-center gap-2">
-        <TeamBadge color={color} label={name} danger={danger} />
+      <dt className="flex items-center gap-2 text-sm text-slate-500">
+        {label}
         {captain && (
           <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-xs font-semibold text-accent-600">
             Cap.
           </span>
         )}
+      </dt>
+      <dd className="min-w-0">
+        <TeamBadge color={color} label={name} danger={danger} />
       </dd>
     </div>
+  )
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
   )
 }
 
