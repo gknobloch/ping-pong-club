@@ -311,15 +311,13 @@ function TeamRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 py-2.5">
-      <dt className="flex items-center gap-2 text-sm text-slate-500">
-        {label}
+      <dt className="text-sm text-slate-500">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-2">
         {captain && (
           <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-xs font-semibold text-accent-600">
             Cap.
           </span>
         )}
-      </dt>
-      <dd className="min-w-0">
         <TeamBadge color={color} label={name} danger={danger} />
       </dd>
     </div>
