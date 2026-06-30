@@ -85,7 +85,9 @@ export function HomePage() {
           <Avatar playerId={me.id} avatarUpdatedAt={me.avatarUpdatedAt} firstName={me.firstName} lastName={me.lastName} size={56} />
         ) : null}
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">{displayName}</h1>
+          <h1 className="font-display text-2xl font-semibold text-slate-800">
+            Bienvenue, {displayName}
+          </h1>
           <p className="text-slate-500">{myClub ? myClub.displayName : roleLabel}</p>
         </div>
       </div>
