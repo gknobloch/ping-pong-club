@@ -5,6 +5,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
+import { AvailabilityButtons } from '@/components/AvailabilityButtons'
 import type { AvailabilityStatus, Club, Team } from '@/types'
 
 const teamName = (t: Team, clubs: Club[]) => {
@@ -17,6 +18,7 @@ export function HomePage() {
   const {
     clubs, seasons, teams, players, phases, divisions, groups,
     matchDays, games, gameAvailabilities, gameSelections,
+    setGameAvailability, clearGameAvailability,
   } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
 
@@ -51,7 +53,6 @@ export function HomePage() {
         .sort((a, b) => (mdMap.get(a.matchDayId)?.date ?? '').localeCompare(mdMap.get(b.matchDayId)?.date ?? '')),
     [teamGames, mdMap, today],
   )
-  const nextGame = upcoming[0]
 
   const availOf = (gameId: string): AvailabilityStatus | undefined =>
     myPlayerId ? gameAvailabilities.find((a) => a.playerId === myPlayerId && a.gameId === gameId)?.status : undefined
@@ -75,6 +76,22 @@ export function HomePage() {
     return (hc?.addresses?.find((a) => a.isDefault) ?? hc?.addresses?.[0])?.city
   }
 
+  // Team number this player is already committed to on a game's round (so they
+  // can't set availability for this team) — else undefined.
+  const committedElsewhere = (gameId: string): number | undefined => {
+    if (!myPlayerId || !myActiveTeam || !activePhase) return undefined
+    const md = mdMap.get(games.find((g) => g.id === gameId)?.matchDayId ?? '')
+    if (!md) return undefined
+    for (const sel of gameSelections) {
+      if (sel.teamId === myActiveTeam.id || !sel.playerIds.includes(myPlayerId)) continue
+      const t = teams.find((x) => x.id === sel.teamId)
+      if (!t || t.clubId !== myActiveTeam.clubId || t.phaseId !== activePhase.id) continue
+      const g = games.find((x) => x.id === sel.gameId)
+      if (g && mdMap.get(g.matchDayId)?.number === md.number) return t.number
+    }
+    return undefined
+  }
+
   const isPlayerDashboard = !!myActiveTeam
 
   return (
@@ -94,51 +111,66 @@ export function HomePage() {
 
       {isPlayerDashboard && myActiveTeam ? (
         <>
-          {/* Next match */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Prochain match</p>
-            {!nextGame ? (
+          {/* Upcoming matches — set your availability inline */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {upcoming.length > 1 ? 'Prochains matchs' : 'Prochain match'}
+            </p>
+            {upcoming.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
                 Pas de prochain match prévu.
               </div>
-            ) : (() => {
-              const md = mdMap.get(nextGame.matchDayId)!
-              const isHome = nextGame.homeTeamId === myActiveTeam.id
-              const opp = teams.find((t) => t.id === (isHome ? nextGame.awayTeamId : nextGame.homeTeamId))
-              const homeTeam = teams.find((t) => t.id === nextGame.homeTeamId)
-              const matchup = isHome
-                ? `${teamName(myActiveTeam, clubs)} – ${opp ? teamName(opp, clubs) : '?'}`
-                : `${opp ? teamName(opp, clubs) : '?'} – ${teamName(myActiveTeam, clubs)}`
-              const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                weekday: 'long', day: 'numeric', month: 'long',
+            ) : (
+              upcoming.map((g) => {
+                const md = mdMap.get(g.matchDayId)!
+                const isHome = g.homeTeamId === myActiveTeam.id
+                const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
+                const homeTeam = teams.find((t) => t.id === g.homeTeamId)
+                const matchup = isHome
+                  ? `${teamName(myActiveTeam, clubs)} – ${opp ? teamName(opp, clubs) : '?'}`
+                  : `${opp ? teamName(opp, clubs) : '?'} – ${teamName(myActiveTeam, clubs)}`
+                const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+                  weekday: 'long', day: 'numeric', month: 'long',
+                })
+                const locked = committedElsewhere(g.id)
+                return (
+                  <div key={g.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Pill>J{md.number}</Pill>
+                      {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
+                      <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
+                    </div>
+                    <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
+                      <span className="text-slate-400">{isHome ? <HomeIcon /> : <AwayIcon />}</span>
+                      {matchup}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {dateLabel}{g.time ? ` · ${g.time}` : ''}{venueOf(homeTeam) ? ` · ${venueOf(homeTeam)}` : ''}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      {locked !== undefined ? (
+                        <span className="text-xs italic text-slate-500">Joue en Équipe {locked}</span>
+                      ) : myPlayerId ? (
+                        <AvailabilityButtons
+                          status={availOf(g.id)}
+                          onSet={(s) => setGameAvailability(g.id, myPlayerId, s)}
+                          onClear={() => clearGameAvailability(g.id, myPlayerId)}
+                        />
+                      ) : (
+                        <AvailChip status={availOf(g.id)} />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setQuickGame({ gameId: g.id, teamId: myActiveTeam.id })}
+                        className="shrink-0 text-sm font-medium text-accent-600 hover:text-accent-800"
+                      >
+                        Détails
+                      </button>
+                    </div>
+                  </div>
+                )
               })
-              return (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Pill>J{md.number}</Pill>
-                    {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
-                    <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
-                  </div>
-                  <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
-                    <span className="text-slate-400">{isHome ? <HomeIcon /> : <AwayIcon />}</span>
-                    {matchup}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {dateLabel}{nextGame.time ? ` · ${nextGame.time}` : ''}{venueOf(homeTeam) ? ` · ${venueOf(homeTeam)}` : ''}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <AvailChip status={availOf(nextGame.id)} />
-                    <button
-                      type="button"
-                      onClick={() => setQuickGame({ gameId: nextGame.id, teamId: myActiveTeam.id })}
-                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
-                    >
-                      Détails du match
-                    </button>
-                  </div>
-                </div>
-              )
-            })()}
+            )}
           </div>
 
           {/* Stats */}

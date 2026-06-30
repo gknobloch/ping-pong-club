@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { TeamBadge } from '@/components/TeamBadge'
+import { AvailabilityButtons } from '@/components/AvailabilityButtons'
 import type { Club, Team } from '@/types'
 
 const teamName = (t: Team, clubs: Club[]) => {
@@ -20,10 +22,13 @@ export function GameQuickView({
   teamId: string
   onClose: () => void
 }) {
+  const { user } = useAuth()
   const {
     clubs, teams, players, groups, divisions, matchDays, games,
     gameAvailabilities, gameSelections,
+    setGameAvailability, clearGameAvailability,
   } = useAppData()
+  const myPlayerId = user?.isPlayer ? user.id : undefined
 
   const game = games.find((g) => g.id === gameId)
   const team = teams.find((t) => t.id === teamId)
@@ -62,6 +67,7 @@ export function GameQuickView({
 
   if (!game || !team || !matchDay) return null
 
+  const isPast = matchDay.date < new Date().toISOString().slice(0, 10)
   const isHome = game.homeTeamId === team.id
   const oppTeam = teams.find((t) => t.id === (isHome ? game.awayTeamId : game.homeTeamId))
   const opponentName = oppTeam ? teamName(oppTeam, clubs) : '?'
@@ -135,6 +141,13 @@ export function GameQuickView({
                 </span>
                 {lockedTeam !== undefined ? (
                   <span className="shrink-0 text-xs italic text-slate-500">Joue en Équipe {lockedTeam}</span>
+                ) : p.id === myPlayerId && !isPast ? (
+                  <AvailabilityButtons
+                    size="sm"
+                    status={availOf(p.id)}
+                    onSet={(s) => setGameAvailability(game.id, p.id, s)}
+                    onClear={() => clearGameAvailability(game.id, p.id)}
+                  />
                 ) : (
                   <AvailPills status={availOf(p.id)} />
                 )}
