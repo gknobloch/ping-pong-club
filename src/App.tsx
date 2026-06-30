@@ -17,6 +17,7 @@ import { MyClubPage } from '@/pages/MyClubPage'
 import { PlayerDetailPage } from '@/pages/PlayerDetailPage'
 import { TeamDetailPage } from '@/pages/TeamDetailPage'
 import { MesMatchsPage } from '@/pages/MesMatchsPage'
+import { ComptePage } from '@/pages/ComptePage'
 
 function AuthLoading() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="journees" element={<MatchDaysPage />} />
             <Route path="mon-club" element={<MyClubPage />} />
             <Route path="mes-matchs" element={<MesMatchsPage />} />
+            <Route path="compte" element={<ComptePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

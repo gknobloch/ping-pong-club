@@ -121,6 +121,8 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   moveDivisionDown: (divisionId: string) => void
   updatePlayer: (id: string, patch: Partial<Player>) => void
   addPlayer: (data: Omit<Player, 'id'>) => Player
+  setAvatar: (id: string, base64: string, contentType: string) => Promise<void>
+  removeAvatar: (id: string) => Promise<void>
   matchDays: MatchDay[]
   games: Game[]
   updateMatchDay: (id: string, patch: Partial<MatchDay>) => void
@@ -672,6 +674,31 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     return player
   }, [persist])
 
+  // Avatars are stored base64 in D1 behind PUT/DELETE /players/:id/avatar; the
+  // players list only carries avatarUpdatedAt for cache-busting, so we bump it
+  // optimistically and the Avatar component refetches.
+  const setAvatar = useCallback(async (id: string, base64: string, contentType: string) => {
+    const now = new Date().toISOString()
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, avatarUpdatedAt: now } : p)))
+    if (!persist) return
+    const res = await fetch(`/api/players/${id}/avatar`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ data: base64, contentType }),
+    })
+    if (res.ok) {
+      const { avatarUpdatedAt } = (await res.json()) as { avatarUpdatedAt?: string }
+      if (avatarUpdatedAt) {
+        setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, avatarUpdatedAt } : p)))
+      }
+    }
+  }, [persist])
+
+  const removeAvatar = useCallback(async (id: string) => {
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, avatarUpdatedAt: undefined } : p)))
+    if (persist) await fetch(`/api/players/${id}/avatar`, { method: 'DELETE', headers: authHeaders() })
+  }, [persist])
+
   // --- Match Days ---
   const updateMatchDay = useCallback((id: string, patch: Partial<MatchDay>) => {
     setMatchDays((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
@@ -844,6 +871,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       moveDivisionDown,
       updatePlayer,
       addPlayer,
+      setAvatar,
+      removeAvatar,
       updateMatchDay,
       addMatchDay,
       updateGame,
@@ -865,7 +894,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateSeason, archiveSeason, deleteSeason, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
-      updatePlayer, addPlayer,
+      updatePlayer, addPlayer, setAvatar, removeAvatar,
       updateMatchDay, addMatchDay, updateGame, addGame,
       gameAvailabilities, setGameAvailability, clearGameAvailability,
       gameSelections, getGameSelectionPlayerIds, setGameSelection, setGameSelectionBatch,
