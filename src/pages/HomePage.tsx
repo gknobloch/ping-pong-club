@@ -190,7 +190,7 @@ export function HomePage() {
           {/* All my matches → player profile (lists matches per phase; #177 adds a dedicated view) */}
           {me && (
             <Link
-              to={`/joueurs/${me.id}`}
+              to="/mes-matchs"
               className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-accent-300"
             >
               <span>
