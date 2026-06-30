@@ -97,10 +97,10 @@ export function AppShell() {
               </Link>
             )}
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-              <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-slate-800">{displayName}</p>
+              <Link to="/compte" className="hidden text-right sm:block" title="Mon compte">
+                <p className="text-sm font-medium text-slate-800 hover:text-accent-600">{displayName}</p>
                 <p className="text-xs text-slate-500">{clubLabel || roleLabel}</p>
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
