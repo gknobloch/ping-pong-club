@@ -262,8 +262,16 @@ export const mockTeams: Team[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Match Days (7 per group)
+// Match Days (7 per group, plus a couple of "retour" fixtures dated relative
+// to today so upcoming/"prochain match" views stay populated regardless of
+// when the app is run).
 // ---------------------------------------------------------------------------
+function daysFromNow(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 export const mockMatchDays: MatchDay[] = [
   // Group 1 (Equipe 1)
   { id: 'md-g1-1', groupId: 'group-1', number: 1, date: '2025-09-27' },
@@ -321,6 +329,9 @@ export const mockMatchDays: MatchDay[] = [
   { id: 'md-g7-5', groupId: 'group-7', number: 5, date: '2025-11-27' },
   { id: 'md-g7-6', groupId: 'group-7', number: 6, date: '2025-12-09' },
   { id: 'md-g7-7', groupId: 'group-7', number: 7, date: '2026-01-08' },
+  // "Retour" fixtures — always in the future so next-match views are non-empty.
+  { id: 'md-g1-8', groupId: 'group-1', number: 8, date: daysFromNow(14) },
+  { id: 'md-g6-8', groupId: 'group-6', number: 8, date: daysFromNow(21) },
 ]
 
 // ---------------------------------------------------------------------------
@@ -389,13 +400,61 @@ export const mockGames: Game[] = [
   { id: 'g8-5', matchDayId: 'md-g7-5', homeTeamId: 'opp-kembs-6', awayTeamId: 'team-8' },
   { id: 'g8-6', matchDayId: 'md-g7-6', homeTeamId: 'opp-kembs-4', awayTeamId: 'team-8' },
   { id: 'g8-7', matchDayId: 'md-g7-7', homeTeamId: 'opp-illzach-11', awayTeamId: 'team-8' },
+  // "Retour" fixtures (see mockMatchDays) — future games for team-1 and team-7.
+  { id: 'g1-8', matchDayId: 'md-g1-8', homeTeamId: 'team-1', awayTeamId: 'opp-etival-1' },
+  { id: 'g7-8', matchDayId: 'md-g6-8', homeTeamId: 'team-7', awayTeamId: 'opp-huningue-3' },
 ]
 
 // ---------------------------------------------------------------------------
-// Availabilities & Selections (empty — filled at runtime)
+// Game Selections — a realistic slice covering match days 1 & 2 for every
+// PPA Rixheim team. p2-player-8 (team-2 roster) is called up to team-1 for
+// MD2 — a "renfort" — while still playing his own team-2 game at MD1; having
+// played 2 games across the two teams burns him into team-2 (see
+// computeBrulage in lib/brulage.ts: totalGames > 1 caps him at the highest
+// team number he's still eligible for).
 // ---------------------------------------------------------------------------
-export const mockGameAvailabilities: GameAvailability[] = []
-export const mockGameSelections: GameSelection[] = []
+export const mockGameSelections: GameSelection[] = [
+  // Equipe 1
+  { id: 'gs-g1-1-team-1', gameId: 'g1-1', teamId: 'team-1', playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-3'] },
+  { id: 'gs-g1-2-team-1', gameId: 'g1-2', teamId: 'team-1', playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-8'] },
+  // Equipe 2 (p2-player-8 sits out MD2 — he's playing up for team-1 that day)
+  { id: 'gs-g2-1-team-2', gameId: 'g2-1', teamId: 'team-2', playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-8'] },
+  { id: 'gs-g2-2-team-2', gameId: 'g2-2', teamId: 'team-2', playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-9'] },
+  // Equipe 3
+  { id: 'gs-g3-1-team-3', gameId: 'g3-1', teamId: 'team-3', playerIds: ['p2-player-12', 'p2-player-13', 'p2-player-14', 'p2-player-11'] },
+  { id: 'gs-g3-2-team-3', gameId: 'g3-2', teamId: 'team-3', playerIds: ['p2-player-12', 'p2-player-13', 'p2-player-14', 'p2-player-17'] },
+  // Equipe 4
+  { id: 'gs-g4-1-team-4', gameId: 'g4-1', teamId: 'team-4', playerIds: ['p2-player-16', 'p2-player-19', 'p2-player-18', 'p2-player-15'] },
+  { id: 'gs-g4-2-team-4', gameId: 'g4-2', teamId: 'team-4', playerIds: ['p2-player-16', 'p2-player-19', 'p2-player-18', 'p2-player-20'] },
+  // Equipe 5 & 6 (derby at MD1 — both teams field a selection for game g5-1)
+  { id: 'gs-g5-1-team-5', gameId: 'g5-1', teamId: 'team-5', playerIds: ['p2-player-22', 'p2-player-24', 'p2-player-21', 'p2-player-23'] },
+  { id: 'gs-g5-1-team-6', gameId: 'g5-1', teamId: 'team-6', playerIds: ['p2-player-29', 'p2-player-39', 'p2-player-40', 'p2-player-41'] },
+  { id: 'gs-g5-2-team-5', gameId: 'g5-2', teamId: 'team-5', playerIds: ['p2-player-22', 'p2-player-24', 'p2-player-21', 'p2-player-26'] },
+  { id: 'gs-g6-2-team-6', gameId: 'g6-2', teamId: 'team-6', playerIds: ['p2-player-29', 'p2-player-42', 'p2-player-38', 'p2-player-43'] },
+  // Equipe 7
+  { id: 'gs-g7-1-team-7', gameId: 'g7-1', teamId: 'team-7', playerIds: ['p2-player-33', 'p2-player-35', 'p2-player-34'] },
+  { id: 'gs-g7-2-team-7', gameId: 'g7-2', teamId: 'team-7', playerIds: ['p2-player-33', 'p2-player-35', 'p2-player-36'] },
+  // Equipe 8
+  { id: 'gs-g8-1-team-8', gameId: 'g8-1', teamId: 'team-8', playerIds: ['p2-player-32', 'p2-player-27', 'p2-player-28'] },
+  { id: 'gs-g8-2-team-8', gameId: 'g8-2', teamId: 'team-8', playerIds: ['p2-player-32', 'p2-player-27', 'p2-player-30'] },
+]
+
+// ---------------------------------------------------------------------------
+// Game Availabilities — a few responses on the upcoming "retour" games so the
+// Accueil next-match widget and the game modal's disponibilités list aren't
+// empty. Some roster players are left without a record to exercise the
+// "À confirmer" (no response yet) state too.
+// ---------------------------------------------------------------------------
+export const mockGameAvailabilities: GameAvailability[] = [
+  // g1-8 (team-1, in daysFromNow(14) days)
+  { id: 'avail-g1-8-p2-player-5', gameId: 'g1-8', playerId: 'p2-player-5', status: 'available' },
+  { id: 'avail-g1-8-p2-player-1', gameId: 'g1-8', playerId: 'p2-player-1', status: 'maybe' },
+  { id: 'avail-g1-8-p2-player-2', gameId: 'g1-8', playerId: 'p2-player-2', status: 'unavailable', overriddenBy: 'captain' },
+  { id: 'avail-g1-8-p2-player-3', gameId: 'g1-8', playerId: 'p2-player-3', status: 'available' },
+  // g7-8 (team-7, in daysFromNow(21) days)
+  { id: 'avail-g7-8-p2-player-33', gameId: 'g7-8', playerId: 'p2-player-33', status: 'available' },
+  { id: 'avail-g7-8-p2-player-35', gameId: 'g7-8', playerId: 'p2-player-35', status: 'unavailable' },
+]
 
 // ---------------------------------------------------------------------------
 // Users
