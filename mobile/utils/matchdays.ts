@@ -1,5 +1,7 @@
-import type { MatchDay, Division, Group, Team, Game, GameSelection } from '@shared/types'
+import type { MatchDay, Division, Group } from '@shared/types'
 import { getMondayOf, getSundayOf, todayIso } from './weeks'
+
+export { playersCommittedElsewhere } from '@shared/lib/matchdays'
 
 // A "journée" across the club: all the per-division MatchDay rows that share a
 // number within a phase, plus the date span of their games.
@@ -49,31 +51,6 @@ export function activeMatchDayNumber(matchDayGroups: MatchDayGroup[]): number | 
     if (today <= effectiveEnd) return g.number
   }
   return matchDayGroups[matchDayGroups.length - 1].number
-}
-
-// Players already selected for another club team in the same journée (round
-// number), mapped to that team's number — they can't be fielded twice the same
-// match-day, so they're non-selectable for the current team.
-export function playersCommittedElsewhere(
-  currentTeamId: string,
-  roundNumber: number,
-  clubTeams: Team[],
-  games: Game[],
-  matchDays: MatchDay[],
-  gameSelections: GameSelection[],
-): Map<string, number> {
-  const mdNumberById = new Map(matchDays.map((md) => [md.id, md.number]))
-  const clubTeamById = new Map(clubTeams.map((t) => [t.id, t]))
-  const result = new Map<string, number>()
-  for (const sel of gameSelections) {
-    if (sel.teamId === currentTeamId) continue
-    const team = clubTeamById.get(sel.teamId)
-    if (!team) continue
-    const game = games.find((g) => g.id === sel.gameId)
-    if (!game || mdNumberById.get(game.matchDayId) !== roundNumber) continue
-    for (const pid of sel.playerIds) if (!result.has(pid)) result.set(pid, team.number)
-  }
-  return result
 }
 
 // Date-range label, e.g. "sam 27 oct" or "sam 27 – dim 28 oct".

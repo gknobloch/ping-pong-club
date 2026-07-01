@@ -5,13 +5,12 @@ import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
-import { AvailabilityButtons } from '@/components/AvailabilityButtons'
-import type { AvailabilityStatus, Club, Team } from '@/types'
-
-const teamName = (t: Team, clubs: Club[]) => {
-  const club = clubs.find((c) => c.id === t.clubId)
-  return club ? `${club.displayName} ${t.number}` : `Équipe ${t.number}`
-}
+import { AvailabilityButtons, AvailabilityChip } from '@/components/Availability'
+import { HomeIcon, AwayIcon, Pill } from '@/components/icons'
+import { getTeamName } from '@/lib/teamName'
+import { getVenue } from '@/lib/venue'
+import { playersCommittedElsewhere } from '@/lib/matchdays'
+import type { AvailabilityStatus, Team } from '@/types'
 
 export function HomePage() {
   const { user, displayName, roleLabel } = useAuth()
@@ -68,28 +67,22 @@ export function HomePage() {
     const grp = groups.find((g) => g.id === team.groupId)
     return grp ? divisions.find((d) => d.id === grp.divisionId)?.displayName : undefined
   }
-  const venueOf = (homeTeam?: Team) => {
-    if (!homeTeam) return undefined
-    const addr = clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
-    if (addr) return addr.label ? `${addr.label}, ${addr.city}` : addr.city
-    const hc = clubs.find((c) => c.id === homeTeam.clubId)
-    return (hc?.addresses?.find((a) => a.isDefault) ?? hc?.addresses?.[0])?.city
-  }
+
+  const clubTeamsInActivePhase = useMemo(
+    () =>
+      myActiveTeam && activePhase
+        ? teams.filter((t) => t.clubId === myActiveTeam.clubId && t.phaseId === activePhase.id)
+        : [],
+    [teams, myActiveTeam, activePhase],
+  )
 
   // Team number this player is already committed to on a game's round (so they
   // can't set availability for this team) — else undefined.
   const committedElsewhere = (gameId: string): number | undefined => {
-    if (!myPlayerId || !myActiveTeam || !activePhase) return undefined
+    if (!myPlayerId || !myActiveTeam) return undefined
     const md = mdMap.get(games.find((g) => g.id === gameId)?.matchDayId ?? '')
     if (!md) return undefined
-    for (const sel of gameSelections) {
-      if (sel.teamId === myActiveTeam.id || !sel.playerIds.includes(myPlayerId)) continue
-      const t = teams.find((x) => x.id === sel.teamId)
-      if (!t || t.clubId !== myActiveTeam.clubId || t.phaseId !== activePhase.id) continue
-      const g = games.find((x) => x.id === sel.gameId)
-      if (g && mdMap.get(g.matchDayId)?.number === md.number) return t.number
-    }
-    return undefined
+    return playersCommittedElsewhere(myActiveTeam.id, md.number, clubTeamsInActivePhase, games, matchDays, gameSelections).get(myPlayerId)
   }
 
   const isPlayerDashboard = !!myActiveTeam
@@ -127,8 +120,8 @@ export function HomePage() {
                 const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
                 const homeTeam = teams.find((t) => t.id === g.homeTeamId)
                 const matchup = isHome
-                  ? `${teamName(myActiveTeam, clubs)} – ${opp ? teamName(opp, clubs) : '?'}`
-                  : `${opp ? teamName(opp, clubs) : '?'} – ${teamName(myActiveTeam, clubs)}`
+                  ? `${getTeamName(myActiveTeam, clubs)} – ${opp ? getTeamName(opp, clubs) : '?'}`
+                  : `${opp ? getTeamName(opp, clubs) : '?'} – ${getTeamName(myActiveTeam, clubs)}`
                 const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
                   weekday: 'long', day: 'numeric', month: 'long',
                 })
@@ -141,11 +134,11 @@ export function HomePage() {
                       <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
                     </div>
                     <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
-                      <span className="text-slate-400">{isHome ? <HomeIcon /> : <AwayIcon />}</span>
+                      <span className="text-slate-400">{isHome ? <HomeIcon className="h-4 w-4" /> : <AwayIcon className="h-4 w-4" />}</span>
                       {matchup}
                     </h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      {dateLabel}{g.time ? ` · ${g.time}` : ''}{venueOf(homeTeam) ? ` · ${venueOf(homeTeam)}` : ''}
+                      {dateLabel}{g.time ? ` · ${g.time}` : ''}{getVenue(homeTeam, clubs) ? ` · ${getVenue(homeTeam, clubs)}` : ''}
                     </p>
                     <div className="mt-3 flex items-center justify-between gap-3">
                       {locked !== undefined ? (
@@ -157,7 +150,7 @@ export function HomePage() {
                           onClear={() => clearGameAvailability(g.id, myPlayerId)}
                         />
                       ) : (
-                        <AvailChip status={availOf(g.id)} />
+                        <AvailabilityChip status={availOf(g.id)} />
                       )}
                       <button
                         type="button"
@@ -247,41 +240,5 @@ export function HomePage() {
         <GameQuickView gameId={quickGame.gameId} teamId={quickGame.teamId} onClose={() => setQuickGame(null)} />
       )}
     </div>
-  )
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
-      {children}
-    </span>
-  )
-}
-
-function AvailChip({ status }: { status?: AvailabilityStatus }) {
-  const map = {
-    available: { label: 'Disponible', cls: 'border-green-500 bg-green-50 text-green-700' },
-    maybe: { label: 'Peut-être', cls: 'border-amber-500 bg-amber-50 text-amber-700' },
-    unavailable: { label: 'Indisponible', cls: 'border-accent-500 bg-accent-50 text-accent-600' },
-  } as const
-  const v = status ? map[status] : { label: 'À confirmer', cls: 'border-slate-200 bg-slate-50 text-slate-500' }
-  return <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${v.cls}`}>{v.label}</span>
-}
-
-function HomeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-      <path d="M3 9.5 12 3l9 6.5" />
-      <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
-    </svg>
-  )
-}
-
-function AwayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-    </svg>
   )
 }
