@@ -194,7 +194,11 @@ INSERT INTO match_days (id, group_id, number, date) VALUES
   ('md-g7-4', 'group-7', 4, '2025-11-13'),
   ('md-g7-5', 'group-7', 5, '2025-11-27'),
   ('md-g7-6', 'group-7', 6, '2025-12-09'),
-  ('md-g7-7', 'group-7', 7, '2026-01-08');
+  ('md-g7-7', 'group-7', 7, '2026-01-08'),
+  -- "Retour" fixtures — SQL can't compute relative dates, so these use fixed
+  -- far-future dates (re-seed with fresher ones if they ever stop being useful).
+  ('md-g1-8', 'group-1', 8, '2030-06-01'),
+  ('md-g6-8', 'group-6', 8, '2030-06-15');
 
 -- games
 INSERT INTO games (id, match_day_id, home_team_id, away_team_id, time) VALUES
@@ -251,7 +255,43 @@ INSERT INTO games (id, match_day_id, home_team_id, away_team_id, time) VALUES
   ('g8-4', 'md-g7-4', 'opp-huningue-4', 'team-8', NULL),
   ('g8-5', 'md-g7-5', 'opp-kembs-6', 'team-8', NULL),
   ('g8-6', 'md-g7-6', 'opp-kembs-4', 'team-8', NULL),
-  ('g8-7', 'md-g7-7', 'opp-illzach-11', 'team-8', NULL);
+  ('g8-7', 'md-g7-7', 'opp-illzach-11', 'team-8', NULL),
+  -- "Retour" fixtures (see match_days above) — future games for team-1 and team-7.
+  ('g1-8', 'md-g1-8', 'team-1', 'opp-etival-1', NULL),
+  ('g7-8', 'md-g6-8', 'team-7', 'opp-huningue-3', NULL);
+
+-- game_selections — a realistic slice covering match days 1 & 2 for every
+-- PPA Rixheim team. p2-player-8 (team-2 roster) is called up to team-1 for
+-- MD2 — a "renfort" — while still playing his own team-2 game at MD1; two
+-- games across the two teams burns him into team-2 (see computeBrulage in
+-- src/lib/brulage.ts).
+INSERT INTO game_selections (id, game_id, team_id, player_ids) VALUES
+  ('gs-g1-1-team-1', 'g1-1', 'team-1', '["p2-player-5","p2-player-1","p2-player-2","p2-player-3"]'),
+  ('gs-g1-2-team-1', 'g1-2', 'team-1', '["p2-player-5","p2-player-1","p2-player-2","p2-player-8"]'),
+  ('gs-g2-1-team-2', 'g2-1', 'team-2', '["p2-player-6","p2-player-10","p2-player-7","p2-player-8"]'),
+  ('gs-g2-2-team-2', 'g2-2', 'team-2', '["p2-player-6","p2-player-10","p2-player-7","p2-player-9"]'),
+  ('gs-g3-1-team-3', 'g3-1', 'team-3', '["p2-player-12","p2-player-13","p2-player-14","p2-player-11"]'),
+  ('gs-g3-2-team-3', 'g3-2', 'team-3', '["p2-player-12","p2-player-13","p2-player-14","p2-player-17"]'),
+  ('gs-g4-1-team-4', 'g4-1', 'team-4', '["p2-player-16","p2-player-19","p2-player-18","p2-player-15"]'),
+  ('gs-g4-2-team-4', 'g4-2', 'team-4', '["p2-player-16","p2-player-19","p2-player-18","p2-player-20"]'),
+  ('gs-g5-1-team-5', 'g5-1', 'team-5', '["p2-player-22","p2-player-24","p2-player-21","p2-player-23"]'),
+  ('gs-g5-1-team-6', 'g5-1', 'team-6', '["p2-player-29","p2-player-39","p2-player-40","p2-player-41"]'),
+  ('gs-g5-2-team-5', 'g5-2', 'team-5', '["p2-player-22","p2-player-24","p2-player-21","p2-player-26"]'),
+  ('gs-g6-2-team-6', 'g6-2', 'team-6', '["p2-player-29","p2-player-42","p2-player-38","p2-player-43"]'),
+  ('gs-g7-1-team-7', 'g7-1', 'team-7', '["p2-player-33","p2-player-35","p2-player-34"]'),
+  ('gs-g7-2-team-7', 'g7-2', 'team-7', '["p2-player-33","p2-player-35","p2-player-36"]'),
+  ('gs-g8-1-team-8', 'g8-1', 'team-8', '["p2-player-32","p2-player-27","p2-player-28"]'),
+  ('gs-g8-2-team-8', 'g8-2', 'team-8', '["p2-player-32","p2-player-27","p2-player-30"]');
+
+-- game_availabilities — a few responses on the upcoming "retour" games so the
+-- Accueil next-match widget and the game modal's disponibilités list aren't empty.
+INSERT INTO game_availabilities (id, game_id, player_id, status, overridden_by) VALUES
+  ('avail-g1-8-p2-player-5', 'g1-8', 'p2-player-5', 'available', NULL),
+  ('avail-g1-8-p2-player-1', 'g1-8', 'p2-player-1', 'maybe', NULL),
+  ('avail-g1-8-p2-player-2', 'g1-8', 'p2-player-2', 'unavailable', 'captain'),
+  ('avail-g1-8-p2-player-3', 'g1-8', 'p2-player-3', 'available', NULL),
+  ('avail-g7-8-p2-player-33', 'g7-8', 'p2-player-33', 'available', NULL),
+  ('avail-g7-8-p2-player-35', 'g7-8', 'p2-player-35', 'unavailable', NULL);
 
 -- users
 INSERT INTO users (id, email, role, is_player, first_name, last_name, license_number, phone, birth_date, birth_place, status, club_id) VALUES
@@ -303,4 +343,9 @@ INSERT INTO users (id, email, role, is_player, first_name, last_name, license_nu
   ('p2-player-45', 'marieline.wertenschlag@example.com', 'player', 1, 'Marie-Line', 'Wertenschlag', '686416', '', NULL, NULL, 'active', 'club-1'),
   ('p2-player-25', 'jordan.pesenti@example.com', 'player', 1, 'Jordan', 'Pesenti', '6718937', '', NULL, NULL, 'active', 'club-1')
 ;
+
+-- player_avatars — a sample avatar so the authed-image round trip (GET/PUT
+-- /api/players/:id/avatar) is exercisable locally. 1x1 transparent PNG.
+INSERT INTO player_avatars (user_id, data, content_type, updated_at) VALUES
+  ('p2-player-24', 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'image/png', '2026-01-01T00:00:00.000Z');
 
