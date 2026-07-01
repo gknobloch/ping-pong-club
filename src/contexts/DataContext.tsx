@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { DEV_LOGIN, useAuth } from '@/contexts/AuthContext'
 import type { Division } from '@/types'
 import type {
   Address,
@@ -154,7 +154,7 @@ interface DataProviderProps {
 }
 
 export function DataProvider({ children, initialData }: DataProviderProps) {
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
   const [divisions, setDivisions] = useState<Division[]>(initialData?.divisions ?? [])
   const [clubs, setClubs] = useState<Club[]>(initialData?.clubs ?? [])
   const [seasons, setSeasons] = useState<Season[]>(initialData?.seasons ?? [])
@@ -172,9 +172,14 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   )
   const [loading, setLoading] = useState(!initialData)
   const [persist, setPersist] = useState(!initialData)
+  const [error, setError] = useState<string | null>(null)
+  const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
     if (initialData) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
 
     function applyData(data: DataState) {
       setSeasons(data.seasons)
@@ -204,14 +209,38 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
 
     fetch('/api/data', { headers: authHeaders() })
       .then((r) => {
+        if (r.status === 401) {
+          // Session expired/invalid — force a re-login rather than showing
+          // stale or fake data.
+          logout()
+          return null
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       })
-      .then((data: DataState) => applyData(data))
-      .catch(() => fallbackToMock())
-      .finally(() => setLoading(false))
-    // Refetch when the session token changes (e.g. after login).
-  }, [initialData, token])
+      .then((data: DataState | null) => {
+        if (cancelled || !data) return
+        applyData(data)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        if (DEV_LOGIN) {
+          // No real backend in local dev / E2E — mock data keeps the app usable.
+          fallbackToMock()
+        } else {
+          console.error('Failed to load /api/data', err)
+          setError('Impossible de charger les données. Vérifiez votre connexion.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // Refetch when the session token changes (e.g. after login) or on retry.
+  }, [initialData, token, retryNonce, logout])
 
   // --- Seasons ---
   const updateSeason = useCallback((id: string, patch: Partial<Season>) => {
@@ -905,6 +934,21 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-gray-500">Chargement...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-screen px-6 text-center">
+        <p className="text-gray-600">{error}</p>
+        <button
+          type="button"
+          onClick={() => setRetryNonce((n) => n + 1)}
+          className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium"
+        >
+          Réessayer
+        </button>
       </div>
     )
   }
