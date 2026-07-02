@@ -55,12 +55,7 @@ export function HomePage() {
 
   const availOf = (gameId: string): AvailabilityStatus | undefined =>
     myPlayerId ? gameAvailabilities.find((a) => a.playerId === myPlayerId && a.gameId === gameId)?.status : undefined
-  const selectedIn = (gameId: string) =>
-    !!(myActiveTeam && myPlayerId &&
-      gameSelections.find((s) => s.teamId === myActiveTeam.id && s.gameId === gameId)?.playerIds.includes(myPlayerId))
 
-  const pastGames = teamGames.filter((g) => { const md = mdMap.get(g.matchDayId); return md && md.date < today })
-  const playedCount = pastGames.filter((g) => selectedIn(g.id)).length
   const toConfirm = upcoming.filter((g) => availOf(g.id) === undefined).length
 
   const divisionOf = (team: Team) => {
@@ -110,13 +105,17 @@ export function HomePage() {
   }, [teamByPhase, gameSelections, teams, phases, myPlayerId])
 
   // One block per phase — shown side by side (like the player-detail screen),
-  // stacked on narrow viewports.
+  // stacked on narrow viewports. `played`/`total` (only set when the player had
+  // a rostered team that phase) count that team's past games, mirroring the
+  // old global "Matchs joués" stat but scoped per phase.
   const myMatchesBlocks = useMemo(() => {
     type Row = {
       gameId: string; team: Team; raw: string; date: string; jNumber: number
       isHome: boolean; oppName: string; isPast: boolean; isRenfort: boolean
     }
-    if (!myPlayerId) return [] as { phase: (typeof myMatchesOrdered)[number]; games: Row[] }[]
+    if (!myPlayerId) {
+      return [] as { phase: (typeof myMatchesOrdered)[number]; games: Row[]; played?: number; total?: number }[]
+    }
     return myMatchesOrdered.map((phase) => {
       const assigned = teamByPhase.get(phase.id)
       const phaseTeams = teams.filter(
@@ -147,7 +146,22 @@ export function HomePage() {
           })
         }
       }
-      return { phase, games: out.sort((a, b) => a.raw.localeCompare(b.raw)) }
+
+      let played: number | undefined
+      let total: number | undefined
+      if (assigned) {
+        const teamPastGames = games.filter((g) => {
+          if (g.homeTeamId !== assigned.id && g.awayTeamId !== assigned.id) return false
+          const md = mdMap.get(g.matchDayId)
+          return md && md.date < today
+        })
+        total = teamPastGames.length
+        played = teamPastGames.filter((g) =>
+          gameSelections.find((s) => s.teamId === assigned.id && s.gameId === g.id)?.playerIds.includes(myPlayerId),
+        ).length
+      }
+
+      return { phase, games: out.sort((a, b) => a.raw.localeCompare(b.raw)), played, total }
     })
   }, [myMatchesOrdered, myPlayerId, myClubId, teamByPhase, teams, games, gameSelections, mdMap, clubs, today])
 
@@ -169,79 +183,73 @@ export function HomePage() {
 
       {isPlayerDashboard && myActiveTeam ? (
         <>
-          {/* Upcoming matches — set your availability inline */}
+          {/* Upcoming matches — set your availability inline; à confirmer count on the side */}
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {upcoming.length > 1 ? 'Prochains matchs' : 'Prochain match'}
-            </p>
-            {upcoming.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-                Pas de prochain match prévu.
-              </div>
-            ) : (
-              upcoming.map((g) => {
-                const md = mdMap.get(g.matchDayId)!
-                const isHome = g.homeTeamId === myActiveTeam.id
-                const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
-                const homeTeam = teams.find((t) => t.id === g.homeTeamId)
-                const matchup = isHome
-                  ? `${getTeamName(myActiveTeam, clubs)} – ${opp ? getTeamName(opp, clubs) : '?'}`
-                  : `${opp ? getTeamName(opp, clubs) : '?'} – ${getTeamName(myActiveTeam, clubs)}`
-                const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                  weekday: 'long', day: 'numeric', month: 'long',
-                })
-                const locked = committedElsewhere(g.id)
-                return (
-                  <div key={g.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Pill>J{md.number}</Pill>
-                      {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
-                      <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
-                    </div>
-                    <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
-                      <span className="text-slate-400">{isHome ? <HomeIcon className="h-4 w-4" /> : <AwayIcon className="h-4 w-4" />}</span>
-                      {matchup}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {dateLabel}{g.time ? ` · ${g.time}` : ''}{getVenue(homeTeam, clubs) ? ` · ${getVenue(homeTeam, clubs)}` : ''}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      {locked !== undefined ? (
-                        <span className="text-xs italic text-slate-500">Joue en Équipe {locked}</span>
-                      ) : myPlayerId ? (
-                        <AvailabilityButtons
-                          status={availOf(g.id)}
-                          onSet={(s) => setGameAvailability(g.id, myPlayerId, s)}
-                          onClear={() => clearGameAvailability(g.id, myPlayerId)}
-                        />
-                      ) : (
-                        <AvailabilityChip status={availOf(g.id)} />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setQuickGame({ gameId: g.id, teamId: myActiveTeam.id })}
-                        className="shrink-0 text-sm font-medium text-accent-600 hover:text-accent-800"
-                      >
-                        Détails
-                      </button>
-                    </div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prochains matchs</p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-3 md:col-span-2">
+                {upcoming.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+                    Pas de prochain match prévu.
                   </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-slate-500">Matchs joués</p>
-              <p className="mt-1 text-2xl font-bold text-slate-800">{playedCount} / {pastGames.length}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-slate-500">À confirmer</p>
-              <p className={`mt-1 text-2xl font-bold ${toConfirm > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
-                {toConfirm} match{toConfirm !== 1 ? 's' : ''}
-              </p>
+                ) : (
+                  upcoming.map((g) => {
+                    const md = mdMap.get(g.matchDayId)!
+                    const isHome = g.homeTeamId === myActiveTeam.id
+                    const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
+                    const homeTeam = teams.find((t) => t.id === g.homeTeamId)
+                    const matchup = isHome
+                      ? `${getTeamName(myActiveTeam, clubs)} – ${opp ? getTeamName(opp, clubs) : '?'}`
+                      : `${opp ? getTeamName(opp, clubs) : '?'} – ${getTeamName(myActiveTeam, clubs)}`
+                    const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+                      weekday: 'long', day: 'numeric', month: 'long',
+                    })
+                    const locked = committedElsewhere(g.id)
+                    return (
+                      <div key={g.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Pill>J{md.number}</Pill>
+                          {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
+                          <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
+                        </div>
+                        <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
+                          <span className="text-slate-400">{isHome ? <HomeIcon className="h-4 w-4" /> : <AwayIcon className="h-4 w-4" />}</span>
+                          {matchup}
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {dateLabel}{g.time ? ` · ${g.time}` : ''}{getVenue(homeTeam, clubs) ? ` · ${getVenue(homeTeam, clubs)}` : ''}
+                        </p>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          {locked !== undefined ? (
+                            <span className="text-xs italic text-slate-500">Joue en Équipe {locked}</span>
+                          ) : myPlayerId ? (
+                            <AvailabilityButtons
+                              status={availOf(g.id)}
+                              onSet={(s) => setGameAvailability(g.id, myPlayerId, s)}
+                              onClear={() => clearGameAvailability(g.id, myPlayerId)}
+                            />
+                          ) : (
+                            <AvailabilityChip status={availOf(g.id)} />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setQuickGame({ gameId: g.id, teamId: myActiveTeam.id })}
+                            className="shrink-0 text-sm font-medium text-accent-600 hover:text-accent-800"
+                          >
+                            Détails
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-sm text-slate-500">À confirmer</p>
+                <p className={`mt-1 text-2xl font-bold ${toConfirm > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
+                  {toConfirm} match{toConfirm !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
           </div>
         </>
@@ -294,11 +302,16 @@ export function HomePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tous mes matchs</p>
 
           <div className={`grid gap-5 ${myMatchesBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-            {myMatchesBlocks.map(({ phase, games: phaseGames }) => (
+            {myMatchesBlocks.map(({ phase, games: phaseGames, played, total }) => (
               <section key={phase.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <h2 className="border-b border-slate-100 px-5 py-3 font-display text-base font-semibold text-slate-800">
-                  Saison {phase.displayName}
-                </h2>
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                  <h2 className="font-display text-base font-semibold text-slate-800">
+                    Saison {phase.displayName}
+                  </h2>
+                  {total !== undefined && (
+                    <span className="text-xs font-medium text-slate-500">{played} / {total} joués</span>
+                  )}
+                </div>
                 {phaseGames.length === 0 ? (
                   <p className="p-5 text-sm text-slate-400">Aucun match pour cette phase.</p>
                 ) : (
@@ -306,17 +319,17 @@ export function HomePage() {
                     {phaseGames.map((e) => (
                       <li key={e.gameId} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2.5 first:border-t-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-400' : 'text-accent-600'}`}>J{e.jNumber}</span>
-                          <span className={e.isPast ? 'text-slate-400' : 'text-slate-500'} title={e.isHome ? 'Domicile' : 'Extérieur'}>
+                          <span className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-500' : 'text-accent-600'}`}>J{e.jNumber}</span>
+                          <span className="text-slate-500" title={e.isHome ? 'Domicile' : 'Extérieur'}>
                             {e.isHome ? <HomeIcon /> : <AwayIcon />}
                           </span>
-                          <span className={`truncate text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-800'}`}>{e.oppName}</span>
+                          <span className={`truncate text-sm ${e.isPast ? 'text-slate-500' : 'text-slate-800'}`}>{e.oppName}</span>
                           {e.isRenfort && (
                             <span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">Renfort</span>
                           )}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>{e.date}</span>
+                          <span className="text-sm text-slate-500">{e.date}</span>
                           <button
                             type="button"
                             onClick={() => setQuickGame({ gameId: e.gameId, teamId: e.team.id })}

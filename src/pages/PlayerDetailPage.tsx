@@ -215,26 +215,26 @@ export function PlayerDetailPage() {
                         <div className="flex min-w-0 items-center gap-2">
                           {e.jNumber != null && (
                             <span
-                              className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-400' : 'text-accent-600'}`}
+                              className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-500' : 'text-accent-600'}`}
                             >
                               J{e.jNumber}
                             </span>
                           )}
                           <TeamPill number={e.teamNumber} color={e.teamColor} small />
                           <span
-                            className={e.isPast ? 'text-slate-400' : 'text-slate-500'}
+                            className="text-slate-500"
                             title={e.isHome ? 'Domicile' : 'Extérieur'}
                           >
                             {e.isHome ? <HomeIcon /> : <AwayIcon />}
                           </span>
                           <span
-                            className={`truncate text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-800'}`}
+                            className={`truncate text-sm ${e.isPast ? 'text-slate-500' : 'text-slate-800'}`}
                           >
                             {e.oppName}
                           </span>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className={`text-sm ${e.isPast ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <span className="text-sm text-slate-500">
                             {e.date}
                           </span>
                           <button

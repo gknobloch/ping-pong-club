@@ -9,7 +9,7 @@ test.describe('Player — Accueil', () => {
   test('shows welcome, club, and the upcoming match card', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Enzo Lotz', level: 1 })).toBeVisible()
     await expect(page.getByRole('main').getByText('PPA Rixheim', { exact: true })).toBeVisible()
-    await expect(page.getByText('Prochain match')).toBeVisible()
+    await expect(page.getByText('Prochains matchs')).toBeVisible()
     await expect(page.getByText(/PPA Rixheim 1 – Etival 1/)).toBeVisible()
   })
 
@@ -46,6 +46,8 @@ test.describe('Player — Accueil (Tous mes matchs)', () => {
     await expect(page.getByText('J1')).toBeVisible()
     await expect(page.getByText('J2')).toBeVisible()
     await expect(page.getByText('Renfort')).toBeVisible()
+    // Played/total is scoped to his own rostered team (team-2): 1 of its 7 games.
+    await expect(page.getByText('1 / 7 joués')).toBeVisible()
   })
 
   test('opens the game modal from the match history', async ({ page }) => {
