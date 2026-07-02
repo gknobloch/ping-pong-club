@@ -27,7 +27,7 @@ test.describe('Player — Accueil', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
 
-  test('shows the "Tous mes matchs" section with a phase switcher', async ({ page }) => {
+  test('shows the "Tous mes matchs" section with a phase card', async ({ page }) => {
     await expect(page.getByText('Tous mes matchs')).toBeVisible()
     await expect(page.getByText('Saison 2025/2026 Phase 1')).toBeVisible()
   })
