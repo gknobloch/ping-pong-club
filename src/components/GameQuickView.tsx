@@ -2,13 +2,11 @@ import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { TeamBadge } from '@/components/TeamBadge'
-import { AvailabilityButtons } from '@/components/AvailabilityButtons'
-import type { Club, Team } from '@/types'
-
-const teamName = (t: Team, clubs: Club[]) => {
-  const club = clubs.find((c) => c.id === t.clubId)
-  return club ? `${club.displayName} ${t.number}` : `Équipe ${t.number}`
-}
+import { AvailabilityButtons, AvailabilityPills } from '@/components/Availability'
+import { Pill } from '@/components/icons'
+import { getTeamName } from '@/lib/teamName'
+import { getVenue } from '@/lib/venue'
+import { playersCommittedElsewhere } from '@/lib/matchdays'
 
 // Read-only quick view of a single game from one team's perspective — match
 // header + availabilities / line-up. Mirrors the mobile match detail screen
@@ -49,20 +47,9 @@ export function GameQuickView({
 
   // Players selected for another of the club's teams on this same round number.
   const committed = useMemo(() => {
-    const map = new Map<string, number>()
-    if (!team || !matchDay) return map
+    if (!team || !matchDay) return new Map<string, number>()
     const clubTeams = teams.filter((t) => t.clubId === team.clubId && t.phaseId === team.phaseId)
-    const clubTeamById = new Map(clubTeams.map((t) => [t.id, t]))
-    const mdNumberById = new Map(matchDays.map((md) => [md.id, md.number]))
-    for (const sel of gameSelections) {
-      if (sel.teamId === team.id) continue
-      const t = clubTeamById.get(sel.teamId)
-      if (!t) continue
-      const g = games.find((x) => x.id === sel.gameId)
-      if (!g || mdNumberById.get(g.matchDayId) !== matchDay.number) continue
-      for (const pid of sel.playerIds) if (!map.has(pid)) map.set(pid, t.number)
-    }
-    return map
+    return playersCommittedElsewhere(team.id, matchDay.number, clubTeams, games, matchDays, gameSelections)
   }, [team, matchDay, teams, games, matchDays, gameSelections])
 
   if (!game || !team || !matchDay) return null
@@ -70,20 +57,12 @@ export function GameQuickView({
   const isPast = matchDay.date < new Date().toISOString().slice(0, 10)
   const isHome = game.homeTeamId === team.id
   const oppTeam = teams.find((t) => t.id === (isHome ? game.awayTeamId : game.homeTeamId))
-  const opponentName = oppTeam ? teamName(oppTeam, clubs) : '?'
+  const opponentName = oppTeam ? getTeamName(oppTeam, clubs) : '?'
   const group = groups.find((g) => g.id === team.groupId)
   const division = group ? divisions.find((d) => d.id === group.divisionId) : undefined
 
   const homeTeam = teams.find((t) => t.id === game.homeTeamId)
-  const venue = (() => {
-    const addr = homeTeam
-      ? clubs.flatMap((c) => c.addresses ?? []).find((a) => a.id === homeTeam.gameLocationId)
-      : undefined
-    if (addr) return addr.label ? `${addr.label}, ${addr.city}` : addr.city
-    const homeClub = homeTeam ? clubs.find((c) => c.id === homeTeam.clubId) : undefined
-    const cityAddr = homeClub?.addresses?.find((a) => a.isDefault) ?? homeClub?.addresses?.[0]
-    return cityAddr?.city
-  })()
+  const venue = getVenue(homeTeam, clubs)
 
   const selection = gameSelections.find((s) => s.teamId === team.id && s.gameId === game.id)?.playerIds ?? []
   const rosterIds = new Set(roster.map((p) => p.id))
@@ -94,7 +73,7 @@ export function GameQuickView({
   const availOf = (pid: string) =>
     gameAvailabilities.find((a) => a.playerId === pid && a.gameId === game.id)?.status
 
-  const matchup = isHome ? `${teamName(team, clubs)} – ${opponentName}` : `${opponentName} – ${teamName(team, clubs)}`
+  const matchup = isHome ? `${getTeamName(team, clubs)} – ${opponentName}` : `${opponentName} – ${getTeamName(team, clubs)}`
   const dateLabel = new Date(matchDay.date + 'T12:00:00').toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -112,8 +91,8 @@ export function GameQuickView({
       >
         {/* Header */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge>J{matchDay.number}</Badge>
-          {division && <Badge>{division.displayName}</Badge>}
+          <Pill>J{matchDay.number}</Pill>
+          {division && <Pill>{division.displayName}</Pill>}
           <TeamBadge color={team.color} label={`Équipe ${team.number}`} />
         </div>
         <h2 className="mt-2 font-display text-lg font-semibold text-slate-800">{matchup}</h2>
@@ -149,7 +128,7 @@ export function GameQuickView({
                     onClear={() => clearGameAvailability(game.id, p.id)}
                   />
                 ) : (
-                  <AvailPills status={availOf(p.id)} />
+                  <AvailabilityPills status={availOf(p.id)} />
                 )}
               </li>
             )
@@ -179,14 +158,6 @@ export function GameQuickView({
   )
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
-      {children}
-    </span>
-  )
-}
-
 function Check({ on }: { on?: boolean }) {
   if (!on) return <span className="h-4 w-4 shrink-0" aria-hidden="true" />
   return (
@@ -194,22 +165,6 @@ function Check({ on }: { on?: boolean }) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5">
         <polyline points="20 6 9 17 4 12" />
       </svg>
-    </span>
-  )
-}
-
-// Read-only OUI / PE / NON triplet with the player's status highlighted.
-function AvailPills({ status }: { status?: 'available' | 'maybe' | 'unavailable' }) {
-  const pill = (active: boolean, on: string, off: string, label: string) => (
-    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${active ? on : off}`}>
-      {label}
-    </span>
-  )
-  return (
-    <span className="flex shrink-0 gap-1">
-      {pill(status === 'available', 'border-green-500 bg-green-50 text-green-700', 'border-slate-200 text-slate-300', 'OUI')}
-      {pill(status === 'maybe', 'border-amber-500 bg-amber-50 text-amber-700', 'border-slate-200 text-slate-300', 'PE')}
-      {pill(status === 'unavailable', 'border-accent-500 bg-accent-50 text-accent-600', 'border-slate-200 text-slate-300', 'NON')}
     </span>
   )
 }

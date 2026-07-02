@@ -4,12 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
 import { fileToAvatar } from '@/lib/avatarFile'
-import type { Club, Team } from '@/types'
-
-const teamName = (t: Team, clubs: Club[]) => {
-  const club = clubs.find((c) => c.id === t.clubId)
-  return club ? `${club.displayName} ${t.number}` : `Équipe ${t.number}`
-}
+import { getTeamName } from '@/lib/teamName'
 
 export function ComptePage() {
   const { user, displayName, roleLabel, logout } = useAuth()
@@ -161,7 +156,7 @@ export function ComptePage() {
                 <dt className="text-sm text-slate-500">Équipe</dt>
                 <dd>
                   <Link to={`/equipes/${t.id}`} className="text-sm font-medium text-accent-600 hover:text-accent-800">
-                    {teamName(t, clubs)}
+                    {getTeamName(t, clubs)}
                   </Link>
                 </dd>
               </div>
