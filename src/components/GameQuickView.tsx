@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { TeamBadge } from '@/components/TeamBadge'
@@ -93,7 +94,9 @@ export function GameQuickView({
         <div className="flex flex-wrap items-center gap-1.5">
           <Pill>J{matchDay.number}</Pill>
           {division && <Pill>{division.displayName}</Pill>}
-          <TeamBadge color={team.color} label={`Équipe ${team.number}`} />
+          <Link to={`/equipes/${team.id}`} className="hover:opacity-80" onClick={onClose} title="Voir la fiche équipe">
+            <TeamBadge color={team.color} label={`Équipe ${team.number}`} />
+          </Link>
         </div>
         <h2 className="mt-2 font-display text-lg font-semibold text-slate-800">{matchup}</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -112,12 +115,16 @@ export function GameQuickView({
             const lockedTeam = !selected ? committed.get(p.id) : undefined
             return (
               <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="flex min-w-0 items-center gap-2">
+                <Link
+                  to={`/joueurs/${p.id}`}
+                  onClick={onClose}
+                  className="flex min-w-0 items-center gap-2 hover:opacity-80"
+                >
                   <Check on={selected} />
                   <span className={`truncate text-sm ${selected ? 'font-semibold text-accent-600' : 'text-slate-800'}`}>
                     {p.firstName} {p.lastName}
                   </span>
-                </span>
+                </Link>
                 {lockedTeam !== undefined ? (
                   <span className="shrink-0 text-xs italic text-slate-500">Joue en Équipe {lockedTeam}</span>
                 ) : p.id === myPlayerId && !isPast ? (
@@ -135,12 +142,16 @@ export function GameQuickView({
           })}
           {borrowed.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-              <span className="flex min-w-0 items-center gap-2">
+              <Link
+                to={`/joueurs/${p.id}`}
+                onClick={onClose}
+                className="flex min-w-0 items-center gap-2 hover:opacity-80"
+              >
                 <Check on />
                 <span className="truncate text-sm font-semibold text-accent-600">
                   {p.firstName} {p.lastName}
                 </span>
-              </span>
+              </Link>
               <span className="shrink-0 text-xs italic text-slate-500">Renfort</span>
             </li>
           ))}
