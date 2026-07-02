@@ -33,19 +33,22 @@ test.describe('Player — Accueil', () => {
   })
 })
 
-// Cédric Cunin is the seeded renfort/brûlage case: rostered on team-2, called
-// up to team-1 for a second game — his full match history exercises the
-// "Renfort" tag and spans two of the club's teams.
+// Cédric Cunin is the seeded renfort/brûlage case: rostered on (and captain
+// of) team-2, called up to team-1 for a second game — his full match history
+// (shared with the player-detail screen via PlayerPhaseHistory) exercises the
+// Cap./Brûlage badges and spans two of the club's teams.
 test.describe('Player — Accueil (Tous mes matchs)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'cunin')
   })
 
-  test('shows every game across the club with a renfort tag on the called-up game', async ({ page }) => {
+  test('shows every game across the club, tagged with the team played for', async ({ page }) => {
     await expect(page.getByText('Tous mes matchs')).toBeVisible()
+    await expect(page.getByText('Cap.')).toBeVisible()
+    await expect(page.getByText('Brûlage')).toBeVisible()
+    await expect(page.getByText('Matchs (2)')).toBeVisible()
     await expect(page.getByText('J1')).toBeVisible()
     await expect(page.getByText('J2')).toBeVisible()
-    await expect(page.getByText('Renfort')).toBeVisible()
     // Played/total is scoped to his own rostered team (team-2): 1 of its 7 games.
     await expect(page.getByText('1 / 7 joués')).toBeVisible()
   })

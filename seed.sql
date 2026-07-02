@@ -268,6 +268,7 @@ INSERT INTO games (id, match_day_id, home_team_id, away_team_id, time) VALUES
 INSERT INTO game_selections (id, game_id, team_id, player_ids) VALUES
   ('gs-g1-1-team-1', 'g1-1', 'team-1', '["p2-player-5","p2-player-1","p2-player-2","p2-player-3"]'),
   ('gs-g1-2-team-1', 'g1-2', 'team-1', '["p2-player-5","p2-player-1","p2-player-2","p2-player-8"]'),
+  ('gs-g1-8-team-1', 'g1-8', 'team-1', '["p2-player-5","p2-player-1","p2-player-2","p2-player-3"]'),
   ('gs-g2-1-team-2', 'g2-1', 'team-2', '["p2-player-6","p2-player-10","p2-player-7","p2-player-8"]'),
   ('gs-g2-2-team-2', 'g2-2', 'team-2', '["p2-player-6","p2-player-10","p2-player-7","p2-player-9"]'),
   ('gs-g3-1-team-3', 'g3-1', 'team-3', '["p2-player-12","p2-player-13","p2-player-14","p2-player-11"]'),

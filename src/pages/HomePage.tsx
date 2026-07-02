@@ -5,8 +5,9 @@ import { Avatar } from '@/components/Avatar'
 import { ClubLogo } from '@/components/ClubLogo'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
+import { PlayerPhaseHistory } from '@/components/PlayerPhaseHistory'
 import { AvailabilityButtons, AvailabilityChip } from '@/components/Availability'
-import { HomeIcon, AwayIcon, InfoIcon, Pill } from '@/components/icons'
+import { HomeIcon, AwayIcon, Pill } from '@/components/icons'
 import { getTeamName } from '@/lib/teamName'
 import { getVenue } from '@/lib/venue'
 import { playersCommittedElsewhere } from '@/lib/matchdays'
@@ -82,89 +83,6 @@ export function HomePage() {
 
   const isPlayerDashboard = !!myActiveTeam
 
-  // Full match history (all phases the player took part in, across any of
-  // their club's teams — games for a team they're not rostered on are tagged
-  // "Renfort"). Mirrors the mobile Mes matchs screen.
-  const myClubId = user?.clubId
-  const teamByPhase = useMemo(() => {
-    const map = new Map<string, Team>()
-    if (myPlayerId) for (const t of teams) if (t.playerIds.includes(myPlayerId)) map.set(t.phaseId, t)
-    return map
-  }, [teams, myPlayerId])
-
-  const myMatchesOrdered = useMemo(() => {
-    const participated = new Set<string>(teamByPhase.keys())
-    if (myPlayerId) {
-      for (const sel of gameSelections) {
-        if (!sel.playerIds.includes(myPlayerId)) continue
-        const t = teams.find((x) => x.id === sel.teamId)
-        if (t) participated.add(t.phaseId)
-      }
-    }
-    return phases.filter((p) => participated.has(p.id)).sort((a, b) => a.displayName.localeCompare(b.displayName))
-  }, [teamByPhase, gameSelections, teams, phases, myPlayerId])
-
-  // One block per phase — shown side by side (like the player-detail screen),
-  // stacked on narrow viewports. `played`/`total` (only set when the player had
-  // a rostered team that phase) count that team's past games, mirroring the
-  // old global "Matchs joués" stat but scoped per phase.
-  const myMatchesBlocks = useMemo(() => {
-    type Row = {
-      gameId: string; team: Team; raw: string; date: string; jNumber: number
-      isHome: boolean; oppName: string; isPast: boolean; isRenfort: boolean
-    }
-    if (!myPlayerId) {
-      return [] as { phase: (typeof myMatchesOrdered)[number]; games: Row[]; played?: number; total?: number }[]
-    }
-    return myMatchesOrdered.map((phase) => {
-      const assigned = teamByPhase.get(phase.id)
-      const phaseTeams = teams.filter(
-        (t) => t.phaseId === phase.id && (myClubId ? t.clubId === myClubId : t.id === assigned?.id),
-      )
-      const out: Row[] = []
-      const seen = new Set<string>()
-      for (const t of phaseTeams) {
-        for (const g of games) {
-          if (g.homeTeamId !== t.id && g.awayTeamId !== t.id) continue
-          const sel = gameSelections.find((s) => s.teamId === t.id && s.gameId === g.id)
-          if (!sel?.playerIds.includes(myPlayerId) || seen.has(g.id)) continue
-          const md = mdMap.get(g.matchDayId)
-          if (!md) continue
-          seen.add(g.id)
-          const isHome = g.homeTeamId === t.id
-          const opp = teams.find((x) => x.id === (isHome ? g.awayTeamId : g.homeTeamId))
-          out.push({
-            gameId: g.id,
-            team: t,
-            raw: md.date,
-            jNumber: md.number,
-            isHome,
-            oppName: opp ? getTeamName(opp, clubs) : '—',
-            date: new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-            isPast: md.date < today,
-            isRenfort: assigned ? t.id !== assigned.id : false,
-          })
-        }
-      }
-
-      let played: number | undefined
-      let total: number | undefined
-      if (assigned) {
-        const teamPastGames = games.filter((g) => {
-          if (g.homeTeamId !== assigned.id && g.awayTeamId !== assigned.id) return false
-          const md = mdMap.get(g.matchDayId)
-          return md && md.date < today
-        })
-        total = teamPastGames.length
-        played = teamPastGames.filter((g) =>
-          gameSelections.find((s) => s.teamId === assigned.id && s.gameId === g.id)?.playerIds.includes(myPlayerId),
-        ).length
-      }
-
-      return { phase, games: out.sort((a, b) => a.raw.localeCompare(b.raw)), played, total }
-    })
-  }, [myMatchesOrdered, myPlayerId, myClubId, teamByPhase, teams, games, gameSelections, mdMap, clubs, today])
-
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       {/* Welcome / identity */}
@@ -186,8 +104,8 @@ export function HomePage() {
           {/* Upcoming matches — set your availability inline; à confirmer count on the side */}
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prochains matchs</p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-3 md:col-span-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3">
                 {upcoming.length === 0 ? (
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
                     Pas de prochain match prévu.
@@ -297,58 +215,7 @@ export function HomePage() {
 
       {/* Full match history — one card per phase, side by side (like the
           player-detail screen), stacked on narrow viewports. */}
-      {myPlayerId && myMatchesBlocks.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tous mes matchs</p>
-
-          <div className={`grid gap-5 ${myMatchesBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-            {myMatchesBlocks.map(({ phase, games: phaseGames, played, total }) => (
-              <section key={phase.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                  <h2 className="font-display text-base font-semibold text-slate-800">
-                    Saison {phase.displayName}
-                  </h2>
-                  {total !== undefined && (
-                    <span className="text-xs font-medium text-slate-500">{played} / {total} joués</span>
-                  )}
-                </div>
-                {phaseGames.length === 0 ? (
-                  <p className="p-5 text-sm text-slate-400">Aucun match pour cette phase.</p>
-                ) : (
-                  <ul className="px-5 py-2">
-                    {phaseGames.map((e) => (
-                      <li key={e.gameId} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2.5 first:border-t-0">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className={`w-6 text-xs font-bold ${e.isPast ? 'text-slate-500' : 'text-accent-600'}`}>J{e.jNumber}</span>
-                          <span className="text-slate-500" title={e.isHome ? 'Domicile' : 'Extérieur'}>
-                            {e.isHome ? <HomeIcon /> : <AwayIcon />}
-                          </span>
-                          <span className={`truncate text-sm ${e.isPast ? 'text-slate-500' : 'text-slate-800'}`}>{e.oppName}</span>
-                          {e.isRenfort && (
-                            <span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">Renfort</span>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm text-slate-500">{e.date}</span>
-                          <button
-                            type="button"
-                            onClick={() => setQuickGame({ gameId: e.gameId, teamId: e.team.id })}
-                            className="text-slate-300 hover:text-accent-600"
-                            title="Détails du match"
-                            aria-label="Détails du match"
-                          >
-                            <InfoIcon />
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            ))}
-          </div>
-        </div>
-      )}
+      {myPlayerId && <PlayerPhaseHistory playerId={myPlayerId} title="Tous mes matchs" />}
 
       {quickGame && (
         <GameQuickView gameId={quickGame.gameId} teamId={quickGame.teamId} onClose={() => setQuickGame(null)} />
