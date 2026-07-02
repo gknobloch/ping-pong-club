@@ -168,7 +168,7 @@ export function HomePage() {
           </h1>
           <p className="text-slate-500">{myClub ? myClub.displayName : roleLabel}</p>
         </div>
-        {myClub && <ClubLogo clubId={myClub.id} logoUpdatedAt={myClub.logoUpdatedAt} name={myClub.displayName} size={56} />}
+        {myClub && <ClubLogo clubId={myClub.id} logoUpdatedAt={myClub.logoUpdatedAt} size={56} />}
       </div>
 
       {isPlayerDashboard && myActiveTeam ? (

@@ -154,7 +154,7 @@ export function PlayerDetailPage() {
           </h1>
           {club && <p className="text-slate-500">{club.displayName}</p>}
         </div>
-        {club && <ClubLogo clubId={club.id} logoUpdatedAt={club.logoUpdatedAt} name={club.displayName} size={64} />}
+        {club && <ClubLogo clubId={club.id} logoUpdatedAt={club.logoUpdatedAt} size={64} />}
       </div>
 
       {/* Informations (player-level — not phase-relative) */}
