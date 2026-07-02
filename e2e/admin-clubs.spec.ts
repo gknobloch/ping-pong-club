@@ -7,7 +7,7 @@ test.describe('General admin — Clubs', () => {
   })
 
   test('sees Clubs in nav and can open clubs list', async ({ page }) => {
-    await expect(page.getByText(/Bienvenue/)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await page.getByRole('link', { name: 'Clubs' }).click()
     await expect(page).toHaveURL('/clubs')
     await expect(page.getByRole('heading', { name: 'Clubs' })).toBeVisible()

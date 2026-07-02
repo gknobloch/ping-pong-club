@@ -9,7 +9,7 @@ test.describe('Navigation after login', () => {
   test('can navigate to Accueil and see welcome', async ({ page }) => {
     await page.getByRole('link', { name: 'Accueil' }).click()
     await expect(page).toHaveURL('/')
-    await expect(page.getByText(/Bienvenue/)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   })
 
   test('can navigate to Équipes', async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe('Navigation after login', () => {
   })
 
   test('can logout and is redirected to login', async ({ page }) => {
-    await expect(page.getByText(/Bienvenue/)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: 'Se déconnecter' }).click()
     await expect(page).toHaveURL(/\/login/)

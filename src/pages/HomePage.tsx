@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
 import { AvailabilityButtons, AvailabilityChip } from '@/components/Availability'
@@ -155,18 +156,19 @@ export function HomePage() {
   }, [myMatchesPhase, myPlayerId, myClubId, teamByPhase, teams, games, gameSelections, mdMap, clubs, today])
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       {/* Welcome / identity */}
       <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         {me ? (
           <Avatar playerId={me.id} avatarUpdatedAt={me.avatarUpdatedAt} firstName={me.firstName} lastName={me.lastName} size={56} />
         ) : null}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-semibold text-slate-800">
-            Bienvenue, {displayName}
+            {displayName}
           </h1>
           <p className="text-slate-500">{myClub ? myClub.displayName : roleLabel}</p>
         </div>
+        {myClub && <ClubLogo clubId={myClub.id} logoUpdatedAt={myClub.logoUpdatedAt} name={myClub.displayName} size={56} />}
       </div>
 
       {isPlayerDashboard && myActiveTeam ? (

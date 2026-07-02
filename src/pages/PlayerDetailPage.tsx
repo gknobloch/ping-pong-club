@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage } from '@/lib/brulage'
 import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
 import { HomeIcon, AwayIcon, InfoIcon } from '@/components/icons'
@@ -147,12 +148,13 @@ export function PlayerDetailPage() {
             size={64}
           />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-semibold text-slate-800">
             {player.firstName} {player.lastName}
           </h1>
           {club && <p className="text-slate-500">{club.displayName}</p>}
         </div>
+        {club && <ClubLogo clubId={club.id} logoUpdatedAt={club.logoUpdatedAt} name={club.displayName} size={64} />}
       </div>
 
       {/* Informations (player-level — not phase-relative) */}

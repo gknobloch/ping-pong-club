@@ -7,7 +7,7 @@ test.describe('Player — Accueil', () => {
   })
 
   test('shows welcome, club, and the upcoming match card', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Bienvenue, Enzo Lotz/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Enzo Lotz', level: 1 })).toBeVisible()
     await expect(page.getByRole('main').getByText('PPA Rixheim', { exact: true })).toBeVisible()
     await expect(page.getByText('Prochain match')).toBeVisible()
     await expect(page.getByText(/PPA Rixheim 1 – Etival 1/)).toBeVisible()
