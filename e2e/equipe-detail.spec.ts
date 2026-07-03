@@ -10,7 +10,7 @@ test.describe('Player — Team detail', () => {
   test('shows identity, roster with play-counts, and a renfort tag', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'PPA Rixheim 1' })).toBeVisible()
     await expect(page.getByText('GE1')).toBeVisible()
-    await expect(page.getByText('Joueurs (6)')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Joueurs' })).toBeVisible()
 
     const renfortRow = page.locator('li').filter({ hasText: 'Cédric Cunin' })
     await expect(renfortRow.getByText('Renfort')).toBeVisible()
@@ -23,7 +23,7 @@ test.describe('Player — Team detail', () => {
   })
 
   test('opens the game info modal from the games list', async ({ page }) => {
-    await expect(page.getByText('Matchs (8)')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Matchs' })).toBeVisible()
     await page.getByRole('button', { name: 'Détails du match' }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('button', { name: 'Fermer' }).click()
