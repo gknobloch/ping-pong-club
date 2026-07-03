@@ -30,6 +30,8 @@ type PhaseBlock = {
   /** Played / total past games for `team` this phase — undefined with no rostered team. */
   played?: number
   total?: number
+  /** Past games played for another of the club's teams (renfort) this phase. */
+  borrowedPlayed: number
   history: HistoryEntry[]
 }
 
@@ -114,6 +116,10 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
             gameSelections.find((s) => s.teamId === rosterTeam.id && s.gameId === g.id)?.playerIds.includes(playerId),
           ).length
         }
+        // Past games played for a *different* club team this phase (renfort) —
+        // not part of `total` (that's the rostered team's own schedule), so
+        // called out separately rather than folded into `played`.
+        const borrowedPlayed = rows.filter((r) => r.e.isPast && r.e.teamId !== rosterTeam?.id).length
 
         return {
           phaseId: ph.id,
@@ -124,6 +130,7 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
           brulageTeam,
           played,
           total,
+          borrowedPlayed,
           history: rows.sort((a, b) => a.raw.localeCompare(b.raw)).map((r) => r.e),
         }
       })
@@ -143,7 +150,9 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
               <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>
               {b.total !== undefined && (
-                <span className="text-xs font-medium text-slate-500">{b.played} / {b.total} joués</span>
+                <span className="text-xs font-medium text-slate-500">
+                  {b.played}{b.borrowedPlayed > 0 ? ` + ${b.borrowedPlayed}` : ''} / {b.total} joués
+                </span>
               )}
             </div>
             <dl className="divide-y divide-slate-100 px-5">

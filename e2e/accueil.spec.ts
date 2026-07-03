@@ -49,8 +49,8 @@ test.describe('Player — Accueil (Tous mes matchs)', () => {
     await expect(page.getByText('Matchs (2)')).toBeVisible()
     await expect(page.getByText('J1')).toBeVisible()
     await expect(page.getByText('J2')).toBeVisible()
-    // Played/total is scoped to his own rostered team (team-2): 1 of its 7 games.
-    await expect(page.getByText('1 / 7 joués')).toBeVisible()
+    // 1 game for his own team (team-2) + 1 borrowed for team-1, out of team-2's 7 games.
+    await expect(page.getByText('1 + 1 / 7 joués')).toBeVisible()
   })
 
   test('opens the game modal from the match history', async ({ page }) => {
