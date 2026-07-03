@@ -16,7 +16,6 @@ import { MatchDaysPage } from '@/pages/admin/MatchDaysPage'
 import { MyClubPage } from '@/pages/MyClubPage'
 import { PlayerDetailPage } from '@/pages/PlayerDetailPage'
 import { TeamDetailPage } from '@/pages/TeamDetailPage'
-import { MesMatchsPage } from '@/pages/MesMatchsPage'
 import { ComptePage } from '@/pages/ComptePage'
 
 function AuthLoading() {
@@ -66,7 +65,6 @@ export default function App() {
             <Route path="joueurs/:id" element={<PlayerDetailPage />} />
             <Route path="journees" element={<MatchDaysPage />} />
             <Route path="mon-club" element={<MyClubPage />} />
-            <Route path="mes-matchs" element={<MesMatchsPage />} />
             <Route path="compte" element={<ComptePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
