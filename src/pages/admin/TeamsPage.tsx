@@ -325,7 +325,7 @@ export function TeamsPage() {
                 key={team.id}
                 className={`flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${team.isArchived ? 'opacity-50' : ''}`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <Link to={`/equipes/${team.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
                     <span
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
@@ -351,7 +351,7 @@ export function TeamsPage() {
                       onClick={(e) => e.stopPropagation()}
                       title="Groupe WhatsApp"
                       aria-label="Groupe WhatsApp"
-                      className="shrink-0 text-[#25D366] hover:opacity-75"
+                      className="shrink-0 text-slate-400 hover:text-slate-600"
                     >
                       <WhatsAppIcon className="h-5 w-5" />
                     </a>
