@@ -7,9 +7,9 @@ test.describe('Player — Accueil', () => {
   })
 
   test('shows welcome, club, and the upcoming match card', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Bienvenue, Enzo Lotz/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Enzo Lotz', level: 1 })).toBeVisible()
     await expect(page.getByRole('main').getByText('PPA Rixheim', { exact: true })).toBeVisible()
-    await expect(page.getByText('Prochain match')).toBeVisible()
+    await expect(page.getByText('Prochains matchs')).toBeVisible()
     await expect(page.getByText(/PPA Rixheim 1 – Etival 1/)).toBeVisible()
   })
 
@@ -27,25 +27,30 @@ test.describe('Player — Accueil', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
 
-  test('shows the "Tous mes matchs" section with a phase switcher', async ({ page }) => {
+  test('shows the "Tous mes matchs" section with a phase card', async ({ page }) => {
     await expect(page.getByText('Tous mes matchs')).toBeVisible()
     await expect(page.getByText('Saison 2025/2026 Phase 1')).toBeVisible()
   })
 })
 
-// Cédric Cunin is the seeded renfort/brûlage case: rostered on team-2, called
-// up to team-1 for a second game — his full match history exercises the
-// "Renfort" tag and spans two of the club's teams.
+// Cédric Cunin is the seeded renfort/brûlage case: rostered on (and captain
+// of) team-2, called up to team-1 for a second game — his full match history
+// (shared with the player-detail screen via PlayerPhaseHistory) exercises the
+// Cap./Brûlage badges and spans two of the club's teams.
 test.describe('Player — Accueil (Tous mes matchs)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'cunin')
   })
 
-  test('shows every game across the club with a renfort tag on the called-up game', async ({ page }) => {
+  test('shows every game across the club, tagged with the team played for', async ({ page }) => {
     await expect(page.getByText('Tous mes matchs')).toBeVisible()
+    await expect(page.getByText('Cap.')).toBeVisible()
+    await expect(page.getByText('Brûlage')).toBeVisible()
+    await expect(page.getByText('Matchs (2)')).toBeVisible()
     await expect(page.getByText('J1')).toBeVisible()
     await expect(page.getByText('J2')).toBeVisible()
-    await expect(page.getByText('Renfort')).toBeVisible()
+    // 1 game for his own team (team-2) + 1 borrowed for team-1, out of team-2's 7 games.
+    await expect(page.getByText('1 + 1 / 7 joués')).toBeVisible()
   })
 
   test('opens the game modal from the match history', async ({ page }) => {

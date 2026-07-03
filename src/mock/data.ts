@@ -417,6 +417,8 @@ export const mockGameSelections: GameSelection[] = [
   // Equipe 1
   { id: 'gs-g1-1-team-1', gameId: 'g1-1', teamId: 'team-1', playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-3'] },
   { id: 'gs-g1-2-team-1', gameId: 'g1-2', teamId: 'team-1', playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-8'] },
+  // g1-8 is the future "retour" fixture (see mockGames) — lineup already set.
+  { id: 'gs-g1-8-team-1', gameId: 'g1-8', teamId: 'team-1', playerIds: ['p2-player-5', 'p2-player-1', 'p2-player-2', 'p2-player-3'] },
   // Equipe 2 (p2-player-8 sits out MD2 — he's playing up for team-1 that day)
   { id: 'gs-g2-1-team-2', gameId: 'g2-1', teamId: 'team-2', playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-8'] },
   { id: 'gs-g2-2-team-2', gameId: 'g2-2', teamId: 'team-2', playerIds: ['p2-player-6', 'p2-player-10', 'p2-player-7', 'p2-player-9'] },

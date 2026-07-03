@@ -18,6 +18,6 @@ test.describe('Login and home', () => {
 
     // Should redirect to home
     await expect(page).toHaveURL('/')
-    await expect(page.getByText(/Bienvenue/)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   })
 })

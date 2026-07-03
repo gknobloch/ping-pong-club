@@ -167,19 +167,19 @@ export function TeamDetailPage() {
                 <li key={g.id} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2 first:border-t-0">
                   <div className="flex min-w-0 items-center gap-2">
                     {md && (
-                      <span className={`w-6 text-xs font-bold ${isPast ? 'text-slate-400' : 'text-accent-600'}`}>
+                      <span className={`w-6 text-xs font-bold ${isPast ? 'text-slate-500' : 'text-accent-600'}`}>
                         J{md.number}
                       </span>
                     )}
-                    <span className={isPast ? 'text-slate-400' : 'text-slate-500'} title={isHome ? 'Domicile' : 'Extérieur'}>
+                    <span className="text-slate-500" title={isHome ? 'Domicile' : 'Extérieur'}>
                       {isHome ? <HomeIcon /> : <AwayIcon />}
                     </span>
-                    <span className={`truncate text-sm ${isPast ? 'text-slate-400' : 'text-slate-800'}`}>
+                    <span className={`truncate text-sm ${isPast ? 'text-slate-500' : 'text-slate-800'}`}>
                       {opp ? getTeamName(opp, clubs) : '—'}
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className={`text-sm ${isPast ? 'text-slate-400' : 'text-slate-500'}`}>{dateLabel}</span>
+                    <span className="text-sm text-slate-500">{dateLabel}</span>
                     <button
                       type="button"
                       onClick={() => setQuickGame({ gameId: g.id, teamId: team.id })}
