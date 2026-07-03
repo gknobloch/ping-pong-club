@@ -147,12 +147,12 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
             key={b.phaseId}
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
-              <h2 className="min-w-0 truncate font-display text-base font-semibold text-slate-800">{b.label}</h2>
+            <div className="border-b border-slate-100 px-5 py-3">
+              <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>
               {b.total !== undefined && (
-                <span className="shrink-0 text-xs font-medium text-slate-500">
+                <p className="mt-0.5 text-xs font-medium text-slate-500">
                   {b.played}{b.borrowedPlayed > 0 ? ` + ${b.borrowedPlayed}` : ''} / {b.total} joués
-                </span>
+                </p>
               )}
             </div>
             <dl className="divide-y divide-slate-100 px-5">
