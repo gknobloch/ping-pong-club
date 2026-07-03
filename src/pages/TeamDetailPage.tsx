@@ -146,7 +146,7 @@ export function TeamDetailPage() {
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Matchs ({totalGames})
+            Matchs
           </h2>
           {totalGames === 0 ? (
             <p className="px-5 pb-4 text-sm text-slate-400">Aucun match.</p>

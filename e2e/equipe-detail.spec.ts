@@ -23,7 +23,7 @@ test.describe('Player — Team detail', () => {
   })
 
   test('opens the game info modal from the games list', async ({ page }) => {
-    await expect(page.getByText('Matchs (8)')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Matchs' })).toBeVisible()
     await page.getByRole('button', { name: 'Détails du match' }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('button', { name: 'Fermer' }).click()
