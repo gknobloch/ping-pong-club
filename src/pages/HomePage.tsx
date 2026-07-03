@@ -84,7 +84,7 @@ export function HomePage() {
   const isPlayerDashboard = !!myActiveTeam
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="space-y-5">
       {/* Welcome / identity */}
       <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         {me ? (
