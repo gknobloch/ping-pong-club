@@ -79,7 +79,7 @@ export function TeamDetailPage() {
   const memberCount = roster.length + borrowed.length
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="space-y-5">
       <Link to="/equipes" className="text-sm font-medium text-accent-600 hover:text-accent-800">
         ← Équipes
       </Link>
