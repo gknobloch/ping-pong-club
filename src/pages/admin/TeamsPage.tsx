@@ -4,7 +4,7 @@ import type { Team } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
-import { ClockIcon, CaptainIcon, PhaseSwitchButton, Pill } from '@/components/icons'
+import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -325,28 +325,38 @@ export function TeamsPage() {
                 key={team.id}
                 className={`flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${team.isArchived ? 'opacity-50' : ''}`}
               >
-                <Link to={`/equipes/${team.id}`} className="flex items-center gap-3 hover:opacity-80">
-                  <span
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
-                    style={{ backgroundColor: team.color ?? '#e23b3b' }}
-                  >
-                    {team.number}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-base font-semibold text-slate-800">
-                      {getClubName(team.clubId)} {team.number}
-                    </p>
-                    {team.isArchived && (
-                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">Archivé</span>
-                    )}
-                  </div>
-                </Link>
-
-                {division && (
-                  <div>
-                    <Pill>{division.displayName}</Pill>
-                  </div>
-                )}
+                <div className="flex items-start gap-3">
+                  <Link to={`/equipes/${team.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
+                    <span
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
+                      style={{ backgroundColor: team.color ?? '#e23b3b' }}
+                    >
+                      {team.number}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display text-base font-semibold text-slate-800">
+                        {getClubName(team.clubId)} {team.number}
+                      </p>
+                      {division && <p className="truncate text-xs font-medium text-slate-500">{division.displayName}</p>}
+                      {team.isArchived && (
+                        <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">Archivé</span>
+                      )}
+                    </div>
+                  </Link>
+                  {team.whatsappLink && (
+                    <a
+                      href={team.whatsappLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Groupe WhatsApp"
+                      aria-label="Groupe WhatsApp"
+                      className="shrink-0 text-[#25D366] hover:opacity-75"
+                    >
+                      <WhatsAppIcon className="h-5 w-5" />
+                    </a>
+                  )}
+                </div>
 
                 <div className="space-y-1.5 text-sm text-slate-600">
                   <div className="flex items-center gap-1.5">
