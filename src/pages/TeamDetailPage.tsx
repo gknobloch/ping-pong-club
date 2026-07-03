@@ -32,11 +32,8 @@ export function TeamDetailPage() {
     [baseTeam, teams, phases, matchDays, games],
   )
 
-  // Default to the opened team's phase, else active, else most recent.
-  const fallbackPhaseId =
-    ordered.find((e) => e.phaseId === baseTeam?.phaseId)?.phaseId ??
-    ordered.find((e) => e.isActive)?.phaseId ??
-    ordered[ordered.length - 1]?.phaseId
+  // Default to the most recent phase this team has played.
+  const fallbackPhaseId = ordered[ordered.length - 1]?.phaseId
   const current = ordered.find((e) => e.phaseId === (phaseId ?? fallbackPhaseId)) ?? ordered[0]
   const idx = ordered.findIndex((e) => e.phaseId === current?.phaseId)
 
@@ -117,85 +114,86 @@ export function TeamDetailPage() {
         </div>
       )}
 
-      {/* Roster with play-counts */}
-      {memberCount > 0 && (
+      {/* Players (left) / Games (right) — stacked on narrow viewports */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {memberCount > 0 && (
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Joueurs
+            </h2>
+            <ul>
+              {roster.map((p) => (
+                <RosterRow
+                  key={p.id}
+                  player={p}
+                  captain={p.id === team.captainId}
+                  played={playedCount.get(p.id) ?? 0}
+                  total={totalGames}
+                />
+              ))}
+              {borrowed.map((p) => (
+                <RosterRow
+                  key={p.id}
+                  player={p}
+                  renfort
+                  played={playedCount.get(p.id) ?? 0}
+                  total={totalGames}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Joueurs ({memberCount})
+            Matchs ({totalGames})
           </h2>
-          <ul>
-            {roster.map((p) => (
-              <RosterRow
-                key={p.id}
-                player={p}
-                captain={p.id === team.captainId}
-                played={playedCount.get(p.id) ?? 0}
-                total={totalGames}
-              />
-            ))}
-            {borrowed.map((p) => (
-              <RosterRow
-                key={p.id}
-                player={p}
-                renfort
-                played={playedCount.get(p.id) ?? 0}
-                total={totalGames}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Games */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Matchs ({totalGames})
-        </h2>
-        {totalGames === 0 ? (
-          <p className="px-5 pb-4 text-sm text-slate-400">Aucun match.</p>
-        ) : (
-          <ul className="px-5 pb-2">
-            {games_.map((g) => {
-              const md = g.matchDay
-              const isHome = g.homeTeamId === team.id
-              const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
-              const isPast = md ? md.date < today : false
-              const dateLabel = md
-                ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                : ''
-              return (
-                <li key={g.id} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2 first:border-t-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {md && (
-                      <span className={`w-6 text-xs font-bold ${isPast ? 'text-slate-500' : 'text-accent-600'}`}>
-                        J{md.number}
+          {totalGames === 0 ? (
+            <p className="px-5 pb-4 text-sm text-slate-400">Aucun match.</p>
+          ) : (
+            <ul className="px-5 pb-2">
+              {games_.map((g) => {
+                const md = g.matchDay
+                const isHome = g.homeTeamId === team.id
+                const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
+                const isPast = md ? md.date < today : false
+                const dateLabel = md
+                  ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                  : ''
+                return (
+                  <li key={g.id} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2 first:border-t-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {md && (
+                        <span className={`w-6 text-xs font-bold ${isPast ? 'text-slate-500' : 'text-accent-600'}`}>
+                          J{md.number}
+                        </span>
+                      )}
+                      <span className="text-slate-500" title={isHome ? 'Domicile' : 'Extérieur'}>
+                        {isHome ? <HomeIcon /> : <AwayIcon />}
                       </span>
-                    )}
-                    <span className="text-slate-500" title={isHome ? 'Domicile' : 'Extérieur'}>
-                      {isHome ? <HomeIcon /> : <AwayIcon />}
-                    </span>
-                    <span className={`truncate text-sm ${isPast ? 'text-slate-500' : 'text-slate-800'}`}>
-                      {opp ? getTeamName(opp, clubs) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-sm text-slate-500">{dateLabel}</span>
-                    <button
-                      type="button"
-                      onClick={() => setQuickGame({ gameId: g.id, teamId: team.id })}
-                      className="text-slate-300 hover:text-accent-600"
-                      title="Détails du match"
-                      aria-label="Détails du match"
-                    >
-                      <InfoIcon />
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+                      <span className={`truncate text-sm ${isPast ? 'text-slate-500' : 'text-slate-800'}`}>
+                        {opp ? getTeamName(opp, clubs) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-sm text-slate-500">{dateLabel}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuickGame({ gameId: g.id, teamId: team.id })}
+                        className="text-slate-300 hover:text-accent-600"
+                        title="Détails du match"
+                        aria-label="Détails du match"
+                      >
+                        <InfoIcon />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
 
       {quickGame && (
         <GameQuickView
