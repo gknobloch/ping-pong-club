@@ -161,8 +161,8 @@ export function TeamDetailPage() {
                   ? new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
                   : ''
                 return (
-                  <li key={g.id} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2 first:border-t-0">
-                    <div className="flex min-w-0 items-center gap-2">
+                  <li key={g.id} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2.5 first:border-t-0">
+                    <div className="flex h-7 min-w-0 items-center gap-2">
                       {md && (
                         <span className={`w-6 text-xs font-bold ${isPast ? 'text-slate-500' : 'text-accent-600'}`}>
                           J{md.number}
@@ -171,7 +171,7 @@ export function TeamDetailPage() {
                       <span className="text-slate-500" title={isHome ? 'Domicile' : 'Extérieur'}>
                         {isHome ? <HomeIcon /> : <AwayIcon />}
                       </span>
-                      <span className={`truncate text-sm ${isPast ? 'text-slate-500' : 'text-slate-800'}`}>
+                      <span className="truncate text-sm text-slate-800">
                         {opp ? getTeamName(opp, clubs) : '—'}
                       </span>
                     </div>
