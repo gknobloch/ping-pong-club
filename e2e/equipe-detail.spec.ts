@@ -29,4 +29,13 @@ test.describe('Player — Team detail', () => {
     await page.getByRole('button', { name: 'Fermer' }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
+
+  test('clicking a player in the game modal opens their profile and closes the modal', async ({ page }) => {
+    await page.getByRole('button', { name: 'Détails du match' }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('link', { name: /Joris Szulc/ }).click()
+    await expect(page).toHaveURL('/joueurs/p2-player-5')
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
 })

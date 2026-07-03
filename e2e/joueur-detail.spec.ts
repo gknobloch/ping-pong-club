@@ -32,4 +32,15 @@ test.describe('Player — Player detail', () => {
     await page.getByRole('button', { name: 'Fermer' }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
+
+  test('clicking the team badge in the game modal opens the team page and closes the modal', async ({ page }) => {
+    await page.goto('/joueurs/p2-player-8')
+    // History is sorted ascending: the 2nd entry is the team-1 renfort game.
+    await page.getByRole('button', { name: 'Détails du match' }).nth(1).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('link', { name: 'Équipe 1' }).click()
+    await expect(page).toHaveURL('/equipes/team-1')
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+  })
 })
