@@ -27,7 +27,7 @@ export function PlayerDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5">
       <Link to="/joueurs" className="text-sm font-medium text-accent-600 hover:text-accent-800">
         ← Joueurs
       </Link>
