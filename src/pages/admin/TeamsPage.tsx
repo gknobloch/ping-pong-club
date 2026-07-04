@@ -4,6 +4,7 @@ import type { Team } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
+import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -37,7 +38,22 @@ export function TeamsPage() {
 
   const activeTeams = useMemo(() => allVisibleTeams.filter((t) => !t.isArchived), [allVisibleTeams])
   const archivedTeams = useMemo(() => allVisibleTeams.filter((t) => t.isArchived), [allVisibleTeams])
-  const teams = showArchived ? allVisibleTeams : activeTeams
+  const teamsInScope = showArchived ? allVisibleTeams : activeTeams
+
+  // Phase switcher — defaults to the active phase, chronological order.
+  const orderedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [phases],
+  )
+  const activePhase = phases.find((p) => p.isActive)
+  const [phaseId, setPhaseId] = useState<string | undefined>(undefined)
+  const phase = phases.find((p) => p.id === phaseId) ?? activePhase ?? orderedPhases[orderedPhases.length - 1]
+  const phaseIndex = orderedPhases.findIndex((p) => p.id === phase?.id)
+
+  const teams = useMemo(
+    () => teamsInScope.filter((t) => t.phaseId === phase?.id).sort((a, b) => a.number - b.number),
+    [teamsInScope, phase],
+  )
 
   const clubsForSelect =
     hasClubScope && user?.clubId
@@ -83,9 +99,6 @@ export function TeamsPage() {
   }
 
   const getClubName = (clubId: string) => clubs.find((c) => c.id === clubId)?.displayName ?? clubId
-  const getPhaseName = (phaseId: string) => phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
-  const getDivisionName = (divisionId: string) =>
-    divisions.find((d) => d.id === divisionId)?.displayName ?? divisionId
   const getCaptainName = (captainId: string) => {
     const p = players.find((x) => x.id === captainId)
     return p ? `${p.firstName} ${p.lastName}` : captainId
@@ -281,74 +294,100 @@ export function TeamsPage() {
           </span>
         </label>
       )}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Club
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                N° équipe
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Phase
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Division
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Jour / heure
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Capitaine
-              </th>
-              {isAdmin && (
-                <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 bg-white">
-            {teams.map((team) => (
-              <tr key={team.id} className={`hover:bg-slate-50/50 ${team.isArchived ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                  <Link to={`/equipes/${team.id}`} className="hover:text-accent-600 hover:underline">
-                    {getClubName(team.clubId)} {team.number}
-                  </Link>
-                  {team.isArchived && (
-                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                      Archivé
+      {/* Phase switcher */}
+      {phase && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
+          <PhaseSwitchButton
+            dir="prev"
+            disabled={phaseIndex <= 0}
+            onClick={() => phaseIndex > 0 && setPhaseId(orderedPhases[phaseIndex - 1].id)}
+          />
+          <span className="font-display text-sm font-semibold text-slate-800">Saison {phase.displayName}</span>
+          <PhaseSwitchButton
+            dir="next"
+            disabled={phaseIndex >= orderedPhases.length - 1}
+            onClick={() => phaseIndex < orderedPhases.length - 1 && setPhaseId(orderedPhases[phaseIndex + 1].id)}
+          />
+        </div>
+      )}
+
+      {/* Team cards — up to 4 per row, responsive down to 1 on narrow viewports */}
+      {teams.length === 0 ? (
+        <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+          Aucune équipe pour cette phase.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {teams.map((team) => {
+            const division = divisions.find((d) => d.id === team.divisionId)
+            return (
+              <div
+                key={team.id}
+                className={`flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${team.isArchived ? 'opacity-50' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Link to={`/equipes/${team.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
+                    <span
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
+                      style={{ backgroundColor: team.color ?? '#e23b3b' }}
+                    >
+                      {team.number}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display text-base font-semibold text-slate-800">
+                        {getClubName(team.clubId)} {team.number}
+                      </p>
+                      {division && <p className="truncate text-xs font-medium text-slate-500">{division.displayName}</p>}
+                      {team.isArchived && (
+                        <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">Archivé</span>
+                      )}
+                    </div>
+                  </Link>
+                  {team.whatsappLink && (
+                    <a
+                      href={team.whatsappLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Groupe WhatsApp"
+                      aria-label="Groupe WhatsApp"
+                      className="shrink-0 text-slate-400 hover:text-slate-600"
+                    >
+                      <WhatsAppIcon className="h-5 w-5" />
+                    </a>
                   )}
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{team.number}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">{getPhaseName(team.phaseId)}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">{getDivisionName(team.divisionId)}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {team.defaultDay} {team.defaultTime}
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{getCaptainName(team.captainId)}</td>
+                </div>
+
+                <div className="space-y-1.5 text-sm text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <ClockIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="truncate">{team.defaultDay} {team.defaultTime}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CaptainIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="truncate">{getCaptainName(team.captainId)}</span>
+                  </div>
+                </div>
+
                 {isAdmin && (
-                  <td className="px-4 py-3 text-right space-x-3">
+                  <div className="mt-1 flex items-center gap-3 border-t border-slate-100 pt-2">
                     {!team.isArchived && (
-                      <button
-                        type="button"
-                        onClick={() => openEdit(team)}
-                        className="text-sm font-medium text-accent-600 hover:text-accent-800"
-                      >
-                        Modifier
-                      </button>
-                    )}
-                    {!team.isArchived && (
-                      <button
-                        type="button"
-                        onClick={() => handleArchive(team)}
-                        className="text-sm font-medium text-red-600 hover:text-red-800"
-                      >
-                        Archiver
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(team)}
+                          className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(team)}
+                          className="text-sm font-medium text-red-600 hover:text-red-800"
+                        >
+                          Archiver
+                        </button>
+                      </>
                     )}
                     {team.isArchived && (
                       <button
@@ -359,13 +398,13 @@ export function TeamsPage() {
                         Supprimer
                       </button>
                     )}
-                  </td>
+                  </div>
                 )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {(editing || creating) && (
         <div
