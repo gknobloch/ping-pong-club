@@ -7,7 +7,7 @@ import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
 import { PlayerPhaseHistory } from '@/components/PlayerPhaseHistory'
 import { AvailabilityButtons, AvailabilityChip } from '@/components/Availability'
-import { HomeIcon, AwayIcon, Pill } from '@/components/icons'
+import { HomeIcon, AwayIcon, Pill, PhaseSwitchButton } from '@/components/icons'
 import { getTeamName } from '@/lib/teamName'
 import { getVenue } from '@/lib/venue'
 import { playersCommittedElsewhere } from '@/lib/matchdays'
@@ -21,6 +21,7 @@ export function HomePage() {
     setGameAvailability, clearGameAvailability,
   } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
+  const [matchIndex, setMatchIndex] = useState(0)
 
   const today = new Date().toISOString().slice(0, 10)
   const myPlayerId = user?.isPlayer ? user.id : undefined
@@ -104,63 +105,83 @@ export function HomePage() {
           {/* Upcoming matches — set your availability inline; à confirmer count on the side */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prochains matchs</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prochains matchs</p>
+                {upcoming.length > 1 && (
+                  <div className="flex items-center gap-1">
+                    <PhaseSwitchButton
+                      dir="prev"
+                      disabled={matchIndex <= 0}
+                      onClick={() => setMatchIndex((i) => Math.max(0, i - 1))}
+                      prevLabel="Match précédent"
+                    />
+                    <span className="text-xs font-medium text-slate-400">
+                      {Math.min(matchIndex, upcoming.length - 1) + 1}/{upcoming.length}
+                    </span>
+                    <PhaseSwitchButton
+                      dir="next"
+                      disabled={matchIndex >= upcoming.length - 1}
+                      onClick={() => setMatchIndex((i) => Math.min(upcoming.length - 1, i + 1))}
+                      nextLabel="Match suivant"
+                    />
+                  </div>
+                )}
+              </div>
               {upcoming.length === 0 ? (
                 <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
                   Pas de prochain match prévu.
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {upcoming.map((g) => {
-                    const md = mdMap.get(g.matchDayId)!
-                    const isHome = g.homeTeamId === myActiveTeam.id
-                    const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
-                    const homeTeam = teams.find((t) => t.id === g.homeTeamId)
-                    const matchup = isHome
-                      ? `${getTeamName(myActiveTeam, clubs)} – ${opp ? getTeamName(opp, clubs) : '?'}`
-                      : `${opp ? getTeamName(opp, clubs) : '?'} – ${getTeamName(myActiveTeam, clubs)}`
-                    const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
-                      weekday: 'long', day: 'numeric', month: 'long',
-                    })
-                    const locked = committedElsewhere(g.id)
-                    return (
-                      <div key={g.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Pill>J{md.number}</Pill>
-                          {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
-                          <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
-                        </div>
-                        <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
-                          <span className="text-slate-400">{isHome ? <HomeIcon className="h-4 w-4" /> : <AwayIcon className="h-4 w-4" />}</span>
-                          {matchup}
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {dateLabel}{g.time ? ` · ${g.time}` : ''}{getVenue(homeTeam, clubs) ? ` · ${getVenue(homeTeam, clubs)}` : ''}
-                        </p>
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          {locked !== undefined ? (
-                            <span className="text-xs italic text-slate-500">Joue en Équipe {locked}</span>
-                          ) : myPlayerId ? (
-                            <AvailabilityButtons
-                              status={availOf(g.id)}
-                              onSet={(s) => setGameAvailability(g.id, myPlayerId, s)}
-                              onClear={() => clearGameAvailability(g.id, myPlayerId)}
-                            />
-                          ) : (
-                            <AvailabilityChip status={availOf(g.id)} />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setQuickGame({ gameId: g.id, teamId: myActiveTeam.id })}
-                            className="shrink-0 text-sm font-medium text-accent-600 hover:text-accent-800"
-                          >
-                            Détails
-                          </button>
-                        </div>
+                (() => {
+                  const g = upcoming[Math.min(matchIndex, upcoming.length - 1)]
+                  const md = mdMap.get(g.matchDayId)!
+                  const isHome = g.homeTeamId === myActiveTeam.id
+                  const opp = teams.find((t) => t.id === (isHome ? g.awayTeamId : g.homeTeamId))
+                  const homeTeam = teams.find((t) => t.id === g.homeTeamId)
+                  const matchup = isHome
+                    ? `${getTeamName(myActiveTeam, clubs)} – ${opp ? getTeamName(opp, clubs) : '?'}`
+                    : `${opp ? getTeamName(opp, clubs) : '?'} – ${getTeamName(myActiveTeam, clubs)}`
+                  const dateLabel = new Date(md.date + 'T12:00:00').toLocaleDateString('fr-FR', {
+                    weekday: 'long', day: 'numeric', month: 'long',
+                  })
+                  const locked = committedElsewhere(g.id)
+                  return (
+                    <div key={g.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Pill>J{md.number}</Pill>
+                        {divisionOf(myActiveTeam) && <Pill>{divisionOf(myActiveTeam)}</Pill>}
+                        <TeamBadge color={myActiveTeam.color} label={`Équipe ${myActiveTeam.number}`} />
                       </div>
-                    )
-                  })}
-                </div>
+                      <h2 className="mt-2 flex items-center gap-2 font-display text-lg font-semibold text-slate-800">
+                        <span className="text-slate-400">{isHome ? <HomeIcon className="h-4 w-4" /> : <AwayIcon className="h-4 w-4" />}</span>
+                        {matchup}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {dateLabel}{g.time ? ` · ${g.time}` : ''}{getVenue(homeTeam, clubs) ? ` · ${getVenue(homeTeam, clubs)}` : ''}
+                      </p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        {locked !== undefined ? (
+                          <span className="text-xs italic text-slate-500">Joue en Équipe {locked}</span>
+                        ) : myPlayerId ? (
+                          <AvailabilityButtons
+                            status={availOf(g.id)}
+                            onSet={(s) => setGameAvailability(g.id, myPlayerId, s)}
+                            onClear={() => clearGameAvailability(g.id, myPlayerId)}
+                          />
+                        ) : (
+                          <AvailabilityChip status={availOf(g.id)} />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setQuickGame({ gameId: g.id, teamId: myActiveTeam.id })}
+                          className="shrink-0 text-sm font-medium text-accent-600 hover:text-accent-800"
+                        >
+                          Détails
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()
               )}
             </div>
             <div className="flex flex-col gap-3">
