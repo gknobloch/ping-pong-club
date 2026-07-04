@@ -67,17 +67,21 @@ export function PhaseSwitchButton({
   dir,
   disabled,
   onClick,
+  prevLabel = 'Phase précédente',
+  nextLabel = 'Phase suivante',
 }: {
   dir: 'prev' | 'next'
   disabled?: boolean
   onClick: () => void
+  prevLabel?: string
+  nextLabel?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={dir === 'prev' ? 'Phase précédente' : 'Phase suivante'}
+      aria-label={dir === 'prev' ? prevLabel : nextLabel}
       className={`rounded-lg p-1.5 ${disabled ? 'text-slate-200' : 'text-slate-500 hover:bg-slate-100'}`}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
