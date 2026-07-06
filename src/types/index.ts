@@ -1,7 +1,7 @@
 // Captaincy is per-team (see Team.captainId), so it is NOT a role — it's derived.
 export type Role = 'general_admin' | 'club_admin' | 'player'
 
-export type PlayerStatus = 'active' | 'pending_validation' | 'archived'
+export type PlayerStatus = 'active' | 'archived'
 
 export interface Address {
   id: string

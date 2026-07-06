@@ -8,13 +8,11 @@ import { sortByName } from '@shared/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerStatus, string> = {
   active: 'Actif',
-  pending_validation: 'En attente',
   archived: 'Archivé',
 }
 
 const STATUS_COLORS: Record<PlayerStatus, { bg: string; text: string }> = {
   active: { bg: '#dcfce7', text: '#16a34a' },
-  pending_validation: { bg: '#fef3c7', text: '#d97706' },
   archived: { bg: '#f1f5f9', text: colors.textSecondary },
 }
 
@@ -54,7 +52,7 @@ export default function AdminPlayersScreen() {
           clearButtonMode="while-editing"
         />
         <View style={styles.filters}>
-          {(['all', 'active', 'pending_validation', 'archived'] as const).map((s) => (
+          {(['all', 'active', 'archived'] as const).map((s) => (
             <TouchableOpacity
               key={s}
               onPress={() => setFilterStatus(s)}

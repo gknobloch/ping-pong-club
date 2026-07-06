@@ -9,13 +9,11 @@ import { sortByName } from '@/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
-  pending_validation: 'En attente',
   archived: 'Archivé',
 }
 
 const STATUS_FILTERS: { value: PlayerType['status'] | 'all'; label: string }[] = [
   { value: 'active', label: 'Actif' },
-  { value: 'pending_validation', label: 'En attente' },
   { value: 'archived', label: 'Archivé' },
   { value: 'all', label: 'Tous' },
 ]
@@ -235,13 +233,7 @@ export function PlayersPage() {
                       {player.firstName} {player.lastName}
                     </span>
                     {player.status !== 'active' && (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          player.status === 'pending_validation'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                         {STATUS_LABELS[player.status]}
                       </span>
                     )}
