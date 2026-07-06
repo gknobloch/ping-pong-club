@@ -105,7 +105,7 @@ export function HomePage() {
           {/* Upcoming matches — set your availability inline; à confirmer count on the side */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+              <div className="flex h-7 items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prochains matchs</p>
                 {upcoming.length > 1 && (
                   <div className="flex items-center gap-1">
@@ -185,7 +185,9 @@ export function HomePage() {
               )}
             </div>
             <div className="flex flex-col gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">À confirmer</p>
+              <div className="flex h-7 items-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">À confirmer</p>
+              </div>
               <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className={`text-2xl font-bold ${toConfirm > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                   {toConfirm} match{toConfirm !== 1 ? 's' : ''}
