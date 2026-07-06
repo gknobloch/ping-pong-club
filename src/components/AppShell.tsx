@@ -1,6 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useAppData } from '@/contexts/DataContext'
 
 const prNumber = __PR_NUMBER__
 const commitSha = __COMMIT_SHA__
@@ -19,15 +18,11 @@ const navLinkClass = (active: boolean) =>
   `text-sm font-medium ${active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
 
 export function AppShell() {
-  const { user, displayName, roleLabel, logout } = useAuth()
+  const { user, displayName, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const { clubs } = useAppData()
   const isGeneralAdmin = user?.role === 'general_admin'
   const isClubAdmin = user?.role === 'club_admin'
-  const clubLabel = !isGeneralAdmin && user?.clubId
-    ? (clubs.find((c) => c.id === user.clubId)?.displayName ?? null)
-    : null
 
   const handleLogout = () => {
     if (window.confirm('Se déconnecter ?')) {
@@ -99,7 +94,6 @@ export function AppShell() {
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
               <Link to="/compte" className="hidden text-right sm:block" title="Mon compte">
                 <p className="text-sm font-medium text-slate-800 hover:text-accent-600">{displayName}</p>
-                <p className="text-xs text-slate-500">{clubLabel || roleLabel}</p>
               </Link>
               <button
                 type="button"
