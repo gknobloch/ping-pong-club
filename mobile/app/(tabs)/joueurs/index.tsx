@@ -17,7 +17,6 @@ import { Avatar } from '@/components/Avatar'
 
 const STATUS_LABELS = {
   active: 'Actif',
-  pending_validation: 'En attente',
   archived: 'Archivé',
 }
 

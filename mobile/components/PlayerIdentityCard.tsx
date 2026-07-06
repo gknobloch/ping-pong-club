@@ -6,7 +6,6 @@ import type { Club, PlayerStatus } from '@shared/types'
 
 const STATUS_LABELS: Record<PlayerStatus, string> = {
   active: 'Actif',
-  pending_validation: 'En attente de validation',
   archived: 'Archivé',
 }
 

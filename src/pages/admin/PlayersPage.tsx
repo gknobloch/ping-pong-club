@@ -2,20 +2,27 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Player as PlayerType } from '@/types'
 import { Avatar } from '@/components/Avatar'
+import { ClubLogo } from '@/components/ClubLogo'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
-  pending_validation: 'En attente',
   archived: 'Archivé',
 }
+
+const STATUS_FILTERS: { value: PlayerType['status'] | 'all'; label: string }[] = [
+  { value: 'active', label: 'Actif' },
+  { value: 'archived', label: 'Archivé' },
+  { value: 'all', label: 'Tous' },
+]
 
 export function PlayersPage() {
   const { user } = useAuth()
   const { players: allPlayers, clubs, updatePlayer, addPlayer } = useAppData()
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<PlayerType['status'] | 'all'>('active')
   const [editing, setEditing] = useState<PlayerType | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({
@@ -43,15 +50,16 @@ export function PlayersPage() {
   }, [allPlayers, hasClubScope, adminClubIds])
 
   const filteredPlayers = useMemo(() => {
+    const byStatus = statusFilter === 'all' ? players : players.filter((p) => p.status === statusFilter)
     const q = query.trim().toLowerCase()
-    if (!q) return players
-    return players.filter(
+    if (!q) return byStatus
+    return byStatus.filter(
       (p) =>
         p.lastName.toLowerCase().includes(q) ||
         p.firstName.toLowerCase().includes(q) ||
         p.email?.toLowerCase().includes(q),
     )
-  }, [players, query])
+  }, [players, query, statusFilter])
 
   const clubsForSelect =
     hasClubScope && adminClubIds.length
@@ -60,10 +68,10 @@ export function PlayersPage() {
 
   const canEditPlayers = user?.role === 'general_admin' || isClubAdmin
 
-  const adminClubNames = adminClubIds
-    .map((id) => clubs.find((c) => c.id === id)?.displayName)
-    .filter(Boolean)
-    .join(', ')
+  const scopedClub =
+    hasClubScope && adminClubIds.length === 1
+      ? clubs.find((c) => c.id === adminClubIds[0])
+      : undefined
 
   const getClubName = (clubId: string) =>
     clubs.find((c) => c.id === clubId)?.displayName ?? clubId
@@ -138,18 +146,17 @@ export function PlayersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-semibold text-slate-800">Joueurs</h1>
-          {hasClubScope && adminClubNames && (
-            <p className="mt-1 text-sm text-slate-600">Club : {adminClubNames}</p>
-          )}
+          {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
         </div>
         {canEditPlayers && (
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
           >
             Ajouter un joueur
           </button>
@@ -163,6 +170,18 @@ export function PlayersPage() {
           placeholder="Rechercher par nom…"
           className="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-accent-400 focus:outline-none focus:ring-1 focus:ring-accent-400"
         />
+        <select
+          aria-label="Statut"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as PlayerType['status'] | 'all')}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-accent-400 focus:outline-none focus:ring-1 focus:ring-accent-400"
+        >
+          {STATUS_FILTERS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
         {query && (
           <span className="text-sm text-slate-500">
             {filteredPlayers.length} résultat{filteredPlayers.length !== 1 ? 's' : ''}
@@ -190,9 +209,6 @@ export function PlayersPage() {
                   Club
                 </th>
               )}
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Statut
-              </th>
               <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
                 Actions
               </th>
@@ -216,6 +232,11 @@ export function PlayersPage() {
                     <span className="hover:underline">
                       {player.firstName} {player.lastName}
                     </span>
+                    {player.status !== 'active' && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        {STATUS_LABELS[player.status]}
+                      </span>
+                    )}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600 font-mono">
@@ -228,19 +249,6 @@ export function PlayersPage() {
                     {getClubName(player.clubId)}
                   </td>
                 )}
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      player.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : player.status === 'pending_validation'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {STATUS_LABELS[player.status]}
-                  </span>
-                </td>
                 <td className="px-4 py-3 text-right">
                   {canEditPlayers && (
                     <button
@@ -272,8 +280,9 @@ export function PlayersPage() {
             <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Prénom</label>
+                  <label htmlFor="player-firstName" className="block text-sm font-medium text-slate-700">Prénom</label>
                   <input
+                    id="player-firstName"
                     type="text"
                     value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
@@ -281,8 +290,9 @@ export function PlayersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Nom</label>
+                  <label htmlFor="player-lastName" className="block text-sm font-medium text-slate-700">Nom</label>
                   <input
+                    id="player-lastName"
                     type="text"
                     value={form.lastName}
                     onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
@@ -291,8 +301,9 @@ export function PlayersPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">N° licence</label>
+                <label htmlFor="player-licenseNumber" className="block text-sm font-medium text-slate-700">N° licence</label>
                 <input
+                  id="player-licenseNumber"
                   type="text"
                   value={form.licenseNumber}
                   onChange={(e) => setForm((f) => ({ ...f, licenseNumber: e.target.value }))}
@@ -300,8 +311,9 @@ export function PlayersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Email</label>
+                <label htmlFor="player-email" className="block text-sm font-medium text-slate-700">Email</label>
                 <input
+                  id="player-email"
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -309,8 +321,9 @@ export function PlayersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Téléphone</label>
+                <label htmlFor="player-phone" className="block text-sm font-medium text-slate-700">Téléphone</label>
                 <input
+                  id="player-phone"
                   type="text"
                   value={form.phone}
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -319,10 +332,11 @@ export function PlayersPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label htmlFor="player-birthDate" className="block text-sm font-medium text-slate-700">
                     Date de naissance (optionnel)
                   </label>
                   <input
+                    id="player-birthDate"
                     type="text"
                     value={form.birthDate}
                     onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
@@ -331,10 +345,11 @@ export function PlayersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label htmlFor="player-birthPlace" className="block text-sm font-medium text-slate-700">
                     Lieu de naissance (optionnel)
                   </label>
                   <input
+                    id="player-birthPlace"
                     type="text"
                     value={form.birthPlace}
                     onChange={(e) => setForm((f) => ({ ...f, birthPlace: e.target.value }))}
@@ -344,8 +359,9 @@ export function PlayersPage() {
               </div>
               {(creating || editing) && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Statut</label>
+                  <label htmlFor="player-status" className="block text-sm font-medium text-slate-700">Statut</label>
                   <select
+                    id="player-status"
                     value={form.status}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, status: e.target.value as PlayerType['status'] }))
@@ -364,8 +380,9 @@ export function PlayersPage() {
               )}
               {creating && clubsForSelect.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Club</label>
+                  <label htmlFor="player-clubId" className="block text-sm font-medium text-slate-700">Club</label>
                   <select
+                    id="player-clubId"
                     value={form.clubId}
                     onChange={(e) => setForm((f) => ({ ...f, clubId: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"

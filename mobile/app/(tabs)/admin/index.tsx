@@ -53,7 +53,6 @@ export default function AdminScreen() {
         <View style={styles.statsCard}>
           <Text style={styles.sectionTitle}>Statistiques</Text>
           <StatRow label="Joueurs actifs" value={myPlayers.filter((p) => p.status === 'active').length} />
-          <StatRow label="Joueurs en attente" value={myPlayers.filter((p) => p.status === 'pending_validation').length} />
           <StatRow label="Équipes" value={myTeams.length} />
         </View>
       </ScrollView>
