@@ -799,7 +799,7 @@ export function MatchDaysPage() {
   return (
     <div className="space-y-6">
       <div ref={stickysentinelRef} className="h-0" aria-hidden />
-      <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
+      <div className="sticky top-[105px] z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
         <div className={`flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
         <div className="flex min-w-0 items-center gap-4">
           {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
