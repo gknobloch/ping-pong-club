@@ -799,7 +799,7 @@ export function MatchDaysPage() {
   return (
     <div className="flex flex-col gap-6">
       <div ref={stickysentinelRef} className="h-0" aria-hidden />
-      <div className="sticky top-14 z-10 -mx-4 -mt-6 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
+      <div className={`sticky top-14 z-10 -mx-4 -mt-6 bg-slate-50 px-4 pb-1 sm:-mx-6 sm:px-6 ${isStuck ? 'pt-6' : 'pt-0'}`}>
         <div className={`flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
         <div className="flex min-w-0 items-center gap-4">
           {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
@@ -923,7 +923,7 @@ export function MatchDaysPage() {
           <section
             key={team.id}
             id={`team-${team.id}`}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-[170px]"
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-[195px]"
           >
             <div
               className="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-4"
@@ -1321,7 +1321,7 @@ export function MatchDaysPage() {
 
       {/* Other players (club, not in any team roster) */}
       {otherPlayers.length > 0 && otherGroupMatchDays.length > 0 && (
-        <section id="other-players" className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-[170px]">
+        <section id="other-players" className="overflow-hidden rounded-xl border border-slate-200 bg-white scroll-mt-[195px]">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h2 className="font-display text-lg font-medium text-slate-800">
               Autres joueurs du club
