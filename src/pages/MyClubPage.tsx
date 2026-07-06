@@ -105,16 +105,14 @@ export function MyClubPage() {
                 <span className="shrink-0 text-slate-400">
                   <ChannelIcon type={ch.type} />
                 </span>
-                <div className="min-w-0">
-                  <span className="font-medium text-slate-800">
-                    {ch.displayName?.trim() || channelTypeLabel(ch.type)}
-                  </span>
-                  <p className="truncate text-slate-500">
-                    <a href={ch.link} target="_blank" rel="noreferrer" className="hover:underline">
-                      {ch.link}
-                    </a>
-                  </p>
-                </div>
+                <a
+                  href={ch.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 truncate font-medium text-slate-800 hover:underline"
+                >
+                  {ch.displayName?.trim() || channelTypeLabel(ch.type)}
+                </a>
               </li>
             ))}
           </ul>
