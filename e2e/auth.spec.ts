@@ -14,7 +14,7 @@ test.describe('Auth', () => {
     await expect(page).toHaveURL(/\/login/)
     await page.goto('/equipes')
     await expect(page).toHaveURL(/\/login/)
-    await page.goto('/mon-club')
+    await page.goto('/club')
     await expect(page).toHaveURL(/\/login/)
   })
 })

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { Address, Club, ClubChannel, ClubChannelType } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { useClubAddressFormState } from '@/pages/useClubAddressForm'
+import { WhatsAppIcon } from '@/components/icons'
 
 const emptyAddressForm = {
   label: '',
@@ -18,7 +19,7 @@ const CHANNEL_TYPES: { value: ClubChannelType; label: string }[] = [
   { value: 'other', label: 'Autre' },
 ]
 
-const channelTypeLabel = (t: ClubChannelType) =>
+export const channelTypeLabel = (t: ClubChannelType) =>
   CHANNEL_TYPES.find((x) => x.value === t)?.label ?? t
 
 const emptyChannelForm = { type: 'website' as ClubChannelType, link: '', displayName: '' }
@@ -26,11 +27,11 @@ const emptyChannelForm = { type: 'website' as ClubChannelType, link: '', display
 // Small inline icon per channel type — the web app has no icon library, so these
 // keep the admin list legible. The mobile/header display (deferred) reuses the
 // matching Ionicons (globe-outline / logo-whatsapp / logo-facebook / link-outline).
-function ChannelIcon({ type }: { type: ClubChannelType }) {
+export function ChannelIcon({ type }: { type: ClubChannelType }) {
   const common = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   switch (type) {
     case 'whatsapp':
-      return (<svg {...common}><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z" /></svg>)
+      return <WhatsAppIcon className="h-4 w-4" />
     case 'facebook':
       return (<svg {...common}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3Z" /></svg>)
     case 'website':
