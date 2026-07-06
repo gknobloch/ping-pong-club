@@ -76,8 +76,8 @@ export function AppShell() {
             {(isClubAdmin || user?.role === 'player') && !isGeneralAdmin && (
               <>
                 {user?.clubId ? (
-                  <Link to="/mon-club" className={navLinkClass(location.pathname === '/mon-club')}>
-                    Mon club
+                  <Link to="/club" className={navLinkClass(location.pathname === '/club')}>
+                    Club
                   </Link>
                 ) : null}
                 <Link to="/equipes" className={navLinkClass(location.pathname === '/equipes')}>

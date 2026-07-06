@@ -64,7 +64,7 @@ export default function App() {
             <Route path="joueurs" element={<PlayersPage />} />
             <Route path="joueurs/:id" element={<PlayerDetailPage />} />
             <Route path="journees" element={<MatchDaysPage />} />
-            <Route path="mon-club" element={<MyClubPage />} />
+            <Route path="club" element={<MyClubPage />} />
             <Route path="compte" element={<ComptePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
