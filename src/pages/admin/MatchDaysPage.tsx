@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
 import { sortByName } from '@/lib/sortByName'
+import { ClubLogo } from '@/components/ClubLogo'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
 function TeamSelect({
@@ -387,6 +388,8 @@ export function MatchDaysPage() {
     addGame,
     updateGame,
   } = useAppData()
+  const hasClubScope = (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
+  const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(
     () => phases.find((p) => p.isActive)?.id ?? phases[0]?.id ?? ''
   )
@@ -795,11 +798,17 @@ export function MatchDaysPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-2xl font-semibold text-slate-800">Journées</h1>
+          {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
+        </div>
+      </div>
       <div ref={stickysentinelRef} className="h-0" aria-hidden />
       <div className="sticky top-14 z-10 -mx-4 bg-slate-50 px-4 pb-1 pt-0 sm:-mx-6 sm:px-6">
         <div className={`rounded-xl border border-slate-200 bg-white px-4 py-3 transition-shadow duration-200 ${isStuck ? 'shadow-md' : ''}`}>
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="font-display text-lg font-semibold text-slate-800 shrink-0">Journées</h1>
+        <div className="flex items-center justify-end gap-4">
           <div className="flex flex-wrap items-center gap-2">
           {/* Phase switcher */}
           <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
