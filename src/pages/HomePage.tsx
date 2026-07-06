@@ -129,7 +129,7 @@ export function HomePage() {
               </div>
               {upcoming.length === 0 ? (
                 <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-xl font-bold text-slate-800">Pas de prochain match prévu</p>
+                  <p className="text-base font-bold text-slate-800">Pas de prochain match prévu</p>
                 </div>
               ) : (
                 (() => {
@@ -189,7 +189,7 @@ export function HomePage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">À confirmer</p>
               </div>
               <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className={`text-xl font-bold ${toConfirm > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
+                <p className={`text-base font-bold ${toConfirm > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                   {toConfirm} match{toConfirm !== 1 ? 's' : ''}
                 </p>
               </div>
