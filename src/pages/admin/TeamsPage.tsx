@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
+import { ClubLogo } from '@/components/ClubLogo'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -25,6 +26,7 @@ export function TeamsPage() {
   const isClubAdmin = user?.role === 'club_admin'
   const isAdmin = user?.role === 'general_admin' || isClubAdmin
   const hasClubScope = (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
+  const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
 
   const [showArchived, setShowArchived] = useState(false)
 
@@ -269,13 +271,17 @@ export function TeamsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-slate-800">Équipes</h1>
+      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-2xl font-semibold text-slate-800">Équipes</h1>
+          {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
+        </div>
         {isAdmin && (
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
           >
             Ajouter une équipe
           </button>
