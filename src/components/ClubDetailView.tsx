@@ -18,7 +18,7 @@ const CHANNEL_TYPES: { value: ClubChannelType; label: string }[] = [
   { value: 'other', label: 'Autre' },
 ]
 
-const channelTypeLabel = (t: ClubChannelType) =>
+export const channelTypeLabel = (t: ClubChannelType) =>
   CHANNEL_TYPES.find((x) => x.value === t)?.label ?? t
 
 const emptyChannelForm = { type: 'website' as ClubChannelType, link: '', displayName: '' }
@@ -26,7 +26,7 @@ const emptyChannelForm = { type: 'website' as ClubChannelType, link: '', display
 // Small inline icon per channel type — the web app has no icon library, so these
 // keep the admin list legible. The mobile/header display (deferred) reuses the
 // matching Ionicons (globe-outline / logo-whatsapp / logo-facebook / link-outline).
-function ChannelIcon({ type }: { type: ClubChannelType }) {
+export function ChannelIcon({ type }: { type: ClubChannelType }) {
   const common = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   switch (type) {
     case 'whatsapp':
