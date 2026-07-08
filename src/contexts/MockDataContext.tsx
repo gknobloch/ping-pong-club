@@ -519,6 +519,7 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook, mirrors useAppData
 export function useMockData() {
   const ctx = useContext(MockDataContext)
   if (!ctx) throw new Error('useMockData must be used within MockDataProvider')

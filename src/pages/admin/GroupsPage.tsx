@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Group } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { ModalShell } from '@/components/ModalShell'
 
 export function GroupsPage() {
   const { groups: allGroups, divisions, phases, teams, clubs, updateGroup, addGroup, archiveGroup, deleteGroup } = useAppData()
@@ -180,11 +181,10 @@ export function GroupsPage() {
       </div>
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={closeModal}
+          labelledBy="group-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="group-modal-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="group-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -237,7 +237,7 @@ export function GroupsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

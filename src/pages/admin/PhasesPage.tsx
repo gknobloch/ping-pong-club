@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { ModalShell } from '@/components/ModalShell'
 
 export function PhasesPage() {
   const { phases: allPhases, seasons, divisions, groups, updatePhase, addPhase, addDivision, addGroup, archivePhase, deletePhase } = useAppData()
@@ -226,11 +227,10 @@ export function PhasesPage() {
       </div>
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={closeModal}
+          labelledBy="phase-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="phase-modal-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="phase-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -340,7 +340,7 @@ export function PhasesPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

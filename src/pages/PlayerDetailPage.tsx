@@ -4,6 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
 import { ClubLogo } from '@/components/ClubLogo'
 import { PlayerPhaseHistory, InfoRow } from '@/components/PlayerPhaseHistory'
+import { ModalShell } from '@/components/ModalShell'
 
 export function PlayerDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -73,20 +74,27 @@ export function PlayerDetailPage() {
 
       {/* Avatar lightbox */}
       {zoom && player.avatarUpdatedAt && (
-        <div
+        <ModalShell
+          onClose={() => setZoom(false)}
+          closeOnBackdrop
+          label="Avatar"
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/85 p-6"
-          onClick={() => setZoom(false)}
-          role="dialog"
-          aria-modal="true"
         >
-          <Avatar
-            playerId={player.id}
-            avatarUpdatedAt={player.avatarUpdatedAt}
-            firstName={player.firstName}
-            lastName={player.lastName}
-            size={280}
-          />
-        </div>
+          <button
+            type="button"
+            onClick={() => setZoom(false)}
+            aria-label="Fermer"
+            className="cursor-zoom-out"
+          >
+            <Avatar
+              playerId={player.id}
+              avatarUpdatedAt={player.avatarUpdatedAt}
+              firstName={player.firstName}
+              lastName={player.lastName}
+              size={280}
+            />
+          </button>
+        </ModalShell>
       )}
     </div>
   )

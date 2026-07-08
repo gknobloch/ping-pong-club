@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Division } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { ModalShell } from '@/components/ModalShell'
 
 export function DivisionsPage() {
   const {
@@ -247,11 +248,10 @@ export function DivisionsPage() {
       </div>
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={closeModal}
+          labelledBy="edit-division-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-division-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="edit-division-title" className="font-display text-lg font-semibold text-slate-800">
@@ -340,7 +340,7 @@ export function DivisionsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

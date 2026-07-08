@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Season } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { ModalShell } from '@/components/ModalShell'
 
 export function SeasonsPage() {
   const { seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason } = useAppData()
@@ -147,11 +148,10 @@ export function SeasonsPage() {
       </div>
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={() => { setEditing(null); setCreating(false) }}
+          labelledBy="edit-season-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-season-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="edit-season-title" className="font-display text-lg font-semibold text-slate-800">
@@ -199,7 +199,7 @@ export function SeasonsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

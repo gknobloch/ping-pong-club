@@ -5,6 +5,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { TeamBadge } from '@/components/TeamBadge'
 import { AvailabilityButtons, AvailabilityPills } from '@/components/Availability'
 import { Pill } from '@/components/icons'
+import { ModalShell } from '@/components/ModalShell'
 import { getTeamName } from '@/lib/teamName'
 import { getVenue } from '@/lib/venue'
 import { playersCommittedElsewhere } from '@/lib/matchdays'
@@ -80,11 +81,11 @@ export function GameQuickView({
   })
 
   return (
-    <div
+    <ModalShell
+      onClose={onClose}
+      closeOnBackdrop
+      label="Détails du match"
       className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
     >
       <div
         className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
@@ -165,7 +166,7 @@ export function GameQuickView({
           Fermer
         </button>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

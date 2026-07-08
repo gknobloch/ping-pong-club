@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Club } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { ModalShell } from '@/components/ModalShell'
 
 export function ClubsPage() {
   const navigate = useNavigate()
@@ -125,11 +126,10 @@ export function ClubsPage() {
       </div>
 
       {creating && (
-        <div
+        <ModalShell
+          onClose={closeCreateModal}
+          labelledBy="create-club-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="create-club-title"
         >
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
             <h2 id="create-club-title" className="font-display text-lg font-semibold text-slate-800">
@@ -184,7 +184,7 @@ export function ClubsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

@@ -6,6 +6,7 @@ import { ClubLogo } from '@/components/ClubLogo'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
+import { ModalShell } from '@/components/ModalShell'
 
 const STATUS_LABELS: Record<PlayerType['status'], string> = {
   active: 'Actif',
@@ -40,7 +41,8 @@ export function PlayersPage() {
   const isClubAdmin = user?.role === 'club_admin'
   const hasClubScope =
     (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
-  const adminClubIds = user?.clubId ? [user.clubId] : []
+  const userClubId = user?.clubId
+  const adminClubIds = useMemo(() => (userClubId ? [userClubId] : []), [userClubId])
 
   const players = useMemo(() => {
     const list = hasClubScope && adminClubIds.length
@@ -267,11 +269,10 @@ export function PlayersPage() {
       </div>
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={closeModal}
+          labelledBy="player-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="player-modal-title"
         >
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg my-8">
             <h2 id="player-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -419,7 +420,7 @@ export function PlayersPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )
