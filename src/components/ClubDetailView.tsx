@@ -19,6 +19,7 @@ const CHANNEL_TYPES: { value: ClubChannelType; label: string }[] = [
   { value: 'other', label: 'Autre' },
 ]
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared label helper, used by MyClubPage
 export const channelTypeLabel = (t: ClubChannelType) =>
   CHANNEL_TYPES.find((x) => x.value === t)?.label ?? t
 

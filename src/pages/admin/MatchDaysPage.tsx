@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useMemo, useCallback, Fragment, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { MatchDay, AvailabilityStatus, Player } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
@@ -6,6 +6,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
 import { sortByName } from '@/lib/sortByName'
 import { ClubLogo } from '@/components/ClubLogo'
+import { ModalShell } from '@/components/ModalShell'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
 function TeamSelect({
@@ -395,10 +396,12 @@ export function MatchDaysPage() {
   )
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
+  const userClubId = user?.clubId
+
   const myClubTeamsInPhase = useMemo(() => {
-    if (!selectedPhaseId || !user?.clubId) return []
+    if (!selectedPhaseId || !userClubId) return []
     return teams
-      .filter((t) => t.phaseId === selectedPhaseId && t.clubId === user!.clubId)
+      .filter((t) => t.phaseId === selectedPhaseId && t.clubId === userClubId)
       .sort((a, b) => {
         const clubA = clubs.find((c) => c.id === a.clubId)?.displayName ?? a.clubId
         const clubB = clubs.find((c) => c.id === b.clubId)?.displayName ?? b.clubId
@@ -406,37 +409,40 @@ export function MatchDaysPage() {
         const nameB = `${clubB} ${b.number}`
         return nameA.localeCompare(nameB)
       })
-  }, [teams, selectedPhaseId, user?.clubId])
+  }, [teams, clubs, selectedPhaseId, userClubId])
 
   /** Match-days for a given team (its group). */
-  const getMatchDaysForTeam = (teamId: string) => {
-    const team = teams.find((t) => t.id === teamId)
-    if (!team) return []
-    return matchDays
-      .filter((m) => m.groupId === team.groupId)
-      .sort((a, b) => a.number - b.number)
-  }
+  const getMatchDaysForTeam = useCallback(
+    (teamId: string) => {
+      const team = teams.find((t) => t.id === teamId)
+      if (!team) return []
+      return matchDays
+        .filter((m) => m.groupId === team.groupId)
+        .sort((a, b) => a.number - b.number)
+    },
+    [teams, matchDays],
+  )
 
   /** For "Other players" we use the first team's group match-days. */
   const otherGroupMatchDays = useMemo(() => {
     const first = myClubTeamsInPhase[0]
     if (!first) return []
     return getMatchDaysForTeam(first.id)
-  }, [myClubTeamsInPhase, matchDays, teams])
+  }, [myClubTeamsInPhase, getMatchDaysForTeam])
 
   /** Club players (active) not in any of the phase's team rosters; for "Other players" section. */
   const otherPlayers = useMemo(() => {
-    if (!user?.clubId) return []
+    if (!userClubId) return []
     const inRoster = new Set(myClubTeamsInPhase.flatMap((t) => t.playerIds ?? []))
     return sortByName(
       players.filter(
         (p) =>
-          p.clubId === user!.clubId &&
+          p.clubId === userClubId &&
           p.status === 'active' &&
           !inRoster.has(p.id),
       ),
     )
-  }, [players, user?.clubId, myClubTeamsInPhase])
+  }, [players, userClubId, myClubTeamsInPhase])
 
   const [editingMatchDay, setEditingMatchDay] = useState<MatchDay | null>(null)
   const [creatingMatchDay, setCreatingMatchDay] = useState(false)
@@ -472,7 +478,7 @@ export function MatchDaysPage() {
   const globalMaxMatchDays = useMemo(
     () =>
       Math.max(0, ...myClubTeamsInPhase.map((t) => getMatchDaysForTeam(t.id).length)),
-    [myClubTeamsInPhase, matchDays, teams]
+    [myClubTeamsInPhase, getMatchDaysForTeam]
   )
   const globalMaxOffset = Math.max(0, globalMaxMatchDays - VISIBLE_MATCH_DAY_COUNT)
 
@@ -1512,11 +1518,10 @@ export function MatchDaysPage() {
 
       {/* Create / Edit match-day modal */}
       {(editingMatchDay || creatingMatchDay) && (
-        <div
+        <ModalShell
+          onClose={closeMatchDayModal}
+          labelledBy="matchday-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="matchday-modal-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="matchday-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -1598,16 +1603,15 @@ export function MatchDaysPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
 
       {/* Game edit modal — opened by clicking J1, J2, … in a team table */}
       {gameEditModal && gameEditModalTeam && gameEditModalMatchDay && (
-        <div
+        <ModalShell
+          onClose={closeGameEditModal}
+          labelledBy="game-edit-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="game-edit-modal-title"
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 id="game-edit-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -1725,7 +1729,7 @@ export function MatchDaysPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

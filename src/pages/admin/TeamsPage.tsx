@@ -6,6 +6,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 import { ClubLogo } from '@/components/ClubLogo'
+import { ModalShell } from '@/components/ModalShell'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -413,11 +414,10 @@ export function TeamsPage() {
       )}
 
       {(editing || creating) && (
-        <div
+        <ModalShell
+          onClose={closeModal}
+          labelledBy="team-modal-title"
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="team-modal-title"
         >
           <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg my-8">
             <h2 id="team-modal-title" className="font-display text-lg font-semibold text-slate-800">
@@ -711,7 +711,7 @@ export function TeamsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )
