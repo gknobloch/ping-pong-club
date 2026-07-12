@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
 import { authApp, bearer, userFromToken, type Env } from './auth'
+import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../src/lib/season'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -93,8 +94,7 @@ app.get('/data', async (c) => {
 
   return c.json({
     seasons: seasonsR.results.map(r => ({
-      id: r.id, displayName: r.display_name,
-      isArchived: bool(r.is_archived), isActive: bool(r.is_active),
+      id: r.id, displayName: r.display_name, status: r.status,
     })),
     phases: phasesR.results.map(r => ({
       id: r.id, seasonId: r.season_id, name: r.name, displayName: r.display_name,
@@ -168,22 +168,98 @@ app.get('/data', async (c) => {
 })
 
 // --- Seasons ---
+const SEASON_STATUSES = ['active', 'upcoming', 'archived']
+
+// FFTT GraphQL API — source of truth for season ids and names (#217).
+const FFTT_GRAPHQL_URL = 'https://apiv2.fftt.com/api/graphql'
+
+async function fetchFfttCurrentSeason(): Promise<{ id: string; displayName: string } | null> {
+  try {
+    const res = await fetch(FFTT_GRAPHQL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ seasons(current: true) { edges { node { id name } } } }' }),
+    })
+    if (!res.ok) return null
+    const body = await res.json() as {
+      data?: { seasons?: { edges?: Array<{ node?: { id?: string; name?: string } }> } }
+    }
+    const node = body.data?.seasons?.edges?.[0]?.node
+    if (!node?.id || !node.name) return null
+    return { id: seasonIdFromFftt(node.id), displayName: seasonNameFromFftt(node.name) }
+  } catch {
+    return null
+  }
+}
+
+// GET /seasons/fftt-current — the FFTT current season + whether it exists locally.
+app.get('/seasons/fftt-current', async (c) => {
+  const fftt = await fetchFfttCurrentSeason()
+  if (!fftt) return c.json({ error: 'fftt_unavailable' }, 502)
+  const existing = await c.env.DB.prepare('SELECT id FROM seasons WHERE id = ?').bind(fftt.id).first()
+  return c.json({ ...fftt, exists: !!existing })
+})
+
+// POST /seasons/import-current — import the FFTT current season, make it
+// active, and archive the previously active season(s).
+app.post('/seasons/import-current', async (c) => {
+  const db = c.env.DB
+  const fftt = await fetchFfttCurrentSeason()
+  if (!fftt) return c.json({ error: 'fftt_unavailable' }, 502)
+  const existing = await db.prepare('SELECT id FROM seasons WHERE id = ?').bind(fftt.id).first()
+  if (existing) return c.json({ error: 'already_exists' }, 409)
+  const activeR = await db.prepare("SELECT id FROM seasons WHERE status = 'active'").all()
+  await db.batch([
+    db.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active'"),
+    db.prepare("INSERT INTO seasons (id, display_name, status) VALUES (?, ?, 'active')")
+      .bind(fftt.id, fftt.displayName),
+  ])
+  return c.json({
+    season: { id: fftt.id, displayName: fftt.displayName, status: 'active' },
+    archivedSeasonIds: activeR.results.map(r => r.id as string),
+  })
+})
+
 app.post('/seasons', async (c) => {
   const d = await c.req.json()
-  await c.env.DB.prepare(
-    'INSERT INTO seasons (id, display_name, is_archived, is_active) VALUES (?, ?, ?, ?)'
-  ).bind(d.id, d.displayName, d.isArchived ? 1 : 0, d.isActive ? 1 : 0).run()
-  return c.json({ ok: true })
+  // The id is always derived from the name (FFTT convention), never trusted
+  // from the client — this is what prevents garbage seasons.
+  const displayName = typeof d.displayName === 'string' ? d.displayName.trim() : ''
+  const id = seasonIdFromName(displayName)
+  if (!id) return c.json({ error: 'invalid_name' }, 400)
+  const existing = await c.env.DB.prepare('SELECT id FROM seasons WHERE id = ?').bind(id).first()
+  if (existing) return c.json({ error: 'already_exists' }, 409)
+  const status = SEASON_STATUSES.includes(d.status) ? d.status : 'upcoming'
+  if (status === 'active') {
+    await c.env.DB.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active'").run()
+  }
+  await c.env.DB.prepare('INSERT INTO seasons (id, display_name, status) VALUES (?, ?, ?)')
+    .bind(id, displayName, status).run()
+  return c.json({ id, displayName, status })
 })
 
 app.patch('/seasons/:id', async (c) => {
   const id = c.req.param('id')
   const p = await c.req.json()
   const s: string[] = [], v: unknown[] = []
-  if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
-  if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
-  if ('isActive' in p) { s.push('is_active = ?'); v.push(p.isActive ? 1 : 0) }
-  if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE seasons SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  if ('displayName' in p) {
+    // Renaming keeps the id (fixed at creation) but must stay a valid season name.
+    const displayName = typeof p.displayName === 'string' ? p.displayName.trim() : ''
+    if (!seasonIdFromName(displayName)) return c.json({ error: 'invalid_name' }, 400)
+    s.push('display_name = ?'); v.push(displayName)
+  }
+  if ('status' in p) {
+    if (!SEASON_STATUSES.includes(p.status)) return c.json({ error: 'invalid_status' }, 400)
+    s.push('status = ?'); v.push(p.status)
+  }
+  if (s.length) {
+    // Single-active invariant: activating a season archives the previous one.
+    if (p.status === 'active') {
+      await c.env.DB.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active' AND id != ?").bind(id).run()
+    }
+    v.push(id)
+    await c.env.DB.prepare(`UPDATE seasons SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
+  }
   return c.json({ ok: true })
 })
 

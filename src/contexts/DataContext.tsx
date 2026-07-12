@@ -39,6 +39,7 @@ import {
   mockGameSelections,
   mockUsers,
 } from '@/mock/data'
+import { seasonIdFromName } from '@/lib/season'
 
 interface DataState {
   divisions: Division[]
@@ -57,6 +58,14 @@ interface DataState {
 
 function nextId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+/** Response of GET /api/seasons/fftt-current. */
+export interface FfttCurrentSeason {
+  id: string
+  displayName: string
+  /** Whether this season already exists in our database. */
+  exists: boolean
 }
 
 // Read the current session token (set by AuthContext) for the Authorization
@@ -102,6 +111,10 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   updateSeason: (id: string, patch: Partial<Season>) => void
   archiveSeason: (id: string) => void
   deleteSeason: (id: string) => void
+  /** Check the FFTT API for the current season; null when unreachable. */
+  checkFfttSeason: () => Promise<FfttCurrentSeason | null>
+  /** Import the FFTT current season (active) and archive the previous one; null on failure. */
+  importFfttSeason: () => Promise<Season | null>
   updatePhase: (id: string, patch: Partial<Phase>) => void
   archivePhase: (id: string) => void
   deletePhase: (id: string) => void
@@ -112,7 +125,8 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   archiveTeam: (id: string) => void
   deleteTeam: (id: string) => void
   addClub: (data: Omit<Club, 'id'>) => Club
-  addSeason: (data: Omit<Season, 'id'>) => Season
+  /** Returns null when the display name is not a valid season name (YYYY/YYYY+1). */
+  addSeason: (data: Omit<Season, 'id'>) => Season | null
   addPhase: (data: Omit<Phase, 'id'>) => Phase
   addDivision: (data: Omit<Division, 'id'>) => Division
   addGroup: (data: Omit<Group, 'id'>) => Group
@@ -243,23 +257,68 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [initialData, token, retryNonce, logout])
 
   // --- Seasons ---
+  // Mirrors the API's single-active invariant: activating a season archives
+  // the previously active one.
+  const applySeasonPatch = (prev: Season[], id: string, patch: Partial<Season>): Season[] =>
+    prev.map((s) => {
+      if (s.id === id) return { ...s, ...patch }
+      if (patch.status === 'active' && s.status === 'active') return { ...s, status: 'archived' }
+      return s
+    })
+
   const updateSeason = useCallback((id: string, patch: Partial<Season>) => {
-    setSeasons((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+    setSeasons((prev) => applySeasonPatch(prev, id, patch))
     if (persist) api(`/seasons/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
   }, [persist])
 
-  const addSeason = useCallback((data: Omit<Season, 'id'>) => {
-    const id = nextId('season')
-    const season: Season = { ...data, id }
-    setSeasons((prev) => [...prev, season])
+  const addSeason = useCallback((data: Omit<Season, 'id'>): Season | null => {
+    // Season ids are derived from the name, aligned with FFTT (#217).
+    const id = seasonIdFromName(data.displayName)
+    if (!id) return null
+    const season: Season = { ...data, displayName: data.displayName.trim(), id }
+    setSeasons((prev) => [
+      ...(season.status === 'active'
+        ? prev.map((s) => (s.status === 'active' ? { ...s, status: 'archived' as const } : s))
+        : prev),
+      season,
+    ])
     if (persist) api('/seasons', { method: 'POST', body: JSON.stringify(season) })
     return season
   }, [persist])
 
   const archiveSeason = useCallback((id: string) => {
-    setSeasons((prev) => prev.map((s) => (s.id === id ? { ...s, isArchived: true } : s)))
-    if (persist) api(`/seasons/${id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: true }) })
+    setSeasons((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'archived' } : s)))
+    if (persist) api(`/seasons/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) })
   }, [persist])
+
+  // --- FFTT season sync (#217) ---
+  const checkFfttSeason = useCallback(async (): Promise<FfttCurrentSeason | null> => {
+    try {
+      const r = await fetch('/api/seasons/fftt-current', { headers: authHeaders() })
+      if (!r.ok) return null
+      return (await r.json()) as FfttCurrentSeason
+    } catch {
+      return null
+    }
+  }, [])
+
+  const importFfttSeason = useCallback(async (): Promise<Season | null> => {
+    try {
+      const r = await fetch('/api/seasons/import-current', {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      if (!r.ok) return null
+      const { season } = (await r.json()) as { season: Season }
+      setSeasons((prev) => [
+        ...prev.map((s) => (s.status === 'active' ? { ...s, status: 'archived' as const } : s)),
+        season,
+      ])
+      return season
+    } catch {
+      return null
+    }
+  }, [])
 
   const deleteSeason = useCallback((id: string) => {
     // Cascade: find phases → divisions → groups → teams, match days, games, avail, selections
@@ -881,6 +940,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateSeason,
       archiveSeason,
       deleteSeason,
+      checkFfttSeason,
+      importFfttSeason,
       updatePhase,
       archivePhase,
       deletePhase,
@@ -920,7 +981,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateDivision, archiveDivision, deleteDivision,
       updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
-      updateSeason, archiveSeason, deleteSeason, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
+      updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer, setAvatar, removeAvatar,

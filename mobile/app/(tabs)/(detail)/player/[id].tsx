@@ -17,7 +17,7 @@ export default function PlayerDetailScreen() {
 
   const player = players.find((p) => p.id === id)
   const club = clubs.find((c) => c.id === player?.clubId)
-  const activeSeason = seasons.find((s) => s.isActive)
+  const activeSeason = seasons.find((s) => s.status === 'active')
 
   const activePhase = phases.find((p) => p.isActive && !p.isArchived)
   const playerTeams = teams.filter(
