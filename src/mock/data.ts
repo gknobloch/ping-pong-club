@@ -48,11 +48,11 @@ export const mockClubs: Club[] = baseClubs.map((c) => ({ ...c, channels: [] }))
 // Season & Phase
 // ---------------------------------------------------------------------------
 export const mockSeasons: Season[] = [
-  { id: 'season-1', displayName: '2025/2026', isArchived: false, isActive: true },
+  { id: '26', displayName: '2025/2026', status: 'active' },
 ]
 
 export const mockPhases: Phase[] = [
-  { id: 'phase-1', seasonId: 'season-1', name: 'Phase 1', displayName: '2025/2026 Phase 1', isArchived: false, isActive: true },
+  { id: 'phase-1', seasonId: '26', name: 'Phase 1', displayName: '2025/2026 Phase 1', isArchived: false, isActive: true },
 ]
 
 // ---------------------------------------------------------------------------

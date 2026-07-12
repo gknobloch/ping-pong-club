@@ -1,36 +1,87 @@
 import { useMemo, useState } from 'react'
-import type { Season } from '@/types'
-import { useAppData } from '@/contexts/DataContext'
+import type { Season, SeasonStatus } from '@/types'
+import { useAppData, type FfttCurrentSeason } from '@/contexts/DataContext'
+import { seasonIdFromName } from '@/lib/season'
 import { ModalShell } from '@/components/ModalShell'
 
+const STATUS_LABELS: Record<SeasonStatus, string> = {
+  active: 'Active',
+  upcoming: 'À venir',
+  archived: 'Archivée',
+}
+
+const STATUS_BADGES: Record<SeasonStatus, string> = {
+  active: 'bg-green-100 text-green-800',
+  upcoming: 'bg-amber-100 text-amber-800',
+  archived: 'bg-slate-100 text-slate-600',
+}
+
 export function SeasonsPage() {
-  const { seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason } = useAppData()
+  const {
+    seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason,
+    checkFfttSeason, importFfttSeason,
+  } = useAppData()
   const [editing, setEditing] = useState<Season | null>(null)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ displayName: '', isActive: false, isArchived: false })
+  const [form, setForm] = useState<{ displayName: string; status: SeasonStatus }>({
+    displayName: '',
+    status: 'upcoming',
+  })
   const [showArchived, setShowArchived] = useState(false)
+  // FFTT check is on demand (#217): idle until the admin clicks « Vérifier ».
+  const [checking, setChecking] = useState(false)
+  const [checkResult, setCheckResult] = useState<FfttCurrentSeason | 'error' | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState(false)
+  const [importedName, setImportedName] = useState<string | null>(null)
 
-  const activeSeasons = useMemo(() => allSeasons.filter((s) => !s.isArchived), [allSeasons])
-  const archivedSeasons = useMemo(() => allSeasons.filter((s) => s.isArchived), [allSeasons])
+  const activeSeasons = useMemo(() => allSeasons.filter((s) => s.status !== 'archived'), [allSeasons])
+  const archivedSeasons = useMemo(() => allSeasons.filter((s) => s.status === 'archived'), [allSeasons])
   const seasons = showArchived ? allSeasons : activeSeasons
+
+  const handleCheck = async () => {
+    setChecking(true)
+    setCheckResult(null)
+    setImportedName(null)
+    setImportError(false)
+    const result = await checkFfttSeason()
+    setChecking(false)
+    setCheckResult(result ?? 'error')
+  }
+
+  const handleImport = async () => {
+    setImporting(true)
+    setImportError(false)
+    const imported = await importFfttSeason()
+    setImporting(false)
+    if (imported) {
+      setCheckResult(null)
+      setImportedName(imported.displayName)
+    } else {
+      setImportError(true)
+    }
+  }
+
+  // Manual creation follows the FFTT convention: the id derives from the name.
+  const derivedId = seasonIdFromName(form.displayName)
+  const nameInvalid = form.displayName.trim() !== '' && !derivedId
+  const duplicate = !!derivedId && allSeasons.some((s) => s.id === derivedId && s.id !== editing?.id)
+  const canSave = !!derivedId && !duplicate
 
   const openEdit = (season: Season) => {
     setEditing(season)
     setCreating(false)
-    setForm({
-      displayName: season.displayName,
-      isActive: season.isActive,
-      isArchived: season.isArchived,
-    })
+    setForm({ displayName: season.displayName, status: season.status })
   }
 
   const openCreate = () => {
     setEditing(null)
     setCreating(true)
-    setForm({ displayName: '', isActive: false, isArchived: false })
+    setForm({ displayName: '', status: 'upcoming' })
   }
 
   const handleSave = () => {
+    if (!canSave) return
     if (editing) {
       updateSeason(editing.id, form)
       setEditing(null)
@@ -56,14 +107,67 @@ export function SeasonsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Saisons</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-        >
-          Ajouter une saison
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCheck}
+            disabled={checking}
+            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50 disabled:opacity-50"
+          >
+            {checking ? 'Vérification…' : 'Vérifier la saison FFTT'}
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+          >
+            Ajouter une saison
+          </button>
+        </div>
       </div>
+      {checkResult === 'error' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-700">
+            Impossible de contacter l’API FFTT. Réessayez plus tard.
+          </p>
+        </div>
+      )}
+      {checkResult !== null && checkResult !== 'error' && checkResult.exists && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-800">
+            La saison FFTT actuelle ({checkResult.displayName}) est déjà présente — rien à importer.
+          </p>
+        </div>
+      )}
+      {importedName && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-800">
+            Saison {importedName} importée et activée. La saison précédente a été archivée.
+          </p>
+        </div>
+      )}
+      {checkResult !== null && checkResult !== 'error' && !checkResult.exists && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent-200 bg-accent-50 px-4 py-3">
+          <p className="text-sm text-slate-700">
+            Nouvelle saison FFTT disponible :{' '}
+            <span className="font-semibold">{checkResult.displayName}</span>
+            {' '}— l’importer l’activera et archivera la saison active.
+          </p>
+          <div className="flex items-center gap-3">
+            {importError && (
+              <span className="text-sm text-red-600">Échec de l’import, réessayez.</span>
+            )}
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importing}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
+            >
+              {importing ? 'Import…' : 'Importer'}
+            </button>
+          </div>
+        </div>
+      )}
       {archivedSeasons.length > 0 && (
         <label className="flex items-center gap-2">
           <input
@@ -94,26 +198,19 @@ export function SeasonsPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {seasons.map((season) => (
-              <tr key={season.id} className={`hover:bg-slate-50/50 ${season.isArchived ? 'opacity-50' : ''}`}>
+              <tr key={season.id} className={`hover:bg-slate-50/50 ${season.status === 'archived' ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
                   {season.displayName}
-                  {season.isArchived && (
-                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                      Archivée
-                    </span>
-                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      season.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
-                    }`}
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGES[season.status]}`}
                   >
-                    {season.isActive ? 'Active' : '—'}
+                    {STATUS_LABELS[season.status]}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right space-x-3">
-                  {!season.isArchived && (
+                  {season.status !== 'archived' && (
                     <button
                       type="button"
                       onClick={() => openEdit(season)}
@@ -122,7 +219,7 @@ export function SeasonsPage() {
                       Modifier
                     </button>
                   )}
-                  {!season.isArchived && (
+                  {season.status !== 'archived' && (
                     <button
                       type="button"
                       onClick={() => handleArchive(season)}
@@ -131,7 +228,7 @@ export function SeasonsPage() {
                       Archiver
                     </button>
                   )}
-                  {season.isArchived && (
+                  {season.status === 'archived' && (
                     <button
                       type="button"
                       onClick={() => handleDelete(season)}
@@ -160,7 +257,7 @@ export function SeasonsPage() {
             <div className="mt-4 space-y-4">
               <div>
                 <label htmlFor="edit-displayName" className="block text-sm font-medium text-slate-700">
-                  Nom (ex. 2025/2026)
+                  Nom (ex. 2026/2027)
                 </label>
                 <input
                   id="edit-displayName"
@@ -169,17 +266,34 @@ export function SeasonsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
+                {nameInvalid && (
+                  <p className="mt-1 text-sm text-red-600">
+                    Format attendu : deux années consécutives, ex. 2026/2027.
+                  </p>
+                )}
+                {duplicate && (
+                  <p className="mt-1 text-sm text-red-600">Cette saison existe déjà.</p>
+                )}
               </div>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="rounded border-slate-300 text-accent-600 focus:ring-accent-500"
-                  />
-                  <span className="text-sm text-slate-700">Active</span>
+              <div>
+                <label htmlFor="edit-status" className="block text-sm font-medium text-slate-700">
+                  Statut
                 </label>
+                <select
+                  id="edit-status"
+                  value={form.status}
+                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as SeasonStatus }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
+                >
+                  <option value="upcoming">À venir</option>
+                  <option value="active">Active</option>
+                  <option value="archived">Archivée</option>
+                </select>
+                {form.status === 'active' && editing?.status !== 'active' && (
+                  <p className="mt-1 text-sm text-slate-500">
+                    La saison actuellement active sera archivée.
+                  </p>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
@@ -193,7 +307,8 @@ export function SeasonsPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+                disabled={!canSave}
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>

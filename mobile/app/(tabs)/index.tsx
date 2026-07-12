@@ -71,7 +71,7 @@ export default function HomeScreen() {
     return map
   }, [teams, myPlayerId])
 
-  const activeSeason = seasons.find((s) => s.isActive)
+  const activeSeason = seasons.find((s) => s.status === 'active')
   const activePhase = phases.find((p) => p.isActive)
   const myActiveTeam = activePhase ? myTeamByPhase.get(activePhase.id) : undefined
   const isCaptain = !!(user && myActiveTeam && canManageTeam(user, myActiveTeam))

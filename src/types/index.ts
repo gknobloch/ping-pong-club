@@ -35,11 +35,14 @@ export interface Club {
   logoUpdatedAt?: string
 }
 
+export type SeasonStatus = 'active' | 'upcoming' | 'archived'
+
 export interface Season {
+  /** FFTT-aligned numeric id as text: endYear − 2000 (e.g. "26" for 2025/2026). */
   id: string
   displayName: string
-  isArchived: boolean
-  isActive: boolean
+  /** At most one season is 'active' at a time. */
+  status: SeasonStatus
 }
 
 export interface Phase {
