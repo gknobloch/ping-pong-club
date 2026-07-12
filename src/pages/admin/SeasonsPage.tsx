@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Season, SeasonStatus } from '@/types'
 import { useAppData, type FfttCurrentSeason } from '@/contexts/DataContext'
 import { seasonIdFromName } from '@/lib/season'
@@ -28,31 +28,38 @@ export function SeasonsPage() {
     status: 'upcoming',
   })
   const [showArchived, setShowArchived] = useState(false)
-  const [fftt, setFftt] = useState<FfttCurrentSeason | null>(null)
+  // FFTT check is on demand (#217): idle until the admin clicks « Vérifier ».
+  const [checking, setChecking] = useState(false)
+  const [checkResult, setCheckResult] = useState<FfttCurrentSeason | 'error' | null>(null)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(false)
+  const [importedName, setImportedName] = useState<string | null>(null)
 
   const activeSeasons = useMemo(() => allSeasons.filter((s) => s.status !== 'archived'), [allSeasons])
   const archivedSeasons = useMemo(() => allSeasons.filter((s) => s.status === 'archived'), [allSeasons])
   const seasons = showArchived ? allSeasons : activeSeasons
 
-  // Check FFTT for a season we don't have yet (#217). Silently skipped when
-  // the FFTT API (or ours) is unreachable.
-  useEffect(() => {
-    let cancelled = false
-    checkFfttSeason().then((result) => {
-      if (!cancelled && result && !result.exists) setFftt(result)
-    })
-    return () => { cancelled = true }
-  }, [checkFfttSeason])
+  const handleCheck = async () => {
+    setChecking(true)
+    setCheckResult(null)
+    setImportedName(null)
+    setImportError(false)
+    const result = await checkFfttSeason()
+    setChecking(false)
+    setCheckResult(result ?? 'error')
+  }
 
   const handleImport = async () => {
     setImporting(true)
     setImportError(false)
     const imported = await importFfttSeason()
     setImporting(false)
-    if (imported) setFftt(null)
-    else setImportError(true)
+    if (imported) {
+      setCheckResult(null)
+      setImportedName(imported.displayName)
+    } else {
+      setImportError(true)
+    }
   }
 
   // Manual creation follows the FFTT convention: the id derives from the name.
@@ -100,19 +107,50 @@ export function SeasonsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Saisons</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-        >
-          Ajouter une saison
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCheck}
+            disabled={checking}
+            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50 disabled:opacity-50"
+          >
+            {checking ? 'Vérification…' : 'Vérifier la saison FFTT'}
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+          >
+            Ajouter une saison
+          </button>
+        </div>
       </div>
-      {fftt && (
+      {checkResult === 'error' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-700">
+            Impossible de contacter l’API FFTT. Réessayez plus tard.
+          </p>
+        </div>
+      )}
+      {checkResult !== null && checkResult !== 'error' && checkResult.exists && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-800">
+            La saison FFTT actuelle ({checkResult.displayName}) est déjà présente — rien à importer.
+          </p>
+        </div>
+      )}
+      {importedName && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-800">
+            Saison {importedName} importée et activée. La saison précédente a été archivée.
+          </p>
+        </div>
+      )}
+      {checkResult !== null && checkResult !== 'error' && !checkResult.exists && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent-200 bg-accent-50 px-4 py-3">
           <p className="text-sm text-slate-700">
             Nouvelle saison FFTT disponible :{' '}
-            <span className="font-semibold">{fftt.displayName}</span>
+            <span className="font-semibold">{checkResult.displayName}</span>
             {' '}— l’importer l’activera et archivera la saison active.
           </p>
           <div className="flex items-center gap-3">

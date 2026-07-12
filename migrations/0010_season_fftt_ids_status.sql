@@ -7,6 +7,10 @@
 --    (they were created via the previously unvalidated manual form and
 --    have no phases attached).
 
+-- Deploys re-run every migration (tolerating failures); drop the scratch
+-- table a previously interrupted re-run may have left behind.
+DROP TABLE IF EXISTS seasons_new;
+
 -- Remap phases.season_id first, while the old season ids are still in place.
 UPDATE phases SET season_id = (
   SELECT CAST(CAST(substr(s.display_name, 6, 4) AS INTEGER) - 2000 AS TEXT)
