@@ -35,6 +35,19 @@ export interface Club {
   logoUpdatedAt?: string
 }
 
+/**
+ * FFTT organization (federation, zone, league or committee), cached locally
+ * for the divisions import (#219). `id` is the FFTT numeric id as text.
+ */
+export interface Organization {
+  id: string
+  /** FFTT @type: 'Federation' | 'Zone' | 'League' | 'Committee'. */
+  type: string
+  /** FFTT short code, e.g. "L06" (league) or "D68" (committee). */
+  identifier: string
+  name: string
+}
+
 export type SeasonStatus = 'active' | 'upcoming' | 'archived'
 
 export interface Season {
