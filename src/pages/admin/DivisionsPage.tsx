@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Division } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
+import { ImportDivisionsModal } from '@/components/ImportDivisionsModal'
 
 export function DivisionsPage() {
   const {
@@ -20,6 +21,7 @@ export function DivisionsPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [form, setForm] = useState({ phaseId: '', displayName: '', rank: 1, playersPerGame: 4 })
 
   const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
@@ -115,14 +117,25 @@ export function DivisionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Divisions</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-        >
-          Ajouter une division
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Manual add is the fallback; FFTT import is the default path (#219). */}
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+          >
+            Ajouter une division
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+          >
+            Importer depuis la FFTT
+          </button>
+        </div>
       </div>
+      {importOpen && <ImportDivisionsModal onClose={() => setImportOpen(false)} />}
       <div className="flex items-center gap-3">
         <label htmlFor="filter-phase" className="text-sm font-medium text-slate-700">Phase :</label>
         <select

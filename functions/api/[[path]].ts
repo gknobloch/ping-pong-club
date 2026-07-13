@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
 import { authApp, bearer, userFromToken, type Env } from './auth'
 import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../src/lib/season'
+import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -173,23 +174,31 @@ const SEASON_STATUSES = ['active', 'upcoming', 'archived']
 // FFTT GraphQL API — source of truth for season ids and names (#217).
 const FFTT_GRAPHQL_URL = 'https://apiv2.fftt.com/api/graphql'
 
-async function fetchFfttCurrentSeason(): Promise<{ id: string; displayName: string } | null> {
+// Run a GraphQL query against the FFTT API; null when unreachable/invalid.
+async function ffttGraphql<T>(query: string): Promise<T | null> {
   try {
     const res = await fetch(FFTT_GRAPHQL_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: '{ seasons(current: true) { edges { node { id name } } } }' }),
+      body: JSON.stringify({ query }),
     })
     if (!res.ok) return null
-    const body = await res.json() as {
-      data?: { seasons?: { edges?: Array<{ node?: { id?: string; name?: string } }> } }
-    }
-    const node = body.data?.seasons?.edges?.[0]?.node
-    if (!node?.id || !node.name) return null
-    return { id: seasonIdFromFftt(node.id), displayName: seasonNameFromFftt(node.name) }
+    const body = await res.json() as { data?: T }
+    return body.data ?? null
   } catch {
     return null
   }
+}
+
+type FfttEdges<N> = { edges?: Array<{ node?: N }> }
+
+async function fetchFfttCurrentSeason(): Promise<{ id: string; displayName: string } | null> {
+  const data = await ffttGraphql<{ seasons?: FfttEdges<{ id?: string; name?: string }> }>(
+    '{ seasons(current: true) { edges { node { id name } } } }',
+  )
+  const node = data?.seasons?.edges?.[0]?.node
+  if (!node?.id || !node.name) return null
+  return { id: seasonIdFromFftt(node.id), displayName: seasonNameFromFftt(node.name) }
 }
 
 // GET /seasons/fftt-current — the FFTT current season + whether it exists locally.
@@ -261,6 +270,171 @@ app.patch('/seasons/:id', async (c) => {
     await c.env.DB.prepare(`UPDATE seasons SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
   }
   return c.json({ ok: true })
+})
+
+// --- FFTT divisions import (#219) ---
+
+// GET /fftt/organizations — locally cached FFTT organizations (never hits FFTT).
+app.get('/fftt/organizations', async (c) => {
+  const r = await c.env.DB.prepare('SELECT id, type, identifier, name FROM organizations ORDER BY type, name').all()
+  return c.json({ organizations: r.results })
+})
+
+// POST /fftt/organizations/refresh — re-fetch the list from FFTT and replace the cache.
+app.post('/fftt/organizations/refresh', async (c) => {
+  let members: Array<{ '@type': string; id: number; identifier: string; name: string }>
+  try {
+    const res = await fetch('https://apiv2.fftt.com/api/organizations/all')
+    if (!res.ok) return c.json({ error: 'fftt_unavailable' }, 502)
+    const body = await res.json() as { 'hydra:member'?: typeof members }
+    if (!body['hydra:member']?.length) return c.json({ error: 'fftt_unavailable' }, 502)
+    members = body['hydra:member']
+  } catch {
+    return c.json({ error: 'fftt_unavailable' }, 502)
+  }
+  const db = c.env.DB
+  const now = new Date().toISOString()
+  const stmts = [
+    db.prepare('DELETE FROM organizations'),
+    ...members.map((m) =>
+      db.prepare('INSERT INTO organizations (id, type, identifier, name, updated_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(String(m.id), m['@type'], m.identifier, m.name, now),
+    ),
+  ]
+  // Chunked: D1 batches are capped well below the ~130 rows FFTT returns.
+  for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50))
+  const r = await db.prepare('SELECT id, type, identifier, name FROM organizations ORDER BY type, name').all()
+  return c.json({ organizations: r.results })
+})
+
+// Fetch the championship contest (identifier "1") then its divisions from FFTT.
+// null = FFTT unreachable; contest null = no championship for those params.
+async function fetchFfttDivisions(organizationId: number, seasonId: number, phase: number): Promise<{
+  contest: { id: string; name: string } | null
+  divisions: FfttDivision[]
+} | null> {
+  const contestData = await ffttGraphql<{ contests?: FfttEdges<{ id: string; name: string }> }>(
+    `{ contests(divisions_organization_id: ${organizationId} season_id: ${seasonId} identifier: "1") { edges { node { id name } } } }`,
+  )
+  if (contestData === null) return null
+  const contestNode = contestData.contests?.edges?.[0]?.node
+  if (!contestNode) return { contest: null, divisions: [] }
+  const contestId = ffttIdFromIri(contestNode.id)
+  const divData = await ffttGraphql<{
+    divisions?: FfttEdges<{ id: string; identifier: string; name: string; parent: { id: string } | null }>
+  }>(
+    `{ divisions(contest_id: ${Number(contestId)} organization_id: ${organizationId} phase_id: ${phase}) { edges { node { id identifier name parent { id } } } } }`,
+  )
+  if (divData === null) return null
+  const divisions: FfttDivision[] = (divData.divisions?.edges ?? []).flatMap((e) => e.node ? [{
+    id: ffttIdFromIri(e.node.id),
+    identifier: e.node.identifier,
+    name: e.node.name,
+    parentId: e.node.parent ? ffttIdFromIri(e.node.parent.id) : null,
+  }] : [])
+  return { contest: { id: contestId, name: contestNode.name }, divisions }
+}
+
+const importParams = (organizationId: unknown, seasonId: unknown, phase: unknown) => {
+  const org = Number(organizationId), season = Number(seasonId), ph = Number(phase)
+  if (!Number.isInteger(org) || org <= 0 || !Number.isInteger(season) || season <= 0 || (ph !== 1 && ph !== 2)) return null
+  return { org, season, ph }
+}
+
+// Existing divisions of a phase, for skip-matching by FFTT id or name.
+async function phaseDivisions(db: Env['Bindings']['DB'], phaseId: string) {
+  const r = await db.prepare('SELECT id, display_name, rank FROM divisions WHERE phase_id = ?').bind(phaseId).all()
+  return {
+    ids: new Set(r.results.map((x) => x.id as string)),
+    names: new Set(r.results.map((x) => (x.display_name as string).toLowerCase())),
+    maxRank: r.results.reduce((m, x) => Math.max(m, x.rank as number), 0),
+  }
+}
+
+// GET /fftt/divisions-preview — ordered division list for (organization, season, phase),
+// flagging the ones that already exist locally.
+app.get('/fftt/divisions-preview', async (c) => {
+  const p = importParams(c.req.query('organizationId'), c.req.query('seasonId'), c.req.query('phase'))
+  if (!p) return c.json({ error: 'invalid_params' }, 400)
+  const result = await fetchFfttDivisions(p.org, p.season, p.ph)
+  if (!result) return c.json({ error: 'fftt_unavailable' }, 502)
+  if (!result.contest) return c.json({ error: 'no_contest' }, 404)
+  const phaseRow = await c.env.DB.prepare('SELECT id FROM phases WHERE season_id = ? AND name = ?')
+    .bind(String(p.season), `Phase ${p.ph}`).first()
+  const existing = phaseRow
+    ? await phaseDivisions(c.env.DB, phaseRow.id as string)
+    : { ids: new Set<string>(), names: new Set<string>(), maxRank: 0 }
+  return c.json({
+    contest: result.contest,
+    phaseExists: !!phaseRow,
+    divisions: orderDivisions(result.divisions).map((d, i) => ({
+      id: d.id, identifier: d.identifier, name: d.name, rank: i + 1,
+      playersPerGame: playersPerGameFor(d.identifier),
+      exists: existing.ids.has(d.id) || existing.names.has(d.name.toLowerCase()),
+    })),
+  })
+})
+
+// POST /divisions/import — re-fetches from FFTT (never trusts a client list),
+// creates the phase if missing (inactive), inserts the divisions not already
+// present, ranked after any existing ones.
+app.post('/divisions/import', async (c) => {
+  const b = await c.req.json()
+  const p = importParams(b.organizationId, b.seasonId, b.phase)
+  if (!p) return c.json({ error: 'invalid_params' }, 400)
+  const db = c.env.DB
+  const season = await db.prepare('SELECT id, display_name FROM seasons WHERE id = ?').bind(String(p.season)).first()
+  if (!season) return c.json({ error: 'season_not_found' }, 404)
+  const result = await fetchFfttDivisions(p.org, p.season, p.ph)
+  if (!result) return c.json({ error: 'fftt_unavailable' }, 502)
+  if (!result.contest || result.divisions.length === 0) return c.json({ error: 'no_divisions' }, 404)
+
+  const phaseName = `Phase ${p.ph}`
+  let phaseRow = await db.prepare(
+    'SELECT id, season_id, name, display_name, is_archived, is_active FROM phases WHERE season_id = ? AND name = ?',
+  ).bind(String(p.season), phaseName).first()
+  const createdPhase = !phaseRow
+  if (!phaseRow) {
+    const displayName = `${season.display_name} ${phaseName}`
+    const id = `phase-${p.season}-${p.ph}`
+    // Created inactive on purpose: activation stays a manual step on /phases.
+    await db.prepare('INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, 0, 0)')
+      .bind(id, String(p.season), phaseName, displayName).run()
+    phaseRow = { id, season_id: String(p.season), name: phaseName, display_name: displayName, is_archived: 0, is_active: 0 }
+  }
+  const phaseId = phaseRow.id as string
+
+  const existing = await phaseDivisions(db, phaseId)
+  let rank = existing.maxRank
+  const created: Array<{ id: string; phaseId: string; displayName: string; rank: number; playersPerGame: number; isArchived: boolean }> = []
+  const skipped: Array<{ id: string; name: string }> = []
+  for (const d of orderDivisions(result.divisions)) {
+    if (existing.ids.has(d.id) || existing.names.has(d.name.toLowerCase())) {
+      skipped.push({ id: d.id, name: d.name })
+      continue
+    }
+    rank += 1
+    created.push({
+      id: d.id, phaseId, displayName: d.name, rank,
+      playersPerGame: playersPerGameFor(d.identifier), isArchived: false,
+    })
+  }
+  if (created.length) {
+    await db.batch(created.map((d) =>
+      db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES (?, ?, ?, ?, ?, 0)')
+        .bind(d.id, d.phaseId, d.displayName, d.rank, d.playersPerGame),
+    ))
+  }
+  return c.json({
+    phase: {
+      id: phaseId, seasonId: phaseRow.season_id, name: phaseRow.name,
+      displayName: phaseRow.display_name,
+      isArchived: bool(phaseRow.is_archived), isActive: bool(phaseRow.is_active),
+    },
+    createdPhase,
+    created,
+    skipped,
+  })
 })
 
 app.delete('/seasons/:id', async (c) => {
