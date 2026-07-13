@@ -74,16 +74,45 @@ test.describe('General admin — Saisons', () => {
     await expect(page.getByRole('cell', { name: '2025/2026' })).toBeVisible()
   })
 
-  test('reports when the FFTT season already exists', async ({ page }) => {
+  test('reports when the FFTT season is already active', async ({ page }) => {
     await page.route(FFTT_CHECK, (route) =>
       route.fulfill({
-        json: { id: '26', displayName: '2025/2026', exists: true },
+        json: { id: '26', displayName: '2025/2026', exists: true, status: 'active' },
       }),
     )
     await page.goto('/saisons')
     await page.getByRole('button', { name: 'Vérifier la saison FFTT' }).click()
-    await expect(page.getByText(/déjà présente — rien à importer/)).toBeVisible()
+    await expect(page.getByText(/déjà active — rien à faire/)).toBeVisible()
     await expect(page.getByText(/Nouvelle saison FFTT disponible/)).not.toBeVisible()
+  })
+
+  test('offers to activate the FFTT season when it exists but is not active (#223)', async ({ page }) => {
+    await page.route(FFTT_CHECK, (route) =>
+      route.fulfill({
+        json: { id: '26', displayName: '2025/2026', exists: true, status: 'archived' },
+      }),
+    )
+    await page.goto('/saisons')
+    await page.getByRole('button', { name: 'Vérifier la saison FFTT' }).click()
+    await expect(page.getByText(/existe mais n’est pas active/)).toBeVisible()
+    await page.getByRole('button', { name: 'Activer' }).click()
+    await expect(page.getByText(/Saison 2025\/2026 activée/)).toBeVisible()
+    await expect(page.getByText('Active', { exact: true })).toBeVisible()
+  })
+
+  test('an archived season can be modified to recover from a mistake (#223)', async ({ page }) => {
+    await page.goto('/saisons')
+    // Archive the only season (confirm dialog), then bring it back via Modifier.
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: 'Archiver' }).click()
+    await page.getByLabel(/Afficher les saisons archivées/).check()
+    await expect(page.getByText('Archivée', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Modifier' }).click()
+    await page.getByLabel('Statut').selectOption('active')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByText('Active', { exact: true })).toBeVisible()
+    await expect(page.getByText('Archivée', { exact: true })).not.toBeVisible()
   })
 
   test('reports when the FFTT API is unreachable', async ({ page }) => {

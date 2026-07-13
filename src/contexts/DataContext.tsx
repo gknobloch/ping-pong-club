@@ -14,6 +14,7 @@ import type {
   ClubChannel,
   Organization,
   Season,
+  SeasonStatus,
   Phase,
   Group,
   Team,
@@ -67,6 +68,8 @@ export interface FfttCurrentSeason {
   displayName: string
   /** Whether this season already exists in our database. */
   exists: boolean
+  /** Local status when it exists — 'archived' means it should be re-activated, not imported. */
+  status?: SeasonStatus
 }
 
 /** One division in the FFTT import preview (GET /api/fftt/divisions-preview). */
