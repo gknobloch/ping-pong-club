@@ -321,6 +321,11 @@ export function PhasesPage() {
                   />
                   <span className="text-sm text-slate-700">Active</span>
                 </label>
+                {form.isActive && !editing?.isActive && allPhases.some((p) => p.isActive && p.id !== editing?.id) && (
+                  <p className="mt-1 text-sm text-slate-500">
+                    La phase actuellement active sera désactivée : une seule phase active à la fois.
+                  </p>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

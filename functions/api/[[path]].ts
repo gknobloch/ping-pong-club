@@ -479,6 +479,8 @@ app.delete('/seasons/:id', async (c) => {
 // --- Phases ---
 app.post('/phases', async (c) => {
   const d = await c.req.json()
+  // Single-active invariant (#221): activating a phase deactivates the others.
+  if (d.isActive) await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1').run()
   await c.env.DB.prepare(
     'INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(d.id, d.seasonId, d.name, d.displayName, d.isArchived ? 1 : 0, d.isActive ? 1 : 0).run()
@@ -494,7 +496,15 @@ app.patch('/phases/:id', async (c) => {
   if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
   if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
   if ('isActive' in p) { s.push('is_active = ?'); v.push(p.isActive ? 1 : 0) }
-  if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE phases SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  if (s.length) {
+    // Single-active invariant (#221): the previous active phase is only
+    // deactivated, not archived — it stays relevant (brûlage, history).
+    if (p.isActive) {
+      await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1 AND id != ?').bind(id).run()
+    }
+    v.push(id)
+    await c.env.DB.prepare(`UPDATE phases SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
+  }
   return c.json({ ok: true })
 })
 
