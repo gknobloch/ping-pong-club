@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
 
+# Deploys must never run concurrently: two back-to-back merges once raced and
+# the older build finished last, shipping stale code to production. Queue them
+# instead (never cancel a running deploy mid-flight; the newest queued run
+# supersedes older queued ones).
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
