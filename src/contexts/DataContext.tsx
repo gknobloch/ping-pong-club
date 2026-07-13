@@ -422,15 +422,23 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [persist, phases, divisions, groups, teams, matchDays, games])
 
   // --- Phases ---
+  // Mirrors the API's single-active invariant (#221): activating a phase
+  // deactivates the previous one (deactivated only, not archived).
+  const demoteActivePhases = (prev: Phase[], exceptId: string) =>
+    prev.map((p) => (p.id !== exceptId && p.isActive ? { ...p, isActive: false } : p))
+
   const updatePhase = useCallback((id: string, patch: Partial<Phase>) => {
-    setPhases((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+    setPhases((prev) => {
+      const next = patch.isActive ? demoteActivePhases(prev, id) : prev
+      return next.map((p) => (p.id === id ? { ...p, ...patch } : p))
+    })
     if (persist) api(`/phases/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
   }, [persist])
 
   const addPhase = useCallback((data: Omit<Phase, 'id'>) => {
     const id = nextId('phase')
     const phase: Phase = { ...data, id }
-    setPhases((prev) => [...prev, phase])
+    setPhases((prev) => [...(phase.isActive ? demoteActivePhases(prev, id) : prev), phase])
     if (persist) api('/phases', { method: 'POST', body: JSON.stringify(phase) })
     return phase
   }, [persist])
