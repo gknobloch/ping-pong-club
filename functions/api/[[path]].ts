@@ -201,12 +201,14 @@ async function fetchFfttCurrentSeason(): Promise<{ id: string; displayName: stri
   return { id: seasonIdFromFftt(node.id), displayName: seasonNameFromFftt(node.name) }
 }
 
-// GET /seasons/fftt-current — the FFTT current season + whether it exists locally.
+// GET /seasons/fftt-current — the FFTT current season + whether it exists
+// locally and with which status (an existing-but-archived season should be
+// offered for activation, not silently ignored — #223).
 app.get('/seasons/fftt-current', async (c) => {
   const fftt = await fetchFfttCurrentSeason()
   if (!fftt) return c.json({ error: 'fftt_unavailable' }, 502)
-  const existing = await c.env.DB.prepare('SELECT id FROM seasons WHERE id = ?').bind(fftt.id).first()
-  return c.json({ ...fftt, exists: !!existing })
+  const existing = await c.env.DB.prepare('SELECT status FROM seasons WHERE id = ?').bind(fftt.id).first()
+  return c.json({ ...fftt, exists: !!existing, ...(existing ? { status: existing.status } : {}) })
 })
 
 // POST /seasons/import-current — import the FFTT current season, make it

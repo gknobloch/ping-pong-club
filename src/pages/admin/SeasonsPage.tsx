@@ -33,7 +33,7 @@ export function SeasonsPage() {
   const [checkResult, setCheckResult] = useState<FfttCurrentSeason | 'error' | null>(null)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(false)
-  const [importedName, setImportedName] = useState<string | null>(null)
+  const [ffttSuccess, setFfttSuccess] = useState<string | null>(null)
 
   const activeSeasons = useMemo(() => allSeasons.filter((s) => s.status !== 'archived'), [allSeasons])
   const archivedSeasons = useMemo(() => allSeasons.filter((s) => s.status === 'archived'), [allSeasons])
@@ -42,7 +42,7 @@ export function SeasonsPage() {
   const handleCheck = async () => {
     setChecking(true)
     setCheckResult(null)
-    setImportedName(null)
+    setFfttSuccess(null)
     setImportError(false)
     const result = await checkFfttSeason()
     setChecking(false)
@@ -56,10 +56,18 @@ export function SeasonsPage() {
     setImporting(false)
     if (imported) {
       setCheckResult(null)
-      setImportedName(imported.displayName)
+      setFfttSuccess(`Saison ${imported.displayName} importée et activée. La saison précédente a été archivée.`)
     } else {
       setImportError(true)
     }
+  }
+
+  // The FFTT current season exists locally but is not active (e.g. archived by
+  // mistake): activate it — the single-active invariant archives the other one.
+  const handleActivate = (result: FfttCurrentSeason) => {
+    updateSeason(result.id, { status: 'active' })
+    setCheckResult(null)
+    setFfttSuccess(`Saison ${result.displayName} activée. La saison précédemment active a été archivée.`)
   }
 
   // Manual creation follows the FFTT convention: the id derives from the name.
@@ -132,18 +140,32 @@ export function SeasonsPage() {
           </p>
         </div>
       )}
-      {checkResult !== null && checkResult !== 'error' && checkResult.exists && (
+      {checkResult !== null && checkResult !== 'error' && checkResult.exists && checkResult.status === 'active' && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
           <p className="text-sm text-green-800">
-            La saison FFTT actuelle ({checkResult.displayName}) est déjà présente — rien à importer.
+            La saison FFTT actuelle ({checkResult.displayName}) est déjà active — rien à faire.
           </p>
         </div>
       )}
-      {importedName && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-          <p className="text-sm text-green-800">
-            Saison {importedName} importée et activée. La saison précédente a été archivée.
+      {checkResult !== null && checkResult !== 'error' && checkResult.exists && checkResult.status !== 'active' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-slate-700">
+            La saison FFTT actuelle{' '}
+            <span className="font-semibold">{checkResult.displayName}</span>
+            {' '}existe mais n’est pas active — l’activer archivera la saison active.
           </p>
+          <button
+            type="button"
+            onClick={() => handleActivate(checkResult)}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+          >
+            Activer
+          </button>
+        </div>
+      )}
+      {ffttSuccess && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-800">{ffttSuccess}</p>
         </div>
       )}
       {checkResult !== null && checkResult !== 'error' && !checkResult.exists && (
@@ -210,15 +232,15 @@ export function SeasonsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right space-x-3">
-                  {season.status !== 'archived' && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(season)}
-                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
-                    >
-                      Modifier
-                    </button>
-                  )}
+                  {/* Modifier stays available on archived seasons so a mistaken
+                      archive can be reverted via the status select (#223). */}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(season)}
+                    className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                  >
+                    Modifier
+                  </button>
                   {season.status !== 'archived' && (
                     <button
                       type="button"
