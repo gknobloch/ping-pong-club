@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
+import { FFTT_PHASES } from '@/lib/ffttPhases'
 import { ModalShell } from '@/components/ModalShell'
 
 export function PhasesPage() {
-  const { phases: allPhases, seasons, divisions, groups, updatePhase, addPhase, addDivision, addGroup, archivePhase, deletePhase } = useAppData()
+  const { phases: allPhases, seasons, updatePhase, addPhase, archivePhase, deletePhase } = useAppData()
   const [editing, setEditing] = useState<Phase | null>(null)
   const [creating, setCreating] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -13,7 +14,6 @@ export function PhasesPage() {
     name: '',
     displayName: '',
     isActive: false,
-    copyFromPhaseId: '',
   })
 
   const activePhases = useMemo(() => allPhases.filter((p) => !p.isArchived), [allPhases])
@@ -31,20 +31,18 @@ export function PhasesPage() {
       name: phase.name,
       displayName: phase.displayName,
       isActive: phase.isActive,
-      copyFromPhaseId: '',
     })
   }
 
   const openCreate = () => {
     setEditing(null)
     setCreating(true)
-    const firstSeasonId = seasons[0]?.id ?? ''
+    const firstSeasonId = seasons.find((s) => s.status === 'active')?.id ?? seasons[0]?.id ?? ''
     setForm({
       seasonId: firstSeasonId,
       name: 'Phase 1',
       displayName: firstSeasonId ? `${getSeasonName(firstSeasonId)} Phase 1` : '',
       isActive: false,
-      copyFromPhaseId: '',
     })
   }
 
@@ -70,6 +68,18 @@ export function PhasesPage() {
     }))
   }
 
+  // The (season, phase) pair must be unique — the id derives from it.
+  const duplicate = creating && allPhases.some(
+    (p) => p.seasonId === form.seasonId && p.name === form.name,
+  )
+
+  // What the active (season · phase) combination becomes after saving with
+  // « Active » checked (#227): this phase + its season.
+  const willChangeActive = form.isActive && !(editing?.isActive ?? false)
+  const targetSeasonName = getSeasonName(form.seasonId)
+  const currentActiveSeason = seasons.find((s) => s.status === 'active')
+  const currentActivePhase = allPhases.find((p) => p.isActive && p.id !== editing?.id)
+
   const handleSave = () => {
     if (editing) {
       updatePhase(editing.id, {
@@ -77,40 +87,14 @@ export function PhasesPage() {
         isActive: form.isActive,
       })
       closeModal()
-    } else if (creating && form.seasonId && form.displayName) {
-      const newPhase = addPhase({
+    } else if (creating && form.seasonId && form.displayName && !duplicate) {
+      addPhase({
         seasonId: form.seasonId,
         name: form.name,
         displayName: form.displayName,
         isActive: form.isActive,
         isArchived: false,
       })
-      // Copy divisions (and their groups) from source phase
-      if (form.copyFromPhaseId) {
-        const srcDivisions = divisions
-          .filter((d) => d.phaseId === form.copyFromPhaseId && !d.isArchived)
-          .sort((a, b) => a.rank - b.rank)
-        for (const srcDiv of srcDivisions) {
-          const newDiv = addDivision({
-            phaseId: newPhase.id,
-            displayName: srcDiv.displayName,
-            rank: srcDiv.rank,
-            playersPerGame: srcDiv.playersPerGame,
-            isArchived: false,
-          })
-          const srcGroups = groups
-            .filter((g) => g.divisionId === srcDiv.id && !g.isArchived)
-            .sort((a, b) => a.number - b.number)
-          for (const srcGroup of srcGroups) {
-            addGroup({
-              divisionId: newDiv.id,
-              number: srcGroup.number,
-              teamIds: [],
-              isArchived: false,
-            })
-          }
-        }
-      }
       closeModal()
     }
   }
@@ -256,15 +240,22 @@ export function PhasesPage() {
                   </div>
                   <div>
                     <label htmlFor="phase-name" className="block text-sm font-medium text-slate-700">
-                      Nom (ex. Phase 1)
+                      Phase
                     </label>
-                    <input
+                    {/* FFTT phases only (#227) — the local id derives from it. */}
+                    <select
                       id="phase-name"
-                      type="text"
                       value={form.name}
                       onChange={(e) => handleNameChange(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
-                    />
+                    >
+                      {FFTT_PHASES.map((p) => (
+                        <option key={p.id} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                    {duplicate && (
+                      <p className="mt-1 text-sm text-red-600">Cette phase existe déjà pour cette saison.</p>
+                    )}
                   </div>
                 </>
               )}
@@ -288,29 +279,6 @@ export function PhasesPage() {
                   <p className="mt-1 text-sm text-slate-600">{form.displayName}</p>
                 </div>
               )}
-              {creating && allPhases.filter((p) => !p.isArchived).length > 0 && (
-                <div>
-                  <label htmlFor="phase-copyFrom" className="block text-sm font-medium text-slate-700">
-                    Copier les divisions depuis
-                  </label>
-                  <select
-                    id="phase-copyFrom"
-                    value={form.copyFromPhaseId}
-                    onChange={(e) => setForm((f) => ({ ...f, copyFromPhaseId: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
-                  >
-                    <option value="">— Aucune (créer vide) —</option>
-                    {allPhases.filter((p) => !p.isArchived).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.displayName} ({divisions.filter((d) => d.phaseId === p.id && !d.isArchived).length} div.)
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Les divisions et groupes seront copiés (sans les équipes).
-                  </p>
-                </div>
-              )}
               <div>
                 <label className="flex items-center gap-2">
                   <input
@@ -321,10 +289,19 @@ export function PhasesPage() {
                   />
                   <span className="text-sm text-slate-700">Active</span>
                 </label>
-                {form.isActive && !editing?.isActive && allPhases.some((p) => p.isActive && p.id !== editing?.id) && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    La phase actuellement active sera désactivée : une seule phase active à la fois.
-                  </p>
+                {willChangeActive && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
+                    <p>
+                      Après enregistrement, la combinaison active sera :{' '}
+                      <span className="font-semibold">{targetSeasonName} · {form.name}</span>.
+                    </p>
+                    {currentActiveSeason && currentActiveSeason.id !== form.seasonId && (
+                      <p className="mt-1">La saison {currentActiveSeason.displayName} sera archivée.</p>
+                    )}
+                    {currentActivePhase && (
+                      <p className="mt-1">La phase {currentActivePhase.displayName} sera désactivée.</p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -339,7 +316,8 @@ export function PhasesPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+                disabled={duplicate}
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 Enregistrer
               </button>

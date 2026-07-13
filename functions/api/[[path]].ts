@@ -3,6 +3,7 @@ import { handle } from 'hono/cloudflare-pages'
 import { authApp, bearer, userFromToken, type Env } from './auth'
 import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../src/lib/season'
 import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
+import { FFTT_PHASES, localPhaseId } from '../../src/lib/ffttPhases'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -339,7 +340,8 @@ async function fetchFfttDivisions(organizationId: number, seasonId: number, phas
 
 const importParams = (organizationId: unknown, seasonId: unknown, phase: unknown) => {
   const org = Number(organizationId), season = Number(seasonId), ph = Number(phase)
-  if (!Number.isInteger(org) || org <= 0 || !Number.isInteger(season) || season <= 0 || (ph !== 1 && ph !== 2)) return null
+  const knownPhase = FFTT_PHASES.some((p) => Number(p.id) === ph)
+  if (!Number.isInteger(org) || org <= 0 || !Number.isInteger(season) || season <= 0 || !knownPhase) return null
   return { org, season, ph }
 }
 
@@ -398,7 +400,7 @@ app.post('/divisions/import', async (c) => {
   const createdPhase = !phaseRow
   if (!phaseRow) {
     const displayName = `${season.display_name} ${phaseName}`
-    const id = `phase-${p.season}-${p.ph}`
+    const id = localPhaseId(p.season, p.ph)
     // Created inactive on purpose: activation stays a manual step on /phases.
     await db.prepare('INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, 0, 0)')
       .bind(id, String(p.season), phaseName, displayName).run()
@@ -479,10 +481,24 @@ app.delete('/seasons/:id', async (c) => {
 })
 
 // --- Phases ---
+
+// The active (season · phase) combination must stay coherent (#227): activating
+// a phase deactivates every other phase (#221) AND activates the phase's
+// season (archiving the previously active one, #217's invariant).
+async function activatePhaseCascade(db: Env['Bindings']['DB'], phaseId: string, seasonId: string) {
+  await db.batch([
+    db.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1 AND id != ?').bind(phaseId),
+    db.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active' AND id != ?").bind(seasonId),
+    db.prepare("UPDATE seasons SET status = 'active' WHERE id = ?").bind(seasonId),
+  ])
+}
+
 app.post('/phases', async (c) => {
   const d = await c.req.json()
-  // Single-active invariant (#221): activating a phase deactivates the others.
-  if (d.isActive) await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1').run()
+  const existing = await c.env.DB.prepare('SELECT id FROM phases WHERE season_id = ? AND name = ?')
+    .bind(d.seasonId, d.name).first()
+  if (existing) return c.json({ error: 'already_exists' }, 409)
+  if (d.isActive) await activatePhaseCascade(c.env.DB, d.id, d.seasonId)
   await c.env.DB.prepare(
     'INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(d.id, d.seasonId, d.name, d.displayName, d.isArchived ? 1 : 0, d.isActive ? 1 : 0).run()
@@ -499,10 +515,11 @@ app.patch('/phases/:id', async (c) => {
   if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
   if ('isActive' in p) { s.push('is_active = ?'); v.push(p.isActive ? 1 : 0) }
   if (s.length) {
-    // Single-active invariant (#221): the previous active phase is only
-    // deactivated, not archived — it stays relevant (brûlage, history).
+    // Previous active phase is only deactivated, not archived — it stays
+    // relevant (brûlage, history). Its season follows the cascade (#227).
     if (p.isActive) {
-      await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1 AND id != ?').bind(id).run()
+      const row = await c.env.DB.prepare('SELECT season_id FROM phases WHERE id = ?').bind(id).first()
+      if (row) await activatePhaseCascade(c.env.DB, id, row.season_id as string)
     }
     v.push(id)
     await c.env.DB.prepare(`UPDATE phases SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()

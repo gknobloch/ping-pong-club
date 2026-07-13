@@ -18,7 +18,7 @@ const STATUS_BADGES: Record<SeasonStatus, string> = {
 
 export function SeasonsPage() {
   const {
-    seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason,
+    seasons: allSeasons, phases, updateSeason, addSeason, archiveSeason, deleteSeason,
     checkFfttSeason, importFfttSeason,
   } = useAppData()
   const [editing, setEditing] = useState<Season | null>(null)
@@ -313,11 +313,30 @@ export function SeasonsPage() {
                   <option value="active">Active</option>
                   <option value="archived">Archivée</option>
                 </select>
-                {form.status === 'active' && editing?.status !== 'active' && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    La saison actuellement active sera archivée.
-                  </p>
-                )}
+                {form.status === 'active' && editing?.status !== 'active' && (() => {
+                  // Resulting active (season · phase) combination (#227): the
+                  // active phase doesn't change with the season — flag it when
+                  // it belongs to another season.
+                  const targetId = editing?.id ?? derivedId
+                  const activePhase = phases.find((p) => p.isActive)
+                  const mismatch = !!activePhase && activePhase.seasonId !== targetId
+                  return (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
+                      <p>
+                        Après enregistrement, la combinaison active sera :{' '}
+                        <span className="font-semibold">
+                          {form.displayName || '…'} · {activePhase ? activePhase.name : 'aucune phase active'}
+                        </span>. La saison actuellement active sera archivée.
+                      </p>
+                      {mismatch && (
+                        <p className="mt-1 font-medium text-amber-800">
+                          Attention : la phase active ({activePhase.displayName}) appartient à une autre
+                          saison — pensez à activer la bonne phase.
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

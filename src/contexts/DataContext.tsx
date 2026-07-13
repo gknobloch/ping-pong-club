@@ -42,6 +42,7 @@ import {
   mockUsers,
 } from '@/mock/data'
 import { seasonIdFromName } from '@/lib/season'
+import { ffttPhaseIdForName, localPhaseId } from '@/lib/ffttPhases'
 
 interface DataState {
   divisions: Division[]
@@ -430,21 +431,38 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   const demoteActivePhases = (prev: Phase[], exceptId: string) =>
     prev.map((p) => (p.id !== exceptId && p.isActive ? { ...p, isActive: false } : p))
 
+  // Cascade (#227): the active (season · phase) combination stays coherent —
+  // activating a phase also activates its season and archives the other one.
+  const activatePhaseSeason = useCallback((seasonId: string) => {
+    setSeasons((prev) => prev.map((s) => {
+      if (s.id === seasonId) return s.status === 'active' ? s : { ...s, status: 'active' as const }
+      return s.status === 'active' ? { ...s, status: 'archived' as const } : s
+    }))
+  }, [])
+
   const updatePhase = useCallback((id: string, patch: Partial<Phase>) => {
+    if (patch.isActive) {
+      const seasonId = phases.find((p) => p.id === id)?.seasonId
+      if (seasonId) activatePhaseSeason(seasonId)
+    }
     setPhases((prev) => {
       const next = patch.isActive ? demoteActivePhases(prev, id) : prev
       return next.map((p) => (p.id === id ? { ...p, ...patch } : p))
     })
     if (persist) api(`/phases/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
-  }, [persist])
+  }, [persist, phases, activatePhaseSeason])
 
   const addPhase = useCallback((data: Omit<Phase, 'id'>) => {
-    const id = nextId('phase')
+    // Deterministic FFTT-aligned id when the name is a known FFTT phase
+    // ("Phase 1" for season 27 → "phase-27-1"), random fallback otherwise.
+    const ffttId = ffttPhaseIdForName(data.name)
+    const id = ffttId ? localPhaseId(data.seasonId, ffttId) : nextId('phase')
     const phase: Phase = { ...data, id }
+    if (phase.isActive) activatePhaseSeason(phase.seasonId)
     setPhases((prev) => [...(phase.isActive ? demoteActivePhases(prev, id) : prev), phase])
     if (persist) api('/phases', { method: 'POST', body: JSON.stringify(phase) })
     return phase
-  }, [persist])
+  }, [persist, activatePhaseSeason])
 
   const archivePhase = useCallback((id: string) => {
     setPhases((prev) => prev.map((p) => (p.id === id ? { ...p, isArchived: true } : p)))
