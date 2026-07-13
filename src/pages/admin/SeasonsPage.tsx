@@ -116,20 +116,22 @@ export function SeasonsPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Saisons</h1>
         <div className="flex items-center gap-2">
+          {/* Manual add is the fallback; the FFTT check/import is the default
+              path — same layout as the Divisions page. */}
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+          >
+            Ajouter une saison
+          </button>
           <button
             type="button"
             onClick={handleCheck}
             disabled={checking}
-            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50 disabled:opacity-50"
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
           >
             {checking ? 'Vérification…' : 'Vérifier la saison FFTT'}
-          </button>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Ajouter une saison
           </button>
         </div>
       </div>
