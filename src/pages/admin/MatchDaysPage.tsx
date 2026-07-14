@@ -392,7 +392,7 @@ export function MatchDaysPage() {
   const hasClubScope = (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
   const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(
-    () => phases.find((p) => p.isActive)?.id ?? phases[0]?.id ?? ''
+    () => phases.find((p) => p.status === 'active')?.id ?? phases[0]?.id ?? ''
   )
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */

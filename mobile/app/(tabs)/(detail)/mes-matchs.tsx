@@ -84,7 +84,7 @@ export default function MesMatchsScreen() {
         .sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [phases, participated],
   )
-  const activePhase = phases.find((p) => p.isActive)
+  const activePhase = phases.find((p) => p.status === 'active')
   const fallbackPhase =
     activePhase && participated.has(activePhase.id)
       ? activePhase

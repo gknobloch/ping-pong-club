@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import type { Phase } from '@/types'
+import type { LifecycleStatus, Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { FFTT_PHASES } from '@/lib/ffttPhases'
+import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
+import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
 
 export function PhasesPage() {
@@ -9,15 +11,20 @@ export function PhasesPage() {
   const [editing, setEditing] = useState<Phase | null>(null)
   const [creating, setCreating] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    seasonId: string
+    name: string
+    displayName: string
+    status: LifecycleStatus
+  }>({
     seasonId: '',
     name: '',
     displayName: '',
-    isActive: false,
+    status: 'upcoming',
   })
 
-  const activePhases = useMemo(() => allPhases.filter((p) => !p.isArchived), [allPhases])
-  const archivedPhases = useMemo(() => allPhases.filter((p) => p.isArchived), [allPhases])
+  const activePhases = useMemo(() => allPhases.filter((p) => p.status !== 'archived'), [allPhases])
+  const archivedPhases = useMemo(() => allPhases.filter((p) => p.status === 'archived'), [allPhases])
   const phases = showArchived ? allPhases : activePhases
 
   const getSeasonName = (seasonId: string) =>
@@ -30,7 +37,7 @@ export function PhasesPage() {
       seasonId: phase.seasonId,
       name: phase.name,
       displayName: phase.displayName,
-      isActive: phase.isActive,
+      status: phase.status,
     })
   }
 
@@ -42,7 +49,7 @@ export function PhasesPage() {
       seasonId: firstSeasonId,
       name: 'Phase 1',
       displayName: firstSeasonId ? `${getSeasonName(firstSeasonId)} Phase 1` : '',
-      isActive: false,
+      status: 'upcoming',
     })
   }
 
@@ -74,17 +81,17 @@ export function PhasesPage() {
   )
 
   // What the active (season · phase) combination becomes after saving with
-  // « Active » checked (#227): this phase + its season.
-  const willChangeActive = form.isActive && !(editing?.isActive ?? false)
+  // « Active » selected (#227): this phase + its season.
+  const willChangeActive = form.status === 'active' && editing?.status !== 'active'
   const targetSeasonName = getSeasonName(form.seasonId)
   const currentActiveSeason = seasons.find((s) => s.status === 'active')
-  const currentActivePhase = allPhases.find((p) => p.isActive && p.id !== editing?.id)
+  const currentActivePhase = allPhases.find((p) => p.status === 'active' && p.id !== editing?.id)
 
   const handleSave = () => {
     if (editing) {
       updatePhase(editing.id, {
         displayName: form.displayName,
-        isActive: form.isActive,
+        status: form.status,
       })
       closeModal()
     } else if (creating && form.seasonId && form.displayName && !duplicate) {
@@ -92,8 +99,7 @@ export function PhasesPage() {
         seasonId: form.seasonId,
         name: form.name,
         displayName: form.displayName,
-        isActive: form.isActive,
-        isArchived: false,
+        status: form.status,
       })
       closeModal()
     }
@@ -156,36 +162,29 @@ export function PhasesPage() {
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
             {phases.map((phase) => (
-              <tr key={phase.id} className={`hover:bg-slate-50/50 ${phase.isArchived ? 'opacity-50' : ''}`}>
+              <tr key={phase.id} className={`hover:bg-slate-50/50 ${phase.status === 'archived' ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
                   {phase.displayName}
-                  {phase.isArchived && (
-                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                      Archivée
-                    </span>
-                  )}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{getSeasonName(phase.seasonId)}</td>
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      phase.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
-                    }`}
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGES[phase.status]}`}
                   >
-                    {phase.isActive ? 'Active' : '—'}
+                    {STATUS_LABELS[phase.status]}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right space-x-3">
-                  {!phase.isArchived && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(phase)}
-                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
-                    >
-                      Modifier
-                    </button>
-                  )}
-                  {!phase.isArchived && (
+                  {/* Modifier stays available on archived phases so a mistaken
+                      archive can be reverted via the status radios (#223). */}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(phase)}
+                    className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                  >
+                    Modifier
+                  </button>
+                  {phase.status !== 'archived' && (
                     <button
                       type="button"
                       onClick={() => handleArchive(phase)}
@@ -194,7 +193,7 @@ export function PhasesPage() {
                       Archiver
                     </button>
                   )}
-                  {phase.isArchived && (
+                  {phase.status === 'archived' && (
                     <button
                       type="button"
                       onClick={() => handleDelete(phase)}
@@ -280,15 +279,12 @@ export function PhasesPage() {
                 </div>
               )}
               <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="rounded border-slate-300 text-accent-600 focus:ring-accent-500"
-                  />
-                  <span className="text-sm text-slate-700">Active</span>
-                </label>
+                <span className="block text-sm font-medium text-slate-700">Statut</span>
+                <StatusRadioGroup
+                  name="phase-status"
+                  value={form.status}
+                  onChange={(status) => setForm((f) => ({ ...f, status }))}
+                />
                 {willChangeActive && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
                     <p>
@@ -299,7 +295,7 @@ export function PhasesPage() {
                       <p className="mt-1">La saison {currentActiveSeason.displayName} sera archivée.</p>
                     )}
                     {currentActivePhase && (
-                      <p className="mt-1">La phase {currentActivePhase.displayName} sera désactivée.</p>
+                      <p className="mt-1">La phase {currentActivePhase.displayName} sera archivée.</p>
                     )}
                   </div>
                 )}

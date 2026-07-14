@@ -5,8 +5,8 @@ INSERT INTO seasons (id, display_name, status) VALUES
   ('26', '2025/2026', 'active');
 
 -- phases
-INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES
-  ('phase-1', '26', 'Phase 1', '2025/2026 Phase 1', 0, 1);
+INSERT INTO phases (id, season_id, name, display_name, status) VALUES
+  ('phase-1', '26', 'Phase 1', '2025/2026 Phase 1', 'active');
 
 -- divisions
 INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES

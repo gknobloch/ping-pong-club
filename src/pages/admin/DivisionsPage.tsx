@@ -16,7 +16,7 @@ export function DivisionsPage() {
     deleteDivision,
   } = useAppData()
 
-  const activePhaseId = phases.find((p) => p.isActive && !p.isArchived)?.id ?? ''
+  const activePhaseId = phases.find((p) => p.status === 'active')?.id ?? ''
   const [filterPhaseId, setFilterPhaseId] = useState(activePhaseId)
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
@@ -145,7 +145,7 @@ export function DivisionsPage() {
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
         >
           <option value="">Toutes les phases</option>
-          {phases.filter((p) => !p.isArchived).map((p) => (
+          {phases.filter((p) => p.status !== 'archived').map((p) => (
             <option key={p.id} value={p.id}>{p.displayName}</option>
           ))}
         </select>

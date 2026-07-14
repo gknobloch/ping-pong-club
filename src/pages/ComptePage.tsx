@@ -14,7 +14,7 @@ export function ComptePage() {
 
   const me = user?.isPlayer ? players.find((p) => p.id === user.id) : undefined
   const myClub = clubs.find((c) => c.id === (me?.clubId ?? user?.clubId))
-  const activePhase = phases.find((p) => p.isActive)
+  const activePhase = phases.find((p) => p.status === 'active')
   const myTeams = me && activePhase ? teams.filter((t) => t.phaseId === activePhase.id && t.playerIds.includes(me.id)) : []
   const phasePoints = myTeams[0]?.rosterInitialPoints?.[me?.id ?? '']
 

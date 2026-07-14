@@ -123,9 +123,9 @@ test.describe('General admin — Saisons', () => {
     // active phase follows.
     await page.getByRole('link', { name: 'Saisons' }).click()
     await page.getByRole('row', { name: /2026\/2027/ }).getByRole('button', { name: 'Modifier' }).click()
-    await page.getByLabel('Statut').selectOption('active')
+    await page.getByRole('radio', { name: 'Active' }).check()
     await expect(page.getByText('2026/2027 · Phase 2')).toBeVisible()
-    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera désactivée et 2026\/2027 Phase 2 activée/)).toBeVisible()
+    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera archivée et 2026\/2027 Phase 2 activée/)).toBeVisible()
     await page.getByRole('button', { name: 'Enregistrer' }).click()
 
     await page.getByRole('link', { name: 'Phases' }).click()
@@ -144,7 +144,7 @@ test.describe('General admin — Saisons', () => {
     await expect(page.getByText('Archivée', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Modifier' }).click()
-    await page.getByLabel('Statut').selectOption('active')
+    await page.getByRole('radio', { name: 'Active' }).check()
     await page.getByRole('button', { name: 'Enregistrer' }).click()
     await expect(page.getByText('Active', { exact: true })).toBeVisible()
     await expect(page.getByText('Archivée', { exact: true })).not.toBeVisible()

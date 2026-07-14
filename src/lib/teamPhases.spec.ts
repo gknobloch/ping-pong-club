@@ -16,8 +16,7 @@ const makeTeam = (overrides: Partial<Team> & { id: string; clubId: string; numbe
 const makePhase = (overrides: Partial<Phase> & { id: string; displayName: string }): Phase => ({
   seasonId: 'season-1',
   name: overrides.displayName,
-  isArchived: false,
-  isActive: false,
+  status: 'upcoming',
   ...overrides,
 })
 
@@ -38,7 +37,7 @@ const makeGame = (id: string, matchDayId: string, homeTeamId: string, awayTeamId
 describe('teamPhaseEntries', () => {
   it('returns one entry for a single phase, with games sorted by date ascending', () => {
     const teams = [makeTeam({ id: 'team-1', clubId: 'club-1', number: 1, phaseId: 'phase-1', groupId: 'group-1' })]
-    const phases = [makePhase({ id: 'phase-1', displayName: '2025/2026 Phase 1', isActive: true })]
+    const phases = [makePhase({ id: 'phase-1', displayName: '2025/2026 Phase 1', status: 'active' })]
     const matchDays = [
       makeMatchDay('md-1', 'group-1', '2025-09-08', 2),
       makeMatchDay('md-2', 'group-1', '2025-09-01', 1),
@@ -124,10 +123,10 @@ describe('teamPhaseEntries', () => {
       makeTeam({ id: 'team-c', clubId: 'club-1', number: 1, phaseId: 'phase-c', groupId: 'group-c' }),
     ]
     const phases = [
-      makePhase({ id: 'phase-a', displayName: '2024/2025 Phase 1', isActive: false }),
-      makePhase({ id: 'phase-b', displayName: '2025/2026 Phase 1', isActive: false }),
+      makePhase({ id: 'phase-a', displayName: '2024/2025 Phase 1', status: 'upcoming' }),
+      makePhase({ id: 'phase-b', displayName: '2025/2026 Phase 1', status: 'upcoming' }),
       // Textually "smallest" label but active — should still sort first.
-      makePhase({ id: 'phase-c', displayName: '2023/2024 Phase 1', isActive: true }),
+      makePhase({ id: 'phase-c', displayName: '2023/2024 Phase 1', status: 'active' }),
     ]
     const matchDays = [
       makeMatchDay('md-a', 'group-a', '2024-09-01'),

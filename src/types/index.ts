@@ -48,7 +48,9 @@ export interface Organization {
   name: string
 }
 
-export type SeasonStatus = 'active' | 'upcoming' | 'archived'
+/** Shared 3-state lifecycle used by seasons and phases (#227). */
+export type LifecycleStatus = 'active' | 'upcoming' | 'archived'
+export type SeasonStatus = LifecycleStatus
 
 export interface Season {
   /** FFTT-aligned numeric id as text: endYear − 2000 (e.g. "26" for 2025/2026). */
@@ -59,12 +61,13 @@ export interface Season {
 }
 
 export interface Phase {
+  /** "phase-{seasonId}-{ffttPhaseId}", e.g. "phase-27-1" (2026/2027 Phase 1). */
   id: string
   seasonId: string
   name: string
   displayName: string
-  isArchived: boolean
-  isActive: boolean
+  /** At most one phase is 'active' at a time, across seasons. */
+  status: LifecycleStatus
 }
 
 export interface Division {

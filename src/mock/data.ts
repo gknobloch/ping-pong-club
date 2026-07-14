@@ -52,7 +52,7 @@ export const mockSeasons: Season[] = [
 ]
 
 export const mockPhases: Phase[] = [
-  { id: 'phase-1', seasonId: '26', name: 'Phase 1', displayName: '2025/2026 Phase 1', isArchived: false, isActive: true },
+  { id: 'phase-1', seasonId: '26', name: 'Phase 1', displayName: '2025/2026 Phase 1', status: 'active' },
 ]
 
 // ---------------------------------------------------------------------------
