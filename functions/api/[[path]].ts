@@ -172,6 +172,20 @@ app.get('/data', async (c) => {
 // --- Seasons ---
 const SEASON_STATUSES = ['active', 'upcoming', 'archived']
 
+// Mirror of the phase→season cascade (#227): activating a season keeps the
+// active phase when it already belongs to it, otherwise switches to that
+// season's first phase — or none when the season has no phases yet.
+async function alignActivePhaseToSeason(db: Env['Bindings']['DB'], seasonId: string) {
+  const active = await db.prepare('SELECT id, season_id FROM phases WHERE is_active = 1').all()
+  const coherent = active.results.length > 0 && active.results.every(r => r.season_id === seasonId)
+  if (coherent) return
+  await db.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1').run()
+  const first = await db.prepare(
+    'SELECT id FROM phases WHERE season_id = ? AND is_archived = 0 ORDER BY name LIMIT 1',
+  ).bind(seasonId).first()
+  if (first) await db.prepare('UPDATE phases SET is_active = 1 WHERE id = ?').bind(first.id).run()
+}
+
 // FFTT GraphQL API — source of truth for season ids and names (#217).
 const FFTT_GRAPHQL_URL = 'https://apiv2.fftt.com/api/graphql'
 
@@ -226,6 +240,7 @@ app.post('/seasons/import-current', async (c) => {
     db.prepare("INSERT INTO seasons (id, display_name, status) VALUES (?, ?, 'active')")
       .bind(fftt.id, fftt.displayName),
   ])
+  await alignActivePhaseToSeason(db, fftt.id)
   return c.json({
     season: { id: fftt.id, displayName: fftt.displayName, status: 'active' },
     archivedSeasonIds: activeR.results.map(r => r.id as string),
@@ -247,6 +262,7 @@ app.post('/seasons', async (c) => {
   }
   await c.env.DB.prepare('INSERT INTO seasons (id, display_name, status) VALUES (?, ?, ?)')
     .bind(id, displayName, status).run()
+  if (status === 'active') await alignActivePhaseToSeason(c.env.DB, id)
   return c.json({ id, displayName, status })
 })
 
@@ -271,6 +287,8 @@ app.patch('/seasons/:id', async (c) => {
     }
     v.push(id)
     await c.env.DB.prepare(`UPDATE seasons SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
+    // Season→phase cascade (#227), symmetric with the phase→season one.
+    if (p.status === 'active') await alignActivePhaseToSeason(c.env.DB, id)
   }
   return c.json({ ok: true })
 })

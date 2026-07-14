@@ -315,23 +315,28 @@ export function SeasonsPage() {
                 </select>
                 {form.status === 'active' && editing?.status !== 'active' && (() => {
                   // Resulting active (season · phase) combination (#227): the
-                  // active phase doesn't change with the season — flag it when
-                  // it belongs to another season.
+                  // active phase follows the season — kept when it belongs to
+                  // it, otherwise switched to the season's first phase.
                   const targetId = editing?.id ?? derivedId
                   const activePhase = phases.find((p) => p.isActive)
-                  const mismatch = !!activePhase && activePhase.seasonId !== targetId
+                  const coherent = !!activePhase && activePhase.seasonId === targetId
+                  const resulting = coherent
+                    ? activePhase
+                    : phases
+                        .filter((p) => p.seasonId === targetId && !p.isArchived)
+                        .sort((a, b) => a.name.localeCompare(b.name))[0]
                   return (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
                       <p>
                         Après enregistrement, la combinaison active sera :{' '}
                         <span className="font-semibold">
-                          {form.displayName || '…'} · {activePhase ? activePhase.name : 'aucune phase active'}
+                          {form.displayName || '…'} · {resulting ? resulting.name : 'aucune phase active'}
                         </span>. La saison actuellement active sera archivée.
                       </p>
-                      {mismatch && (
-                        <p className="mt-1 font-medium text-amber-800">
-                          Attention : la phase active ({activePhase.displayName}) appartient à une autre
-                          saison — pensez à activer la bonne phase.
+                      {!coherent && activePhase && (
+                        <p className="mt-1">
+                          La phase {activePhase.displayName} sera désactivée
+                          {resulting ? ` et ${resulting.displayName} activée` : ''}.
                         </p>
                       )}
                     </div>

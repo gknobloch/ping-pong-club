@@ -302,10 +302,28 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       return s
     })
 
+  // Season→phase cascade (#227), symmetric with the phase→season one: keep
+  // the active phase when it belongs to the newly activated season, otherwise
+  // switch to that season's first phase (or none when it has no phases).
+  const alignActivePhaseToSeason = useCallback((seasonId: string) => {
+    setPhases((prev) => {
+      const actives = prev.filter((p) => p.isActive)
+      if (actives.length > 0 && actives.every((p) => p.seasonId === seasonId)) return prev
+      const first = prev
+        .filter((p) => p.seasonId === seasonId && !p.isArchived)
+        .sort((a, b) => a.name.localeCompare(b.name))[0]
+      return prev.map((p) => {
+        if (first && p.id === first.id) return { ...p, isActive: true }
+        return p.isActive ? { ...p, isActive: false } : p
+      })
+    })
+  }, [])
+
   const updateSeason = useCallback((id: string, patch: Partial<Season>) => {
     setSeasons((prev) => applySeasonPatch(prev, id, patch))
+    if (patch.status === 'active') alignActivePhaseToSeason(id)
     if (persist) api(`/seasons/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
-  }, [persist])
+  }, [persist, alignActivePhaseToSeason])
 
   const addSeason = useCallback((data: Omit<Season, 'id'>): Season | null => {
     // Season ids are derived from the name, aligned with FFTT (#217).
@@ -318,9 +336,10 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
         : prev),
       season,
     ])
+    if (season.status === 'active') alignActivePhaseToSeason(id)
     if (persist) api('/seasons', { method: 'POST', body: JSON.stringify(season) })
     return season
-  }, [persist])
+  }, [persist, alignActivePhaseToSeason])
 
   const archiveSeason = useCallback((id: string) => {
     setSeasons((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'archived' } : s)))
@@ -350,11 +369,13 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
         ...prev.map((s) => (s.status === 'active' ? { ...s, status: 'archived' as const } : s)),
         season,
       ])
+      // A freshly imported season has no phases yet → no phase stays active.
+      alignActivePhaseToSeason(season.id)
       return season
     } catch {
       return null
     }
-  }, [])
+  }, [alignActivePhaseToSeason])
 
   // --- FFTT divisions import (#219) ---
   const fetchOrganizations = useCallback(async (refresh = false): Promise<Organization[] | null> => {
