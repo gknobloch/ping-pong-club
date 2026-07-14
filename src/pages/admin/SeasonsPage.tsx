@@ -316,7 +316,7 @@ export function SeasonsPage() {
                 {form.status === 'active' && editing?.status !== 'active' && (() => {
                   // Resulting active (season · phase) combination (#227): the
                   // active phase follows the season — kept when it belongs to
-                  // it, otherwise switched to the season's first phase.
+                  // it, otherwise switched to the season's most recent phase.
                   const targetId = editing?.id ?? derivedId
                   const activePhase = phases.find((p) => p.isActive)
                   const coherent = !!activePhase && activePhase.seasonId === targetId
@@ -324,7 +324,7 @@ export function SeasonsPage() {
                     ? activePhase
                     : phases
                         .filter((p) => p.seasonId === targetId && !p.isArchived)
-                        .sort((a, b) => a.name.localeCompare(b.name))[0]
+                        .sort((a, b) => b.name.localeCompare(a.name))[0]
                   return (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
                       <p>

@@ -174,16 +174,17 @@ const SEASON_STATUSES = ['active', 'upcoming', 'archived']
 
 // Mirror of the phase→season cascade (#227): activating a season keeps the
 // active phase when it already belongs to it, otherwise switches to that
-// season's first phase — or none when the season has no phases yet.
+// season's most recent phase (Phase 2 over Phase 1) — or none when the season
+// has no phases yet.
 async function alignActivePhaseToSeason(db: Env['Bindings']['DB'], seasonId: string) {
   const active = await db.prepare('SELECT id, season_id FROM phases WHERE is_active = 1').all()
   const coherent = active.results.length > 0 && active.results.every(r => r.season_id === seasonId)
   if (coherent) return
   await db.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1').run()
-  const first = await db.prepare(
-    'SELECT id FROM phases WHERE season_id = ? AND is_archived = 0 ORDER BY name LIMIT 1',
+  const latest = await db.prepare(
+    'SELECT id FROM phases WHERE season_id = ? AND is_archived = 0 ORDER BY name DESC LIMIT 1',
   ).bind(seasonId).first()
-  if (first) await db.prepare('UPDATE phases SET is_active = 1 WHERE id = ?').bind(first.id).run()
+  if (latest) await db.prepare('UPDATE phases SET is_active = 1 WHERE id = ?').bind(latest.id).run()
 }
 
 // FFTT GraphQL API — source of truth for season ids and names (#217).

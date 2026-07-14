@@ -108,26 +108,30 @@ test.describe('General admin — Saisons', () => {
     await page.getByRole('button', { name: 'Enregistrer' }).click()
     await expect(page.getByRole('cell', { name: '2026/2027' })).toBeVisible()
 
-    // Give the new season an (inactive) Phase 1.
+    // Give the new season two inactive phases: the switch must pick the most
+    // recent one (Phase 2 over Phase 1).
     await page.getByRole('link', { name: 'Phases' }).click()
-    await page.getByRole('button', { name: 'Ajouter une phase' }).click()
-    await page.getByLabel('Saison').selectOption({ label: '2026/2027' })
-    await page.getByRole('button', { name: 'Enregistrer' }).click()
-    await expect(page.getByRole('cell', { name: '2026/2027 Phase 1' })).toBeVisible()
+    for (const phaseName of ['Phase 1', 'Phase 2']) {
+      await page.getByRole('button', { name: 'Ajouter une phase' }).click()
+      await page.getByLabel('Saison').selectOption({ label: '2026/2027' })
+      await page.getByLabel('Phase', { exact: true }).selectOption(phaseName)
+      await page.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(page.getByRole('cell', { name: `2026/2027 ${phaseName}` })).toBeVisible()
+    }
 
     // Activate the season: the note announces the phase switch, and the
     // active phase follows.
     await page.getByRole('link', { name: 'Saisons' }).click()
     await page.getByRole('row', { name: /2026\/2027/ }).getByRole('button', { name: 'Modifier' }).click()
     await page.getByLabel('Statut').selectOption('active')
-    await expect(page.getByText('2026/2027 · Phase 1')).toBeVisible()
-    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera désactivée et 2026\/2027 Phase 1 activée/)).toBeVisible()
+    await expect(page.getByText('2026/2027 · Phase 2')).toBeVisible()
+    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera désactivée et 2026\/2027 Phase 2 activée/)).toBeVisible()
     await page.getByRole('button', { name: 'Enregistrer' }).click()
 
     await page.getByRole('link', { name: 'Phases' }).click()
     await expect(page.getByText('Active', { exact: true })).toHaveCount(1)
     await expect(
-      page.getByRole('row', { name: /2026\/2027 Phase 1/ }).getByText('Active', { exact: true }),
+      page.getByRole('row', { name: /2026\/2027 Phase 2/ }).getByText('Active', { exact: true }),
     ).toBeVisible()
   })
 

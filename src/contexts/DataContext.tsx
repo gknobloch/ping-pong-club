@@ -304,16 +304,17 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
 
   // Season→phase cascade (#227), symmetric with the phase→season one: keep
   // the active phase when it belongs to the newly activated season, otherwise
-  // switch to that season's first phase (or none when it has no phases).
+  // switch to that season's most recent phase, Phase 2 over Phase 1 (or none
+  // when it has no phases).
   const alignActivePhaseToSeason = useCallback((seasonId: string) => {
     setPhases((prev) => {
       const actives = prev.filter((p) => p.isActive)
       if (actives.length > 0 && actives.every((p) => p.seasonId === seasonId)) return prev
-      const first = prev
+      const latest = prev
         .filter((p) => p.seasonId === seasonId && !p.isArchived)
-        .sort((a, b) => a.name.localeCompare(b.name))[0]
+        .sort((a, b) => b.name.localeCompare(a.name))[0]
       return prev.map((p) => {
-        if (first && p.id === first.id) return { ...p, isActive: true }
+        if (latest && p.id === latest.id) return { ...p, isActive: true }
         return p.isActive ? { ...p, isActive: false } : p
       })
     })
