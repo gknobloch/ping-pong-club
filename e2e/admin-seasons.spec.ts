@@ -100,6 +100,41 @@ test.describe('General admin — Saisons', () => {
     await expect(page.getByText('Active', { exact: true })).toBeVisible()
   })
 
+  test('activating a season switches the active phase to that season (#227)', async ({ page }) => {
+    // Client-side navigation only: a full page load resets the mock data.
+    await page.goto('/saisons')
+    await page.getByRole('button', { name: 'Ajouter une saison' }).click()
+    await page.getByLabel(/Nom/).fill('2026/2027')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByRole('cell', { name: '2026/2027' })).toBeVisible()
+
+    // Give the new season two inactive phases: the switch must pick the most
+    // recent one (Phase 2 over Phase 1).
+    await page.getByRole('link', { name: 'Phases' }).click()
+    for (const phaseName of ['Phase 1', 'Phase 2']) {
+      await page.getByRole('button', { name: 'Ajouter une phase' }).click()
+      await page.getByLabel('Saison').selectOption({ label: '2026/2027' })
+      await page.getByLabel('Phase', { exact: true }).selectOption(phaseName)
+      await page.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(page.getByRole('cell', { name: `2026/2027 ${phaseName}` })).toBeVisible()
+    }
+
+    // Activate the season: the note announces the phase switch, and the
+    // active phase follows.
+    await page.getByRole('link', { name: 'Saisons' }).click()
+    await page.getByRole('row', { name: /2026\/2027/ }).getByRole('button', { name: 'Modifier' }).click()
+    await page.getByRole('radio', { name: 'Active' }).check()
+    await expect(page.getByText('2026/2027 · Phase 2')).toBeVisible()
+    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera archivée et 2026\/2027 Phase 2 sera activée/)).toBeVisible()
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+
+    await page.getByRole('link', { name: 'Phases' }).click()
+    await expect(page.getByText('Active', { exact: true })).toHaveCount(1)
+    await expect(
+      page.getByRole('row', { name: /2026\/2027 Phase 2/ }).getByText('Active', { exact: true }),
+    ).toBeVisible()
+  })
+
   test('an archived season can be modified to recover from a mistake (#223)', async ({ page }) => {
     await page.goto('/saisons')
     // Archive the only season (confirm dialog), then bring it back via Modifier.
@@ -109,7 +144,7 @@ test.describe('General admin — Saisons', () => {
     await expect(page.getByText('Archivée', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Modifier' }).click()
-    await page.getByLabel('Statut').selectOption('active')
+    await page.getByRole('radio', { name: 'Active' }).check()
     await page.getByRole('button', { name: 'Enregistrer' }).click()
     await expect(page.getByText('Active', { exact: true })).toBeVisible()
     await expect(page.getByText('Archivée', { exact: true })).not.toBeVisible()

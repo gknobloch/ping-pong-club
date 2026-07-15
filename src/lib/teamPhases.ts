@@ -42,7 +42,7 @@ export function teamPhaseEntries(
         teamId: t.id,
         phaseId: t.phaseId,
         label: ph ? `Saison ${ph.displayName}` : 'Matchs',
-        isActive: !!ph?.isActive,
+        isActive: ph?.status === 'active',
         games: phaseGames,
       }
     })

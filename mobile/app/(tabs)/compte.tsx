@@ -25,7 +25,7 @@ export default function MonCompteScreen() {
   const player = user?.isPlayer ? players.find((p) => p.id === user.id) : null
   const club = player ? clubs.find((c) => c.id === player.clubId) : null
 
-  const activePhase = phases.find((p) => p.isActive && !p.isArchived)
+  const activePhase = phases.find((p) => p.status === 'active')
   const playerTeams = player
     ? teams.filter((t) => t.phaseId === activePhase?.id && t.playerIds?.includes(player.id))
     : []

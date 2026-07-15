@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Organization } from '@/types'
 import { useAppData, type FfttDivisionsPreview } from '@/contexts/DataContext'
+import { FFTT_PHASES } from '@/lib/ffttPhases'
 import { ModalShell } from '@/components/ModalShell'
 
 // Dropdown group labels/order for the FFTT organization types.
@@ -178,8 +179,9 @@ export function ImportDivisionsModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setPhase(Number(e.target.value))}
                 className={inputClass}
               >
-                <option value={1}>Phase 1</option>
-                <option value={2}>Phase 2</option>
+                {FFTT_PHASES.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
               </select>
             </div>
           </div>

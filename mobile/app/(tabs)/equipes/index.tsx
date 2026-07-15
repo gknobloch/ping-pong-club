@@ -23,7 +23,7 @@ export default function EquipesScreen() {
     () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [phases],
   )
-  const activePhase = phases.find((p) => p.isActive)
+  const activePhase = phases.find((p) => p.status === 'active')
   const [phaseId, setPhaseId] = useState<string | undefined>(activePhase?.id ?? orderedPhases[0]?.id)
   const phase = phases.find((p) => p.id === phaseId) ?? activePhase
   const phaseIndex = orderedPhases.findIndex((p) => p.id === phase?.id)

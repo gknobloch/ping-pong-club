@@ -2,23 +2,14 @@ import { useMemo, useState } from 'react'
 import type { Season, SeasonStatus } from '@/types'
 import { useAppData, type FfttCurrentSeason } from '@/contexts/DataContext'
 import { seasonIdFromName } from '@/lib/season'
+import { phaseOrderKey } from '@/lib/ffttPhases'
+import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
+import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
-
-const STATUS_LABELS: Record<SeasonStatus, string> = {
-  active: 'Active',
-  upcoming: 'À venir',
-  archived: 'Archivée',
-}
-
-const STATUS_BADGES: Record<SeasonStatus, string> = {
-  active: 'bg-green-100 text-green-800',
-  upcoming: 'bg-amber-100 text-amber-800',
-  archived: 'bg-slate-100 text-slate-600',
-}
 
 export function SeasonsPage() {
   const {
-    seasons: allSeasons, updateSeason, addSeason, archiveSeason, deleteSeason,
+    seasons: allSeasons, phases, updateSeason, addSeason, archiveSeason, deleteSeason,
     checkFfttSeason, importFfttSeason,
   } = useAppData()
   const [editing, setEditing] = useState<Season | null>(null)
@@ -235,7 +226,7 @@ export function SeasonsPage() {
                 </td>
                 <td className="px-4 py-3 text-right space-x-3">
                   {/* Modifier stays available on archived seasons so a mistaken
-                      archive can be reverted via the status select (#223). */}
+                      archive can be reverted via the status radios (#223). */}
                   <button
                     type="button"
                     onClick={() => openEdit(season)}
@@ -300,24 +291,52 @@ export function SeasonsPage() {
                 )}
               </div>
               <div>
-                <label htmlFor="edit-status" className="block text-sm font-medium text-slate-700">
-                  Statut
-                </label>
-                <select
-                  id="edit-status"
+                <span className="block text-sm font-medium text-slate-700">Statut</span>
+                <StatusRadioGroup
+                  name="season-status"
                   value={form.status}
-                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as SeasonStatus }))}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
-                >
-                  <option value="upcoming">À venir</option>
-                  <option value="active">Active</option>
-                  <option value="archived">Archivée</option>
-                </select>
-                {form.status === 'active' && editing?.status !== 'active' && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    La saison actuellement active sera archivée.
-                  </p>
-                )}
+                  onChange={(status) => setForm((f) => ({ ...f, status }))}
+                />
+                {form.status === 'active' && editing?.status !== 'active' && (() => {
+                  // Resulting active (season · phase) combination (#227): the
+                  // active phase follows the season — kept when it belongs to
+                  // it, otherwise switched to the season's most recent phase.
+                  const targetId = editing?.id ?? derivedId
+                  const activePhase = phases.find((p) => p.status === 'active')
+                  const coherent = !!activePhase && activePhase.seasonId === targetId
+                  const resulting = coherent
+                    ? activePhase
+                    : phases
+                        .filter((p) => p.seasonId === targetId && p.status !== 'archived')
+                        .sort((a, b) => b.name.localeCompare(a.name))[0]
+                  const currentActive = allSeasons.find(
+                    (s) => s.status === 'active' && s.id !== editing?.id,
+                  )
+                  const seasonDemotion = currentActive && targetId && Number(currentActive.id) < Number(targetId)
+                    ? 'sera archivée'
+                    : 'repassera à « À venir »'
+                  const phaseDemotion = activePhase && targetId
+                    && phaseOrderKey(activePhase.seasonId, activePhase.name) < phaseOrderKey(targetId, resulting?.name ?? '')
+                    ? 'sera archivée'
+                    : 'repassera à « À venir »'
+                  return (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
+                      <p>
+                        Après enregistrement, la combinaison active sera :{' '}
+                        <span className="font-semibold">
+                          {form.displayName || '…'} · {resulting ? resulting.name : 'aucune phase active'}
+                        </span>.
+                        {currentActive && ` La saison ${currentActive.displayName} ${seasonDemotion}.`}
+                      </p>
+                      {!coherent && activePhase && (
+                        <p className="mt-1">
+                          La phase {activePhase.displayName} {phaseDemotion}
+                          {resulting ? ` et ${resulting.displayName} sera activée` : ''}.
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

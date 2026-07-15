@@ -3,6 +3,7 @@ import { handle } from 'hono/cloudflare-pages'
 import { authApp, bearer, userFromToken, type Env } from './auth'
 import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../src/lib/season'
 import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
+import { FFTT_PHASES, localPhaseId, phaseOrderKey } from '../../src/lib/ffttPhases'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -99,7 +100,10 @@ app.get('/data', async (c) => {
     })),
     phases: phasesR.results.map(r => ({
       id: r.id, seasonId: r.season_id, name: r.name, displayName: r.display_name,
-      isArchived: bool(r.is_archived), isActive: bool(r.is_active),
+      // Fallback for databases that haven't run migration 0012 yet: PR
+      // previews share the production D1 but never run migrations, so the
+      // old is_active/is_archived columns may still be what exists.
+      status: r.status ?? (bool(r.is_active) ? 'active' : bool(r.is_archived) ? 'archived' : 'upcoming'),
     })),
     divisions: divisionsR.results.map(r => ({
       id: r.id, phaseId: r.phase_id, displayName: r.display_name,
@@ -171,6 +175,45 @@ app.get('/data', async (c) => {
 // --- Seasons ---
 const SEASON_STATUSES = ['active', 'upcoming', 'archived']
 
+// Demotion is chronology-aware (#227): what stops being active is archived
+// when it is older than what becomes active, but goes back to 'upcoming' when
+// it is newer (rolling back to an older phase/season).
+async function demoteActivePhases(db: Env['Bindings']['DB'], exceptId: string, newKey: number) {
+  const actives = await db.prepare(
+    "SELECT id, season_id, name FROM phases WHERE status = 'active' AND id != ?",
+  ).bind(exceptId).all()
+  for (const r of actives.results) {
+    const demoted = phaseOrderKey(r.season_id as string, r.name as string) < newKey ? 'archived' : 'upcoming'
+    await db.prepare('UPDATE phases SET status = ? WHERE id = ?').bind(demoted, r.id).run()
+  }
+}
+
+async function demoteActiveSeasons(db: Env['Bindings']['DB'], newSeasonId: string) {
+  const actives = await db.prepare(
+    "SELECT id FROM seasons WHERE status = 'active' AND id != ?",
+  ).bind(newSeasonId).all()
+  for (const r of actives.results) {
+    const demoted = Number(r.id) < Number(newSeasonId) ? 'archived' : 'upcoming'
+    await db.prepare('UPDATE seasons SET status = ? WHERE id = ?').bind(demoted, r.id).run()
+  }
+}
+
+// Mirror of the phase→season cascade (#227): activating a season keeps the
+// active phase when it already belongs to it, otherwise switches to that
+// season's most recent non-archived phase (Phase 2 over Phase 1) — or none
+// when the season has no phases yet.
+async function alignActivePhaseToSeason(db: Env['Bindings']['DB'], seasonId: string) {
+  const active = await db.prepare("SELECT id, season_id FROM phases WHERE status = 'active'").all()
+  const coherent = active.results.length > 0 && active.results.every(r => r.season_id === seasonId)
+  if (coherent) return
+  const latest = await db.prepare(
+    "SELECT id, name FROM phases WHERE season_id = ? AND status != 'archived' ORDER BY name DESC LIMIT 1",
+  ).bind(seasonId).first()
+  // No phase to activate → compare against the season alone (phase 0).
+  await demoteActivePhases(db, (latest?.id as string) ?? '', phaseOrderKey(seasonId, (latest?.name as string) ?? ''))
+  if (latest) await db.prepare("UPDATE phases SET status = 'active' WHERE id = ?").bind(latest.id).run()
+}
+
 // FFTT GraphQL API — source of truth for season ids and names (#217).
 const FFTT_GRAPHQL_URL = 'https://apiv2.fftt.com/api/graphql'
 
@@ -220,11 +263,10 @@ app.post('/seasons/import-current', async (c) => {
   const existing = await db.prepare('SELECT id FROM seasons WHERE id = ?').bind(fftt.id).first()
   if (existing) return c.json({ error: 'already_exists' }, 409)
   const activeR = await db.prepare("SELECT id FROM seasons WHERE status = 'active'").all()
-  await db.batch([
-    db.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active'"),
-    db.prepare("INSERT INTO seasons (id, display_name, status) VALUES (?, ?, 'active')")
-      .bind(fftt.id, fftt.displayName),
-  ])
+  await demoteActiveSeasons(db, fftt.id)
+  await db.prepare("INSERT INTO seasons (id, display_name, status) VALUES (?, ?, 'active')")
+    .bind(fftt.id, fftt.displayName).run()
+  await alignActivePhaseToSeason(db, fftt.id)
   return c.json({
     season: { id: fftt.id, displayName: fftt.displayName, status: 'active' },
     archivedSeasonIds: activeR.results.map(r => r.id as string),
@@ -241,11 +283,10 @@ app.post('/seasons', async (c) => {
   const existing = await c.env.DB.prepare('SELECT id FROM seasons WHERE id = ?').bind(id).first()
   if (existing) return c.json({ error: 'already_exists' }, 409)
   const status = SEASON_STATUSES.includes(d.status) ? d.status : 'upcoming'
-  if (status === 'active') {
-    await c.env.DB.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active'").run()
-  }
+  if (status === 'active') await demoteActiveSeasons(c.env.DB, id)
   await c.env.DB.prepare('INSERT INTO seasons (id, display_name, status) VALUES (?, ?, ?)')
     .bind(id, displayName, status).run()
+  if (status === 'active') await alignActivePhaseToSeason(c.env.DB, id)
   return c.json({ id, displayName, status })
 })
 
@@ -264,12 +305,13 @@ app.patch('/seasons/:id', async (c) => {
     s.push('status = ?'); v.push(p.status)
   }
   if (s.length) {
-    // Single-active invariant: activating a season archives the previous one.
-    if (p.status === 'active') {
-      await c.env.DB.prepare("UPDATE seasons SET status = 'archived' WHERE status = 'active' AND id != ?").bind(id).run()
-    }
+    // Single-active invariant: activating a season demotes the previous one
+    // (archived when older, back to 'upcoming' when newer).
+    if (p.status === 'active') await demoteActiveSeasons(c.env.DB, id)
     v.push(id)
     await c.env.DB.prepare(`UPDATE seasons SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
+    // Season→phase cascade (#227), symmetric with the phase→season one.
+    if (p.status === 'active') await alignActivePhaseToSeason(c.env.DB, id)
   }
   return c.json({ ok: true })
 })
@@ -339,7 +381,8 @@ async function fetchFfttDivisions(organizationId: number, seasonId: number, phas
 
 const importParams = (organizationId: unknown, seasonId: unknown, phase: unknown) => {
   const org = Number(organizationId), season = Number(seasonId), ph = Number(phase)
-  if (!Number.isInteger(org) || org <= 0 || !Number.isInteger(season) || season <= 0 || (ph !== 1 && ph !== 2)) return null
+  const knownPhase = FFTT_PHASES.some((p) => Number(p.id) === ph)
+  if (!Number.isInteger(org) || org <= 0 || !Number.isInteger(season) || season <= 0 || !knownPhase) return null
   return { org, season, ph }
 }
 
@@ -393,16 +436,16 @@ app.post('/divisions/import', async (c) => {
 
   const phaseName = `Phase ${p.ph}`
   let phaseRow = await db.prepare(
-    'SELECT id, season_id, name, display_name, is_archived, is_active FROM phases WHERE season_id = ? AND name = ?',
+    'SELECT id, season_id, name, display_name, status FROM phases WHERE season_id = ? AND name = ?',
   ).bind(String(p.season), phaseName).first()
   const createdPhase = !phaseRow
   if (!phaseRow) {
     const displayName = `${season.display_name} ${phaseName}`
-    const id = `phase-${p.season}-${p.ph}`
-    // Created inactive on purpose: activation stays a manual step on /phases.
-    await db.prepare('INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, 0, 0)')
+    const id = localPhaseId(p.season, p.ph)
+    // Created 'upcoming' on purpose: activation stays a manual step on /phases.
+    await db.prepare("INSERT INTO phases (id, season_id, name, display_name, status) VALUES (?, ?, ?, ?, 'upcoming')")
       .bind(id, String(p.season), phaseName, displayName).run()
-    phaseRow = { id, season_id: String(p.season), name: phaseName, display_name: displayName, is_archived: 0, is_active: 0 }
+    phaseRow = { id, season_id: String(p.season), name: phaseName, display_name: displayName, status: 'upcoming' }
   }
   const phaseId = phaseRow.id as string
 
@@ -430,8 +473,7 @@ app.post('/divisions/import', async (c) => {
   return c.json({
     phase: {
       id: phaseId, seasonId: phaseRow.season_id, name: phaseRow.name,
-      displayName: phaseRow.display_name,
-      isArchived: bool(phaseRow.is_archived), isActive: bool(phaseRow.is_active),
+      displayName: phaseRow.display_name, status: phaseRow.status,
     },
     createdPhase,
     created,
@@ -479,13 +521,27 @@ app.delete('/seasons/:id', async (c) => {
 })
 
 // --- Phases ---
+
+// The active (season · phase) combination must stay coherent (#227): activating
+// a phase demotes every other active phase (#221, archived when older,
+// 'upcoming' when newer) AND activates the phase's season (same demotion rule
+// for the previous season).
+async function activatePhaseCascade(db: Env['Bindings']['DB'], phaseId: string, seasonId: string, phaseName: string) {
+  await demoteActivePhases(db, phaseId, phaseOrderKey(seasonId, phaseName))
+  await demoteActiveSeasons(db, seasonId)
+  await db.prepare("UPDATE seasons SET status = 'active' WHERE id = ?").bind(seasonId).run()
+}
+
 app.post('/phases', async (c) => {
   const d = await c.req.json()
-  // Single-active invariant (#221): activating a phase deactivates the others.
-  if (d.isActive) await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1').run()
+  const existing = await c.env.DB.prepare('SELECT id FROM phases WHERE season_id = ? AND name = ?')
+    .bind(d.seasonId, d.name).first()
+  if (existing) return c.json({ error: 'already_exists' }, 409)
+  const status = SEASON_STATUSES.includes(d.status) ? d.status : 'upcoming'
+  if (status === 'active') await activatePhaseCascade(c.env.DB, d.id, d.seasonId, d.name)
   await c.env.DB.prepare(
-    'INSERT INTO phases (id, season_id, name, display_name, is_archived, is_active) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(d.id, d.seasonId, d.name, d.displayName, d.isArchived ? 1 : 0, d.isActive ? 1 : 0).run()
+    'INSERT INTO phases (id, season_id, name, display_name, status) VALUES (?, ?, ?, ?, ?)'
+  ).bind(d.id, d.seasonId, d.name, d.displayName, status).run()
   return c.json({ ok: true })
 })
 
@@ -496,13 +552,15 @@ app.patch('/phases/:id', async (c) => {
   if ('seasonId' in p) { s.push('season_id = ?'); v.push(p.seasonId) }
   if ('name' in p) { s.push('name = ?'); v.push(p.name) }
   if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
-  if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
-  if ('isActive' in p) { s.push('is_active = ?'); v.push(p.isActive ? 1 : 0) }
+  if ('status' in p) {
+    if (!SEASON_STATUSES.includes(p.status)) return c.json({ error: 'invalid_status' }, 400)
+    s.push('status = ?'); v.push(p.status)
+  }
   if (s.length) {
-    // Single-active invariant (#221): the previous active phase is only
-    // deactivated, not archived — it stays relevant (brûlage, history).
-    if (p.isActive) {
-      await c.env.DB.prepare('UPDATE phases SET is_active = 0 WHERE is_active = 1 AND id != ?').bind(id).run()
+    // Activating a phase cascades to its season (#227).
+    if (p.status === 'active') {
+      const row = await c.env.DB.prepare('SELECT season_id, name FROM phases WHERE id = ?').bind(id).first()
+      if (row) await activatePhaseCascade(c.env.DB, id, row.season_id as string, row.name as string)
     }
     v.push(id)
     await c.env.DB.prepare(`UPDATE phases SET ${s.join(', ')} WHERE id = ?`).bind(...v).run()
