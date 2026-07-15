@@ -103,6 +103,42 @@ export interface FfttDivisionsImportResult {
   skipped: Array<{ id: string; name: string }>
 }
 
+/** One team in the FFTT import preview (GET /api/fftt/teams-preview, #229). */
+export interface FfttTeamPreview {
+  /** FFTT team id — becomes the local team id on import. */
+  id: string
+  /** FFTT team label, e.g. "RIXHEIM PPA 2 - Phase 1". */
+  label: string
+  number: number
+  /** FFTT phase (1..3); null when undetectable from the labels. */
+  phase: number | null
+  divisionId: string
+  divisionName: string
+  /** False = the division will be auto-imported (needs a detectable phase). */
+  divisionExists: boolean
+  poolNumber: number | null
+  /** Already present locally — will be skipped on import. */
+  exists: boolean
+  /** Whether the import can create this team. */
+  importable: boolean
+}
+
+export interface FfttTeamsPreview {
+  club: { id: string; displayName: string }
+  season: FfttCurrentSeason
+  teams: FfttTeamPreview[]
+}
+
+/** Response of POST /api/teams/import. */
+export interface FfttTeamsImportResult {
+  createdPhases: Phase[]
+  createdDivisions: Division[]
+  /** Created + updated groups in their final state (client-side upsert). */
+  groups: Group[]
+  createdTeams: Team[]
+  skipped: Array<{ id: string; label: string; reason: 'already_exists' | 'division_missing' }>
+}
+
 // Read the current session token (set by AuthContext) for the Authorization
 // header. Read at call time so mutations always use the latest token.
 function sessionToken(): string | null {
@@ -156,6 +192,10 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   fetchDivisionsPreview: (organizationId: string, seasonId: string, phase: number) => Promise<FfttDivisionsPreview | 'no_contest' | null>
   /** Import the FFTT divisions (creates the phase if missing, skips existing). */
   importFfttDivisions: (organizationId: string, seasonId: string, phase: number) => Promise<FfttDivisionsImportResult | null>
+  /** Preview a club's FFTT teams (#229); 'club_not_found' or null on failure. */
+  fetchTeamsPreview: (clubId: string) => Promise<FfttTeamsPreview | 'club_not_found' | null>
+  /** Import a club's FFTT teams with the chosen defaults (venue / day / time). */
+  importFfttTeams: (clubId: string, defaults: { gameLocationId: string; defaultDay: string; defaultTime: string }) => Promise<FfttTeamsImportResult | null>
   updatePhase: (id: string, patch: Partial<Phase>) => void
   archivePhase: (id: string) => void
   deletePhase: (id: string) => void
@@ -427,6 +467,48 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       const result = (await r.json()) as FfttDivisionsImportResult
       if (result.createdPhase) setPhases((prev) => [...prev, result.phase])
       if (result.created.length) setDivisions((prev) => [...prev, ...result.created])
+      return result
+    } catch {
+      return null
+    }
+  }, [])
+
+  // --- FFTT teams import (#229) ---
+  const fetchTeamsPreview = useCallback(async (
+    clubId: string,
+  ): Promise<FfttTeamsPreview | 'club_not_found' | null> => {
+    try {
+      const params = new URLSearchParams({ clubId })
+      const r = await fetch(`/api/fftt/teams-preview?${params}`, { headers: authHeaders() })
+      if (r.status === 404) return 'club_not_found'
+      if (!r.ok) return null
+      return (await r.json()) as FfttTeamsPreview
+    } catch {
+      return null
+    }
+  }, [])
+
+  const importFfttTeams = useCallback(async (
+    clubId: string, defaults: { gameLocationId: string; defaultDay: string; defaultTime: string },
+  ): Promise<FfttTeamsImportResult | null> => {
+    try {
+      const r = await fetch('/api/teams/import', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ clubId, ...defaults }),
+      })
+      if (!r.ok) return null
+      const result = (await r.json()) as FfttTeamsImportResult
+      if (result.createdPhases.length) setPhases((prev) => [...prev, ...result.createdPhases])
+      if (result.createdDivisions.length) setDivisions((prev) => [...prev, ...result.createdDivisions])
+      if (result.groups.length) {
+        // Upsert: the import both creates pools and appends teams to existing ones.
+        setGroups((prev) => [
+          ...prev.filter((g) => !result.groups.some((u) => u.id === g.id)),
+          ...result.groups,
+        ])
+      }
+      if (result.createdTeams.length) setTeams((prev) => [...prev, ...result.createdTeams])
       return result
     } catch {
       return null
@@ -1094,6 +1176,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       fetchOrganizations,
       fetchDivisionsPreview,
       importFfttDivisions,
+      fetchTeamsPreview,
+      importFfttTeams,
       updatePhase,
       archivePhase,
       deletePhase,
@@ -1134,7 +1218,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason,
-      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
+      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer, setAvatar, removeAvatar,

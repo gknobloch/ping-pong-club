@@ -7,6 +7,7 @@ import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 import { ClubLogo } from '@/components/ClubLogo'
 import { ModalShell } from '@/components/ModalShell'
+import { ImportTeamsModal } from '@/components/ImportTeamsModal'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -30,6 +31,7 @@ export function TeamsPage() {
   const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
 
   const [showArchived, setShowArchived] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const allVisibleTeams = useMemo(() => {
     let t = allTeams
@@ -279,15 +281,31 @@ export function TeamsPage() {
           {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
         </div>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Ajouter une équipe
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {/* Manual add is the fallback; FFTT import is the default path (#229). */}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+            >
+              Ajouter une équipe
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            >
+              Importer depuis la FFTT
+            </button>
+          </div>
         )}
       </div>
+      {importOpen && (
+        <ImportTeamsModal
+          onClose={() => setImportOpen(false)}
+          lockedClubId={isClubAdmin ? user?.clubId : undefined}
+        />
+      )}
       {archivedTeams.length > 0 && (
         <label className="flex items-center gap-2">
           <input
