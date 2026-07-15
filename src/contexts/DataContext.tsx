@@ -107,8 +107,8 @@ export interface FfttDivisionsImportResult {
 export interface FfttTeamPreview {
   /** FFTT team id — becomes the local team id on import. */
   id: string
-  /** FFTT team label, e.g. "RIXHEIM PPA 2 - Phase 1". */
-  label: string
+  /** Simplified display name, e.g. "PPA Rixheim 2" (consistent with existing teams). */
+  name: string
   number: number
   /** FFTT phase (1..3); null when undetectable from the labels. */
   phase: number | null
@@ -136,7 +136,15 @@ export interface FfttTeamsImportResult {
   /** Created + updated groups in their final state (client-side upsert). */
   groups: Group[]
   createdTeams: Team[]
-  skipped: Array<{ id: string; label: string; reason: 'already_exists' | 'division_missing' }>
+  skipped: Array<{ id: string; label: string; reason: 'already_exists' | 'division_missing' | 'invalid_location' }>
+}
+
+/** Per-team venue / day / time chosen in the import dialog (#229 follow-up). */
+export interface TeamImportOverride {
+  id: string
+  gameLocationId: string
+  defaultDay: string
+  defaultTime: string
 }
 
 // Read the current session token (set by AuthContext) for the Authorization
@@ -195,7 +203,7 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   /** Preview a club's FFTT teams (#229); 'club_not_found' or null on failure. */
   fetchTeamsPreview: (clubId: string) => Promise<FfttTeamsPreview | 'club_not_found' | null>
   /** Import a club's FFTT teams with the chosen defaults (venue / day / time). */
-  importFfttTeams: (clubId: string, defaults: { gameLocationId: string; defaultDay: string; defaultTime: string }) => Promise<FfttTeamsImportResult | null>
+  importFfttTeams: (clubId: string, teams: TeamImportOverride[]) => Promise<FfttTeamsImportResult | null>
   updatePhase: (id: string, patch: Partial<Phase>) => void
   archivePhase: (id: string) => void
   deletePhase: (id: string) => void
@@ -489,13 +497,13 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [])
 
   const importFfttTeams = useCallback(async (
-    clubId: string, defaults: { gameLocationId: string; defaultDay: string; defaultTime: string },
+    clubId: string, teams: TeamImportOverride[],
   ): Promise<FfttTeamsImportResult | null> => {
     try {
       const r = await fetch('/api/teams/import', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ clubId, ...defaults }),
+        body: JSON.stringify({ clubId, teams }),
       })
       if (!r.ok) return null
       const result = (await r.json()) as FfttTeamsImportResult
