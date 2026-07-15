@@ -125,7 +125,7 @@ test.describe('General admin — Saisons', () => {
     await page.getByRole('row', { name: /2026\/2027/ }).getByRole('button', { name: 'Modifier' }).click()
     await page.getByRole('radio', { name: 'Active' }).check()
     await expect(page.getByText('2026/2027 · Phase 2')).toBeVisible()
-    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera archivée et 2026\/2027 Phase 2 activée/)).toBeVisible()
+    await expect(page.getByText(/La phase 2025\/2026 Phase 1 sera archivée et 2026\/2027 Phase 2 sera activée/)).toBeVisible()
     await page.getByRole('button', { name: 'Enregistrer' }).click()
 
     await page.getByRole('link', { name: 'Phases' }).click()

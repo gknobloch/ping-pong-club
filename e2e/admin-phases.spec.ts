@@ -58,6 +58,29 @@ test.describe('General admin — Phases (#221, #227)', () => {
     ).toBeVisible()
   })
 
+  test('re-activating an older phase sets the newer one back to « À venir » (#227)', async ({ page }) => {
+    // Activate Phase 2: Phase 1 (older) gets archived.
+    await page.getByRole('button', { name: 'Ajouter une phase' }).click()
+    await page.getByLabel('Phase', { exact: true }).selectOption('Phase 2')
+    await page.getByRole('radio', { name: 'Active' }).check()
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByRole('cell', { name: '2025/2026 Phase 2' })).toBeVisible()
+
+    // Roll back to Phase 1: Phase 2 (newer) must become « À venir », not archived.
+    await page.getByLabel(/Afficher les phases archivées/).check()
+    await page.getByRole('row', { name: /2025\/2026 Phase 1/ }).getByRole('button', { name: 'Modifier' }).click()
+    await page.getByRole('radio', { name: 'Active' }).check()
+    await expect(page.getByText(/La phase 2025\/2026 Phase 2 repassera à « À venir »/)).toBeVisible()
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+
+    await expect(
+      page.getByRole('row', { name: /2025\/2026 Phase 1/ }).getByText('Active', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('row', { name: /2025\/2026 Phase 2/ }).getByText('À venir', { exact: true }),
+    ).toBeVisible()
+  })
+
   test('activating a phase of another season also activates that season (#227)', async ({ page }) => {
     // Create next season (upcoming) on /saisons first. Client-side navigation
     // only: a full page load would reset the in-memory mock data.

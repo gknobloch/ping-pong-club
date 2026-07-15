@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Season, SeasonStatus } from '@/types'
 import { useAppData, type FfttCurrentSeason } from '@/contexts/DataContext'
 import { seasonIdFromName } from '@/lib/season'
+import { phaseOrderKey } from '@/lib/ffttPhases'
 import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
 import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
@@ -308,18 +309,29 @@ export function SeasonsPage() {
                     : phases
                         .filter((p) => p.seasonId === targetId && p.status !== 'archived')
                         .sort((a, b) => b.name.localeCompare(a.name))[0]
+                  const currentActive = allSeasons.find(
+                    (s) => s.status === 'active' && s.id !== editing?.id,
+                  )
+                  const seasonDemotion = currentActive && targetId && Number(currentActive.id) < Number(targetId)
+                    ? 'sera archivée'
+                    : 'repassera à « À venir »'
+                  const phaseDemotion = activePhase && targetId
+                    && phaseOrderKey(activePhase.seasonId, activePhase.name) < phaseOrderKey(targetId, resulting?.name ?? '')
+                    ? 'sera archivée'
+                    : 'repassera à « À venir »'
                   return (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
                       <p>
                         Après enregistrement, la combinaison active sera :{' '}
                         <span className="font-semibold">
                           {form.displayName || '…'} · {resulting ? resulting.name : 'aucune phase active'}
-                        </span>. La saison actuellement active sera archivée.
+                        </span>.
+                        {currentActive && ` La saison ${currentActive.displayName} ${seasonDemotion}.`}
                       </p>
                       {!coherent && activePhase && (
                         <p className="mt-1">
-                          La phase {activePhase.displayName} sera archivée
-                          {resulting ? ` et ${resulting.displayName} activée` : ''}.
+                          La phase {activePhase.displayName} {phaseDemotion}
+                          {resulting ? ` et ${resulting.displayName} sera activée` : ''}.
                         </p>
                       )}
                     </div>

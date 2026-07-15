@@ -23,3 +23,15 @@ export function localPhaseId(seasonId: string | number, ffttPhaseId: string | nu
 export function ffttPhaseIdForName(name: string): string | null {
   return FFTT_PHASES.find((p) => p.name === name)?.id ?? null
 }
+
+/**
+ * Chronological key for a phase (#227): season first (FFTT-aligned numeric
+ * ids — 26 < 27), then phase number (Phase 1 < Phase 2). Used to decide what
+ * a demoted phase becomes: archived when older than the newly active one,
+ * back to 'upcoming' when newer (rollback).
+ */
+export function phaseOrderKey(seasonId: string, phaseName: string): number {
+  const season = Number(seasonId)
+  const phase = Number(ffttPhaseIdForName(phaseName) ?? 0)
+  return (Number.isFinite(season) ? season : 0) * 10 + phase
+}

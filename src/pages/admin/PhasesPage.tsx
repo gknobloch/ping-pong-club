@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { LifecycleStatus, Phase } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
-import { FFTT_PHASES } from '@/lib/ffttPhases'
+import { FFTT_PHASES, phaseOrderKey } from '@/lib/ffttPhases'
 import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
 import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
@@ -292,10 +292,21 @@ export function PhasesPage() {
                       <span className="font-semibold">{targetSeasonName} · {form.name}</span>.
                     </p>
                     {currentActiveSeason && currentActiveSeason.id !== form.seasonId && (
-                      <p className="mt-1">La saison {currentActiveSeason.displayName} sera archivée.</p>
+                      <p className="mt-1">
+                        La saison {currentActiveSeason.displayName}{' '}
+                        {Number(currentActiveSeason.id) < Number(form.seasonId)
+                          ? 'sera archivée'
+                          : 'repassera à « À venir »'}.
+                      </p>
                     )}
                     {currentActivePhase && (
-                      <p className="mt-1">La phase {currentActivePhase.displayName} sera archivée.</p>
+                      <p className="mt-1">
+                        La phase {currentActivePhase.displayName}{' '}
+                        {phaseOrderKey(currentActivePhase.seasonId, currentActivePhase.name) <
+                        phaseOrderKey(form.seasonId, form.name)
+                          ? 'sera archivée'
+                          : 'repassera à « À venir »'}.
+                      </p>
                     )}
                   </div>
                 )}

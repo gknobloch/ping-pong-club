@@ -42,7 +42,12 @@ import {
   mockUsers,
 } from '@/mock/data'
 import { seasonIdFromName } from '@/lib/season'
-import { ffttPhaseIdForName, localPhaseId } from '@/lib/ffttPhases'
+import { ffttPhaseIdForName, localPhaseId, phaseOrderKey } from '@/lib/ffttPhases'
+
+// Chronology-aware demotion (#227): what stops being active is archived when
+// older than what becomes active, back to 'upcoming' when newer (rollback).
+const demotedSeasonStatus = (seasonId: string, newSeasonId: string): SeasonStatus =>
+  Number(seasonId) < Number(newSeasonId) ? 'archived' : 'upcoming'
 
 interface DataState {
   divisions: Division[]
@@ -293,12 +298,12 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [initialData, token, retryNonce, logout])
 
   // --- Seasons ---
-  // Mirrors the API's single-active invariant: activating a season archives
-  // the previously active one.
+  // Mirrors the API's single-active invariant: activating a season demotes
+  // the previously active one (archived when older, 'upcoming' when newer).
   const applySeasonPatch = (prev: Season[], id: string, patch: Partial<Season>): Season[] =>
     prev.map((s) => {
       if (s.id === id) return { ...s, ...patch }
-      if (patch.status === 'active' && s.status === 'active') return { ...s, status: 'archived' }
+      if (patch.status === 'active' && s.status === 'active') return { ...s, status: demotedSeasonStatus(s.id, id) }
       return s
     })
 
@@ -313,9 +318,11 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       const latest = prev
         .filter((p) => p.seasonId === seasonId && p.status !== 'archived')
         .sort((a, b) => b.name.localeCompare(a.name))[0]
+      const newKey = phaseOrderKey(seasonId, latest?.name ?? '')
       return prev.map((p) => {
         if (latest && p.id === latest.id) return { ...p, status: 'active' as const }
-        return p.status === 'active' ? { ...p, status: 'archived' as const } : p
+        if (p.status !== 'active') return p
+        return { ...p, status: phaseOrderKey(p.seasonId, p.name) < newKey ? 'archived' as const : 'upcoming' as const }
       })
     })
   }, [])
@@ -333,7 +340,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     const season: Season = { ...data, displayName: data.displayName.trim(), id }
     setSeasons((prev) => [
       ...(season.status === 'active'
-        ? prev.map((s) => (s.status === 'active' ? { ...s, status: 'archived' as const } : s))
+        ? prev.map((s) => (s.status === 'active' ? { ...s, status: demotedSeasonStatus(s.id, id) } : s))
         : prev),
       season,
     ])
@@ -367,7 +374,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       if (!r.ok) return null
       const { season } = (await r.json()) as { season: Season }
       setSeasons((prev) => [
-        ...prev.map((s) => (s.status === 'active' ? { ...s, status: 'archived' as const } : s)),
+        ...prev.map((s) => (s.status === 'active' ? { ...s, status: demotedSeasonStatus(s.id, season.id) } : s)),
         season,
       ])
       // A freshly imported season has no phases yet → no phase stays active.
@@ -449,26 +456,32 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
 
   // --- Phases ---
   // Mirrors the API's single-active invariant (#221): activating a phase
-  // archives the previously active one (same lifecycle as seasons).
-  const demoteActivePhases = (prev: Phase[], exceptId: string) =>
-    prev.map((p) => (p.id !== exceptId && p.status === 'active' ? { ...p, status: 'archived' as const } : p))
+  // demotes the previously active one — archived when older, back to
+  // 'upcoming' when newer (rollback).
+  const demoteActivePhases = (prev: Phase[], exceptId: string, newKey: number) =>
+    prev.map((p) => {
+      if (p.id === exceptId || p.status !== 'active') return p
+      return { ...p, status: phaseOrderKey(p.seasonId, p.name) < newKey ? 'archived' as const : 'upcoming' as const }
+    })
 
   // Cascade (#227): the active (season · phase) combination stays coherent —
-  // activating a phase also activates its season and archives the other one.
+  // activating a phase also activates its season and demotes the other one.
   const activatePhaseSeason = useCallback((seasonId: string) => {
     setSeasons((prev) => prev.map((s) => {
       if (s.id === seasonId) return s.status === 'active' ? s : { ...s, status: 'active' as const }
-      return s.status === 'active' ? { ...s, status: 'archived' as const } : s
+      return s.status === 'active' ? { ...s, status: demotedSeasonStatus(s.id, seasonId) } : s
     }))
   }, [])
 
   const updatePhase = useCallback((id: string, patch: Partial<Phase>) => {
-    if (patch.status === 'active') {
-      const seasonId = phases.find((p) => p.id === id)?.seasonId
-      if (seasonId) activatePhaseSeason(seasonId)
+    const target = phases.find((p) => p.id === id)
+    if (patch.status === 'active' && target) {
+      activatePhaseSeason(target.seasonId)
     }
     setPhases((prev) => {
-      const next = patch.status === 'active' ? demoteActivePhases(prev, id) : prev
+      const next = patch.status === 'active' && target
+        ? demoteActivePhases(prev, id, phaseOrderKey(target.seasonId, target.name))
+        : prev
       return next.map((p) => (p.id === id ? { ...p, ...patch } : p))
     })
     if (persist) api(`/phases/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
@@ -481,7 +494,12 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     const id = ffttId ? localPhaseId(data.seasonId, ffttId) : nextId('phase')
     const phase: Phase = { ...data, id }
     if (phase.status === 'active') activatePhaseSeason(phase.seasonId)
-    setPhases((prev) => [...(phase.status === 'active' ? demoteActivePhases(prev, id) : prev), phase])
+    setPhases((prev) => [
+      ...(phase.status === 'active'
+        ? demoteActivePhases(prev, id, phaseOrderKey(phase.seasonId, phase.name))
+        : prev),
+      phase,
+    ])
     if (persist) api('/phases', { method: 'POST', body: JSON.stringify(phase) })
     return phase
   }, [persist, activatePhaseSeason])
