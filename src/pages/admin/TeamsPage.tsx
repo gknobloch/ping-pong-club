@@ -8,6 +8,7 @@ import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/compo
 import { ClubLogo } from '@/components/ClubLogo'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportTeamsModal } from '@/components/ImportTeamsModal'
+import { ImportPreviousPhaseRosterModal } from '@/components/ImportPreviousPhaseRosterModal'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -32,6 +33,7 @@ export function TeamsPage() {
 
   const [showArchived, setShowArchived] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [importRosterOpen, setImportRosterOpen] = useState(false)
 
   const allVisibleTeams = useMemo(() => {
     let t = allTeams
@@ -139,6 +141,40 @@ export function TeamsPage() {
     playersInClub.filter((p) => !form.playerIds.includes(p.id) && !playerIdsInOtherTeams.has(p.id)),
   )
 
+  // "Importer depuis la phase précédente" (#229 follow-up): only offered when
+  // editing an existing team and the chronologically-previous phase has at
+  // least one non-archived team for the same club.
+  const editingPhaseIndex = editing ? orderedPhases.findIndex((p) => p.id === editing.phaseId) : -1
+  const previousPhase = editingPhaseIndex > 0 ? orderedPhases[editingPhaseIndex - 1] : undefined
+  const editingClub = editing ? clubs.find((c) => c.id === editing.clubId) : undefined
+  const previousPhaseTeams = useMemo(() => {
+    if (!previousPhase || !editing) return []
+    return allTeams.filter(
+      (t) => t.phaseId === previousPhase.id && t.clubId === editing.clubId && !t.isArchived,
+    )
+  }, [allTeams, previousPhase, editing])
+
+  const handleImportFromPreviousPhase = (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string }) => {
+    setForm((f) => {
+      const newPlayerIds = [...f.playerIds]
+      const newInitialPoints = { ...f.initialPoints }
+      for (const pid of patch.addPlayerIds) {
+        if (!newPlayerIds.includes(pid)) {
+          newPlayerIds.push(pid)
+          newInitialPoints[pid] = newInitialPoints[pid] ?? ''
+        }
+      }
+      return {
+        ...f,
+        playerIds: newPlayerIds,
+        initialPoints: newInitialPoints,
+        captainId: patch.captainId ?? f.captainId,
+        whatsappLink: patch.whatsappLink ?? f.whatsappLink,
+      }
+    })
+    setImportRosterOpen(false)
+  }
+
   const openEdit = (team: Team) => {
     setEditing(team)
     setCreating(false)
@@ -190,6 +226,7 @@ export function TeamsPage() {
   const closeModal = () => {
     setEditing(null)
     setCreating(false)
+    setImportRosterOpen(false)
   }
 
   const rosterPlayers = sortByName(
@@ -577,9 +614,20 @@ export function TeamsPage() {
 
               {/* Player table */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Joueurs de l&apos;équipe
-                </label>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Joueurs de l&apos;équipe
+                  </label>
+                  {editing && previousPhase && previousPhaseTeams.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setImportRosterOpen(true)}
+                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                    >
+                      Importer depuis la phase précédente
+                    </button>
+                  )}
+                </div>
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50">
@@ -730,6 +778,20 @@ export function TeamsPage() {
             </div>
           </div>
         </ModalShell>
+      )}
+
+      {importRosterOpen && editing && previousPhase && editingClub && (
+        <ImportPreviousPhaseRosterModal
+          onClose={() => setImportRosterOpen(false)}
+          club={editingClub}
+          previousPhase={previousPhase}
+          sourceTeams={previousPhaseTeams}
+          players={players}
+          defaultTeamNumber={editing.number}
+          currentPlayerIds={form.playerIds}
+          playerIdsInOtherTeams={playerIdsInOtherTeams}
+          onConfirm={handleImportFromPreviousPhase}
+        />
       )}
     </div>
   )

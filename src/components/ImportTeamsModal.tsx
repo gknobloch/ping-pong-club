@@ -263,64 +263,6 @@ export function ImportTeamsModal({ onClose, lockedClubId }: { onClose: () => voi
                 </p>
               )}
 
-              {importable.length > 0 && (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-medium text-slate-700">Valeurs par défaut</p>
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="min-w-[12rem] flex-1">
-                      <label htmlFor="import-teams-bulk-location" className="block text-xs font-medium text-slate-600">
-                        Lieu de jeu par défaut
-                      </label>
-                      <select
-                        id="import-teams-bulk-location"
-                        value={bulkLocation}
-                        onChange={(e) => setBulkLocation(e.target.value)}
-                        className={`${inputClass} mt-1`}
-                      >
-                        <option value="">Choisir un lieu…</option>
-                        {addresses.map((a) => (
-                          <option key={a.id} value={a.id}>{a.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="import-teams-bulk-day" className="block text-xs font-medium text-slate-600">
-                        Jour par défaut
-                      </label>
-                      <select
-                        id="import-teams-bulk-day"
-                        value={bulkDay}
-                        onChange={(e) => setBulkDay(e.target.value)}
-                        className={`${inputClass} mt-1`}
-                      >
-                        <option value="">—</option>
-                        {DAYS_OF_WEEK.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <p className="block text-xs font-medium text-slate-600">Heure par défaut</p>
-                      <div className="mt-1">
-                        <TimeSelect
-                          value={bulkTime}
-                          onChange={setBulkTime}
-                          hourLabel="Heure par défaut"
-                          minuteLabel="Minutes par défaut"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={applyToAll}
-                      className="rounded-lg border border-accent-600 px-3 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-                    >
-                      Appliquer à tous
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {preview.teams.length === 0 ? (
                 <p className="text-sm text-slate-600">Aucune équipe engagée trouvée pour ce club.</p>
               ) : (
@@ -344,6 +286,57 @@ export function ImportTeamsModal({ onClose, lockedClubId }: { onClose: () => voi
                         <th className="px-3 py-2 text-left font-medium text-slate-700">Jour</th>
                         <th className="px-3 py-2 text-left font-medium text-slate-700">Heure</th>
                       </tr>
+                      {/* Bulk defaults, laid out as a table row so its columns line up
+                          exactly with the per-team rows below (#229 follow-up). */}
+                      {importable.length > 0 && (
+                        <tr className="border-t border-slate-200 bg-slate-100/70">
+                          <td className="px-3 py-2 align-top"></td>
+                          <td className="px-3 py-2 align-top">
+                            <p className="text-xs font-medium text-slate-500">Valeurs par défaut</p>
+                            <button
+                              type="button"
+                              onClick={applyToAll}
+                              className="mt-1 rounded-lg border border-accent-600 px-2 py-1 text-xs font-medium text-accent-600 hover:bg-accent-50"
+                            >
+                              Appliquer à tous
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <select
+                              value={bulkLocation}
+                              onChange={(e) => setBulkLocation(e.target.value)}
+                              aria-label="Lieu de jeu par défaut"
+                              className={cellSelectClass}
+                            >
+                              <option value="">Choisir un lieu…</option>
+                              {addresses.map((a) => (
+                                <option key={a.id} value={a.id}>{a.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <select
+                              value={bulkDay}
+                              onChange={(e) => setBulkDay(e.target.value)}
+                              aria-label="Jour par défaut"
+                              className={cellSelectClass}
+                            >
+                              <option value="">—</option>
+                              {DAYS_OF_WEEK.map((d) => (
+                                <option key={d} value={d}>{d}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <TimeSelect
+                              value={bulkTime}
+                              onChange={setBulkTime}
+                              hourLabel="Heure par défaut"
+                              minuteLabel="Minutes par défaut"
+                            />
+                          </td>
+                        </tr>
+                      )}
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {preview.teams.map((t) => {

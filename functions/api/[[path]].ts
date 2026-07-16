@@ -217,16 +217,25 @@ async function alignActivePhaseToSeason(db: Env['Bindings']['DB'], seasonId: str
 
 // The FFTT GraphQL API and the dafunker proxy both occasionally hiccup on a
 // single request (observed in production: a teams import failing with a 502
-// right after an identical one had succeeded). One retry after a short delay
-// absorbs that without masking a genuinely-down upstream.
+// right after an identical one had succeeded, more than once even with a
+// single retry). A few attempts with growing backoff absorb that without
+// masking a genuinely-down upstream; a per-attempt timeout keeps one slow
+// request from eating the whole budget.
+const RETRY_DELAYS_MS = [300, 700, 1500]
+const FETCH_TIMEOUT_MS = 8000
+
 async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 400))
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt - 1]))
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-      const res = await fetch(url, init)
+      const res = await fetch(url, { ...init, signal: controller.signal })
       if (res.ok) return res
     } catch {
       // fall through to retry
+    } finally {
+      clearTimeout(timeout)
     }
   }
   return null
