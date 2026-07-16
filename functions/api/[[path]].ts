@@ -550,17 +550,40 @@ async function fetchFfttClubTeams(affiliation: string): Promise<FfttClubTeam[] |
 // transient failure fall back to recent data instead of a hard 502.
 interface CacheResult<T> { data: T; stale: boolean; fetchedAt: string | null }
 
+// The cache is an optimization, never a correctness requirement, so neither
+// half may fail a request on its own: a write error still returns the fresh
+// data we already hold, and a read error is treated as "no cache" (the caller
+// then reports fftt_unavailable, i.e. the pre-cache behaviour). This also
+// keeps the deploy order-independent — PR previews share the production D1
+// but never run migrations, so the tables can legitimately be missing.
+async function cacheWrite(stmt: () => D1PreparedStatement): Promise<void> {
+  try {
+    await stmt().run()
+  } catch {
+    // Cache unavailable (e.g. migration 0013 not applied yet) — ignore.
+  }
+}
+
+async function cacheRead(stmt: () => D1PreparedStatement): Promise<Record<string, unknown> | null> {
+  try {
+    return await stmt().first()
+  } catch {
+    return null
+  }
+}
+
 async function cachedCurrentSeason(db: Env['Bindings']['DB']): Promise<CacheResult<{ id: string; displayName: string }> | null> {
   const fresh = await fetchFfttCurrentSeason()
   if (fresh) {
     const now = new Date().toISOString()
-    await db.prepare(
+    await cacheWrite(() => db.prepare(
       `INSERT INTO fftt_season_cache (id, payload, fetched_at) VALUES ('current', ?, ?)
        ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
-    ).bind(JSON.stringify(fresh), now).run()
+    ).bind(JSON.stringify(fresh), now))
     return { data: fresh, stale: false, fetchedAt: now }
   }
-  const cached = await db.prepare(`SELECT payload, fetched_at FROM fftt_season_cache WHERE id = 'current'`).first()
+  const cached = await cacheRead(() =>
+    db.prepare(`SELECT payload, fetched_at FROM fftt_season_cache WHERE id = 'current'`))
   if (!cached) return null
   return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
 }
@@ -569,13 +592,14 @@ async function cachedClubTeams(db: Env['Bindings']['DB'], clubId: string, affili
   const fresh = await fetchFfttClubTeams(affiliation)
   if (fresh) {
     const now = new Date().toISOString()
-    await db.prepare(
+    await cacheWrite(() => db.prepare(
       `INSERT INTO fftt_club_teams_cache (club_id, payload, fetched_at) VALUES (?, ?, ?)
        ON CONFLICT(club_id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
-    ).bind(clubId, JSON.stringify(fresh), now).run()
+    ).bind(clubId, JSON.stringify(fresh), now))
     return { data: fresh, stale: false, fetchedAt: now }
   }
-  const cached = await db.prepare('SELECT payload, fetched_at FROM fftt_club_teams_cache WHERE club_id = ?').bind(clubId).first()
+  const cached = await cacheRead(() =>
+    db.prepare('SELECT payload, fetched_at FROM fftt_club_teams_cache WHERE club_id = ?').bind(clubId))
   if (!cached) return null
   return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
 }
