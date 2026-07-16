@@ -541,20 +541,68 @@ async function fetchFfttClubTeams(affiliation: string): Promise<FfttClubTeam[] |
   }
 }
 
+// --- Cache fallback (#229 follow-up) ---
+// The FFTT GraphQL API and, more often, the unofficial dafunker proxy
+// occasionally reject requests from Cloudflare's network specifically (a
+// plain curl from outside succeeds every time retries here still fail — this
+// looks like an upstream rate-limit/IP block rather than plain flakiness, so
+// more retries alone don't help). Caching the last successful result lets a
+// transient failure fall back to recent data instead of a hard 502.
+interface CacheResult<T> { data: T; stale: boolean; fetchedAt: string | null }
+
+async function cachedCurrentSeason(db: Env['Bindings']['DB']): Promise<CacheResult<{ id: string; displayName: string }> | null> {
+  const fresh = await fetchFfttCurrentSeason()
+  if (fresh) {
+    const now = new Date().toISOString()
+    await db.prepare(
+      `INSERT INTO fftt_season_cache (id, payload, fetched_at) VALUES ('current', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
+    ).bind(JSON.stringify(fresh), now).run()
+    return { data: fresh, stale: false, fetchedAt: now }
+  }
+  const cached = await db.prepare(`SELECT payload, fetched_at FROM fftt_season_cache WHERE id = 'current'`).first()
+  if (!cached) return null
+  return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
+}
+
+async function cachedClubTeams(db: Env['Bindings']['DB'], clubId: string, affiliation: string): Promise<CacheResult<FfttClubTeam[]> | null> {
+  const fresh = await fetchFfttClubTeams(affiliation)
+  if (fresh) {
+    const now = new Date().toISOString()
+    await db.prepare(
+      `INSERT INTO fftt_club_teams_cache (club_id, payload, fetched_at) VALUES (?, ?, ?)
+       ON CONFLICT(club_id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
+    ).bind(clubId, JSON.stringify(fresh), now).run()
+    return { data: fresh, stale: false, fetchedAt: now }
+  }
+  const cached = await db.prepare('SELECT payload, fetched_at FROM fftt_club_teams_cache WHERE club_id = ?').bind(clubId).first()
+  if (!cached) return null
+  return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
+}
+
 // Shared context for the teams preview and import: the club, the FFTT current
-// season, and the club's parsed FFTT teams.
+// season, and the club's parsed FFTT teams — live when reachable, otherwise
+// the last cached successful result.
 async function teamsImportContext(db: Env['Bindings']['DB'], clubId: string) {
   const club = await db.prepare('SELECT id, affiliation_number, display_name FROM clubs WHERE id = ?')
     .bind(clubId).first()
   if (!club) return { error: 'club_not_found' as const }
-  const season = await fetchFfttCurrentSeason()
-  if (!season) return { error: 'fftt_unavailable' as const }
-  const teams = await fetchFfttClubTeams(club.affiliation_number as string)
-  if (teams === null) return { error: 'fftt_unavailable' as const }
-  const seasonRow = await db.prepare('SELECT id FROM seasons WHERE id = ?').bind(season.id).first()
+  const seasonResult = await cachedCurrentSeason(db)
+  if (!seasonResult) return { error: 'fftt_unavailable' as const }
+  const teamsResult = await cachedClubTeams(db, clubId, club.affiliation_number as string)
+  if (!teamsResult) return { error: 'fftt_unavailable' as const }
+  const teams = teamsResult.data
+  const seasonRow = await db.prepare('SELECT id FROM seasons WHERE id = ?').bind(seasonResult.data.id).first()
   // Stable order: phase first, then team number.
   teams.sort((a, b) => (a.phase ?? 9) - (b.phase ?? 9) || a.number - b.number)
-  return { club, season: { ...season, exists: !!seasonRow }, teams }
+  return {
+    club, teams,
+    season: { ...seasonResult.data, exists: !!seasonRow },
+    stale: seasonResult.stale || teamsResult.stale,
+    // Teams data is what the preview mostly shows — prioritize its "as of"
+    // time; only the season's when that's the (rarer) stale one.
+    fetchedAt: teamsResult.stale ? teamsResult.fetchedAt : (seasonResult.stale ? seasonResult.fetchedAt : null),
+  }
 }
 
 // Existing teams of a club, for skip-matching by FFTT id or (phase, number).
@@ -581,6 +629,8 @@ app.get('/fftt/teams-preview', async (c) => {
   return c.json({
     club: { id: ctx.club.id, displayName: ctx.club.display_name },
     season: ctx.season,
+    stale: ctx.stale,
+    fetchedAt: ctx.fetchedAt,
     teams: ctx.teams.map((t) => {
       const division = divisionById.get(t.divisionId)
       const exists = existing.ids.has(t.id) ||
@@ -735,6 +785,8 @@ app.post('/teams/import', async (c) => {
     groups: [...touchedGroups.values()],
     createdTeams,
     skipped,
+    stale: ctx.stale,
+    fetchedAt: ctx.fetchedAt,
   })
 })
 

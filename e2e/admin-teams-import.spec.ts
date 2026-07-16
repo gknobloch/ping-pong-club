@@ -11,6 +11,8 @@ const IMPORT = '**/api/teams/import'
 const preview = {
   club: { id: 'club-1', displayName: 'PPA Rixheim' },
   season: { id: '26', displayName: '2025/2026', exists: true },
+  stale: false,
+  fetchedAt: null,
   teams: [
     {
       id: '9101', name: 'PPA Rixheim 1', number: 1, phase: 1,
@@ -50,6 +52,8 @@ const importResult = {
     },
   ],
   skipped: [{ id: '9101', label: 'RIXHEIM PPA 1 - Phase 1', reason: 'already_exists' }],
+  stale: false,
+  fetchedAt: null,
 }
 
 test.describe('General admin — Teams FFTT import', () => {
@@ -162,6 +166,24 @@ test.describe('General admin — Teams FFTT import', () => {
     await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
     await expect(page.getByText(/Impossible de contacter l’API FFTT/)).toBeVisible()
+  })
+
+  test('flags stale (cached) data instead of failing outright (#229 follow-up)', async ({ page }) => {
+    await page.route(PREVIEW, (route) =>
+      route.fulfill({ json: { ...preview, stale: true, fetchedAt: '2026-07-16T14:32:00.000Z' } }),
+    )
+    await page.route(IMPORT, (route) =>
+      route.fulfill({ json: { ...importResult, stale: true, fetchedAt: '2026-07-16T14:32:00.000Z' } }),
+    )
+
+    await page.goto('/equipes')
+    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
+    await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
+    await expect(page.getByText(/FFTT injoignable : données de la dernière synchronisation/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Importer 2 équipes' }).click()
+    await expect(page.getByText(/FFTT était injoignable : import basé sur la dernière synchronisation/)).toBeVisible()
   })
 
   test('blocks the import when the FFTT season is missing locally', async ({ page }) => {

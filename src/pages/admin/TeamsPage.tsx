@@ -82,7 +82,11 @@ export function TeamsPage() {
     /** Initial points per player for this phase (when in this team). */
     initialPoints: {} as Record<string, string>,
     whatsappLink: '',
+    /** Card/header color; falls back to the default red when unset. */
+    color: '',
   })
+
+  const DEFAULT_TEAM_COLOR = '#e23b3b'
 
   const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
   const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9..21
@@ -154,7 +158,7 @@ export function TeamsPage() {
     )
   }, [allTeams, previousPhase, editing])
 
-  const handleImportFromPreviousPhase = (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string }) => {
+  const handleImportFromPreviousPhase = (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string; color?: string }) => {
     setForm((f) => {
       const newPlayerIds = [...f.playerIds]
       const newInitialPoints = { ...f.initialPoints }
@@ -170,6 +174,7 @@ export function TeamsPage() {
         initialPoints: newInitialPoints,
         captainId: patch.captainId ?? f.captainId,
         whatsappLink: patch.whatsappLink ?? f.whatsappLink,
+        color: patch.color ?? f.color,
       }
     })
     setImportRosterOpen(false)
@@ -196,6 +201,7 @@ export function TeamsPage() {
       playerIds: rosterIds,
       initialPoints,
       whatsappLink: team.whatsappLink ?? '',
+      color: team.color ?? '',
     })
   }
 
@@ -220,6 +226,7 @@ export function TeamsPage() {
       playerIds: [],
       initialPoints: {},
       whatsappLink: '',
+      color: '',
     })
   }
 
@@ -260,6 +267,7 @@ export function TeamsPage() {
         captainId: captainForSave,
         rosterInitialPoints: buildRosterInitialPoints(),
         whatsappLink: form.whatsappLink || undefined,
+        color: form.color || undefined,
       })
       closeModal()
       return
@@ -288,6 +296,7 @@ export function TeamsPage() {
       playerIds: form.playerIds,
       rosterInitialPoints: buildRosterInitialPoints(),
       whatsappLink: form.whatsappLink || undefined,
+      color: form.color || undefined,
       isArchived: false,
     })
     const group = groups.find((g) => g.id === form.groupId)
@@ -391,7 +400,7 @@ export function TeamsPage() {
                   <Link to={`/equipes/${team.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
                     <span
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
-                      style={{ backgroundColor: team.color ?? '#e23b3b' }}
+                      style={{ backgroundColor: team.color ?? DEFAULT_TEAM_COLOR }}
                     >
                       {team.number}
                     </span>
@@ -479,8 +488,8 @@ export function TeamsPage() {
               {creating ? 'Ajouter une équipe' : 'Modifier l\'équipe'}
             </h2>
             <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-              {/* Row 1: Club + N° */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Row 1: Club + N° + Couleur */}
+              <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-2">
                   <label htmlFor="team-clubId" className="block text-sm font-medium text-slate-700">Club</label>
                   <select
@@ -507,6 +516,27 @@ export function TeamsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, number: Number(e.target.value) || 1 }))}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   />
+                </div>
+                <div>
+                  <label htmlFor="team-color" className="block text-sm font-medium text-slate-700">Couleur</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      id="team-color"
+                      type="color"
+                      value={form.color || DEFAULT_TEAM_COLOR}
+                      onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                      className="h-9 w-12 shrink-0 cursor-pointer rounded border border-slate-300 p-1"
+                    />
+                    {form.color && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, color: '' }))}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Réinitialiser
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

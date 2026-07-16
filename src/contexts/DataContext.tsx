@@ -126,6 +126,10 @@ export interface FfttTeamPreview {
 export interface FfttTeamsPreview {
   club: { id: string; displayName: string }
   season: FfttCurrentSeason
+  /** True when FFTT/dafunker were unreachable and this is the last cached result (#229 follow-up). */
+  stale: boolean
+  /** ISO timestamp of the cached data when `stale`; null otherwise. */
+  fetchedAt: string | null
   teams: FfttTeamPreview[]
 }
 
@@ -137,6 +141,9 @@ export interface FfttTeamsImportResult {
   groups: Group[]
   createdTeams: Team[]
   skipped: Array<{ id: string; label: string; reason: 'already_exists' | 'division_missing' | 'invalid_location' }>
+  /** Whether the import used cached FFTT data because live lookups failed. */
+  stale: boolean
+  fetchedAt: string | null
 }
 
 /** Per-team venue / day / time chosen in the import dialog (#229 follow-up). */

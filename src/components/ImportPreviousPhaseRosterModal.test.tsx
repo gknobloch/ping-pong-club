@@ -44,7 +44,8 @@ const teamA: Team = {
   id: 'team-a', clubId: 'club-1', phaseId: previousPhase.id, number: 6,
   divisionId: 'div-1', groupId: 'group-1', gameLocationId: 'addr-1',
   defaultDay: 'Jeudi', defaultTime: '20h00', captainId: 'p1',
-  playerIds: ['p1', 'p2', 'p3'], isArchived: false, whatsappLink: 'https://chat.whatsapp.com/team6',
+  playerIds: ['p1', 'p2', 'p3'], isArchived: false,
+  whatsappLink: 'https://chat.whatsapp.com/team6', color: '#2563eb',
 }
 const teamB: Team = {
   id: 'team-b', clubId: 'club-1', phaseId: previousPhase.id, number: 8,
@@ -115,15 +116,27 @@ describe('ImportPreviousPhaseRosterModal', () => {
     expect(checkbox).not.toBeChecked()
   })
 
-  it('confirms with the selected players, captain, and WhatsApp link by default', async () => {
+  it('confirms with the selected players, captain, WhatsApp link, and color by default', async () => {
     const { onConfirm } = setup({ defaultTeamNumber: 6 })
     await userEvent.click(screen.getByRole('button', { name: 'Importer' }))
     expect(onConfirm).toHaveBeenCalledWith({
       captainId: 'p1',
       addPlayerIds: expect.arrayContaining(['p1', 'p2', 'p3']),
       whatsappLink: 'https://chat.whatsapp.com/team6',
+      color: '#2563eb',
     })
     expect(onConfirm.mock.calls[0][0].addPlayerIds).toHaveLength(3)
+  })
+
+  it('omits the color when unchecked, and offers no color checkbox for a team without one', async () => {
+    const { onConfirm } = setup({ defaultTeamNumber: 6 })
+    await userEvent.click(screen.getByText('Couleur').closest('label')!.querySelector('input')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Importer' }))
+    expect(onConfirm.mock.calls[0][0].color).toBeUndefined()
+
+    // team-b has no color set — no checkbox offered at all.
+    await userEvent.selectOptions(screen.getByLabelText('Équipe source'), 'team-b')
+    expect(screen.queryByText('Couleur')).not.toBeInTheDocument()
   })
 
   it('drops the captain from the patch once their player checkbox is unchecked', async () => {

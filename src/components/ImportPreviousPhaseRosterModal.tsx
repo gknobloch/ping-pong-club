@@ -16,7 +16,7 @@ interface ImportPreviousPhaseRosterModalProps {
   currentPlayerIds: string[]
   /** Player ids already on another team in the *current* phase — can't be added. */
   playerIdsInOtherTeams: Set<string>
-  onConfirm: (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string }) => void
+  onConfirm: (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string; color?: string }) => void
 }
 
 /**
@@ -49,12 +49,14 @@ export function ImportPreviousPhaseRosterModal({
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() => new Set(importableFrom(sourceTeam)))
   const [importCaptain, setImportCaptain] = useState(true)
   const [importWhatsapp, setImportWhatsapp] = useState(true)
+  const [importColor, setImportColor] = useState(true)
 
   const selectSourceTeam = (id: string) => {
     setSourceTeamId(id)
     setSelectedPlayerIds(new Set(importableFrom(sourceTeams.find((t) => t.id === id))))
     setImportCaptain(true)
     setImportWhatsapp(true)
+    setImportColor(true)
   }
 
   const sourceRoster = sourceTeam
@@ -74,6 +76,7 @@ export function ImportPreviousPhaseRosterModal({
       captainId: importCaptain && captainEligible ? sourceTeam!.captainId : undefined,
       addPlayerIds: [...selectedPlayerIds],
       whatsappLink: importWhatsapp && sourceTeam?.whatsappLink ? sourceTeam.whatsappLink : undefined,
+      color: importColor && sourceTeam?.color ? sourceTeam.color : undefined,
     })
   }
 
@@ -171,6 +174,23 @@ export function ImportPreviousPhaseRosterModal({
                   className="rounded border-slate-300"
                 />
                 <span className="text-sm text-slate-700">Groupe WhatsApp</span>
+              </label>
+            )}
+
+            {sourceTeam.color && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={importColor}
+                  onChange={(e) => setImportColor(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span className="text-sm text-slate-700">Couleur</span>
+                <span
+                  className="h-4 w-4 shrink-0 rounded-full border border-slate-300"
+                  style={{ backgroundColor: sourceTeam.color }}
+                  aria-hidden="true"
+                />
               </label>
             )}
           </div>
