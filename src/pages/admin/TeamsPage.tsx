@@ -7,6 +7,8 @@ import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 import { ClubLogo } from '@/components/ClubLogo'
 import { ModalShell } from '@/components/ModalShell'
+import { ImportTeamsModal } from '@/components/ImportTeamsModal'
+import { ImportPreviousPhaseRosterModal } from '@/components/ImportPreviousPhaseRosterModal'
 
 export function TeamsPage() {
   const { user } = useAuth()
@@ -30,6 +32,8 @@ export function TeamsPage() {
   const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
 
   const [showArchived, setShowArchived] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importRosterOpen, setImportRosterOpen] = useState(false)
 
   const allVisibleTeams = useMemo(() => {
     let t = allTeams
@@ -78,7 +82,11 @@ export function TeamsPage() {
     /** Initial points per player for this phase (when in this team). */
     initialPoints: {} as Record<string, string>,
     whatsappLink: '',
+    /** Card/header color; falls back to the default red when unset. */
+    color: '',
   })
+
+  const DEFAULT_TEAM_COLOR = '#e23b3b'
 
   const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
   const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9..21
@@ -137,6 +145,41 @@ export function TeamsPage() {
     playersInClub.filter((p) => !form.playerIds.includes(p.id) && !playerIdsInOtherTeams.has(p.id)),
   )
 
+  // "Importer depuis la phase précédente" (#229 follow-up): only offered when
+  // editing an existing team and the chronologically-previous phase has at
+  // least one non-archived team for the same club.
+  const editingPhaseIndex = editing ? orderedPhases.findIndex((p) => p.id === editing.phaseId) : -1
+  const previousPhase = editingPhaseIndex > 0 ? orderedPhases[editingPhaseIndex - 1] : undefined
+  const editingClub = editing ? clubs.find((c) => c.id === editing.clubId) : undefined
+  const previousPhaseTeams = useMemo(() => {
+    if (!previousPhase || !editing) return []
+    return allTeams.filter(
+      (t) => t.phaseId === previousPhase.id && t.clubId === editing.clubId && !t.isArchived,
+    )
+  }, [allTeams, previousPhase, editing])
+
+  const handleImportFromPreviousPhase = (patch: { captainId?: string; addPlayerIds: string[]; whatsappLink?: string; color?: string }) => {
+    setForm((f) => {
+      const newPlayerIds = [...f.playerIds]
+      const newInitialPoints = { ...f.initialPoints }
+      for (const pid of patch.addPlayerIds) {
+        if (!newPlayerIds.includes(pid)) {
+          newPlayerIds.push(pid)
+          newInitialPoints[pid] = newInitialPoints[pid] ?? ''
+        }
+      }
+      return {
+        ...f,
+        playerIds: newPlayerIds,
+        initialPoints: newInitialPoints,
+        captainId: patch.captainId ?? f.captainId,
+        whatsappLink: patch.whatsappLink ?? f.whatsappLink,
+        color: patch.color ?? f.color,
+      }
+    })
+    setImportRosterOpen(false)
+  }
+
   const openEdit = (team: Team) => {
     setEditing(team)
     setCreating(false)
@@ -158,6 +201,7 @@ export function TeamsPage() {
       playerIds: rosterIds,
       initialPoints,
       whatsappLink: team.whatsappLink ?? '',
+      color: team.color ?? '',
     })
   }
 
@@ -182,12 +226,14 @@ export function TeamsPage() {
       playerIds: [],
       initialPoints: {},
       whatsappLink: '',
+      color: '',
     })
   }
 
   const closeModal = () => {
     setEditing(null)
     setCreating(false)
+    setImportRosterOpen(false)
   }
 
   const rosterPlayers = sortByName(
@@ -221,6 +267,7 @@ export function TeamsPage() {
         captainId: captainForSave,
         rosterInitialPoints: buildRosterInitialPoints(),
         whatsappLink: form.whatsappLink || undefined,
+        color: form.color || undefined,
       })
       closeModal()
       return
@@ -249,6 +296,7 @@ export function TeamsPage() {
       playerIds: form.playerIds,
       rosterInitialPoints: buildRosterInitialPoints(),
       whatsappLink: form.whatsappLink || undefined,
+      color: form.color || undefined,
       isArchived: false,
     })
     const group = groups.find((g) => g.id === form.groupId)
@@ -279,15 +327,31 @@ export function TeamsPage() {
           {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
         </div>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Ajouter une équipe
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {/* Manual add is the fallback; FFTT import is the default path (#229). */}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+            >
+              Ajouter une équipe
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            >
+              Importer depuis la FFTT
+            </button>
+          </div>
         )}
       </div>
+      {importOpen && (
+        <ImportTeamsModal
+          onClose={() => setImportOpen(false)}
+          lockedClubId={isClubAdmin ? user?.clubId : undefined}
+        />
+      )}
       {archivedTeams.length > 0 && (
         <label className="flex items-center gap-2">
           <input
@@ -336,7 +400,7 @@ export function TeamsPage() {
                   <Link to={`/equipes/${team.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
                     <span
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
-                      style={{ backgroundColor: team.color ?? '#e23b3b' }}
+                      style={{ backgroundColor: team.color ?? DEFAULT_TEAM_COLOR }}
                     >
                       {team.number}
                     </span>
@@ -424,8 +488,8 @@ export function TeamsPage() {
               {creating ? 'Ajouter une équipe' : 'Modifier l\'équipe'}
             </h2>
             <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-              {/* Row 1: Club + N° */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Row 1: Club + N° + Couleur */}
+              <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-2">
                   <label htmlFor="team-clubId" className="block text-sm font-medium text-slate-700">Club</label>
                   <select
@@ -452,6 +516,27 @@ export function TeamsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, number: Number(e.target.value) || 1 }))}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   />
+                </div>
+                <div>
+                  <label htmlFor="team-color" className="block text-sm font-medium text-slate-700">Couleur</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      id="team-color"
+                      type="color"
+                      value={form.color || DEFAULT_TEAM_COLOR}
+                      onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                      className="h-9 w-12 shrink-0 cursor-pointer rounded border border-slate-300 p-1"
+                    />
+                    {form.color && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, color: '' }))}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Réinitialiser
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -559,9 +644,20 @@ export function TeamsPage() {
 
               {/* Player table */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Joueurs de l&apos;équipe
-                </label>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Joueurs de l&apos;équipe
+                  </label>
+                  {editing && previousPhase && previousPhaseTeams.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setImportRosterOpen(true)}
+                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                    >
+                      Importer depuis la phase précédente
+                    </button>
+                  )}
+                </div>
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50">
@@ -712,6 +808,20 @@ export function TeamsPage() {
             </div>
           </div>
         </ModalShell>
+      )}
+
+      {importRosterOpen && editing && previousPhase && editingClub && (
+        <ImportPreviousPhaseRosterModal
+          onClose={() => setImportRosterOpen(false)}
+          club={editingClub}
+          previousPhase={previousPhase}
+          sourceTeams={previousPhaseTeams}
+          players={players}
+          defaultTeamNumber={editing.number}
+          currentPlayerIds={form.playerIds}
+          playerIdsInOtherTeams={playerIdsInOtherTeams}
+          onConfirm={handleImportFromPreviousPhase}
+        />
       )}
     </div>
   )

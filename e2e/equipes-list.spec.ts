@@ -22,6 +22,20 @@ test.describe('General admin — Équipes list', () => {
     await page.getByRole('button', { name: 'Annuler' }).click()
     await expect(page.getByRole('heading', { name: "Modifier l'équipe" })).not.toBeVisible()
   })
+
+  test('editing the team color updates the card swatch (#229 follow-up)', async ({ page }) => {
+    const card = page.locator('div').filter({ hasText: 'PPA Rixheim 1' }).filter({ hasText: 'Quentin Colle' }).last()
+    const swatch = card.locator('span').filter({ hasText: '1' }).first()
+    await expect(swatch).toHaveCSS('background-color', 'rgb(55, 65, 81)') // team-1's mock color, #374151
+
+    await card.getByRole('button', { name: 'Modifier' }).click()
+    await expect(page.getByLabel('Couleur')).toHaveValue('#374151')
+    await page.getByLabel('Couleur').fill('#00aa55')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByRole('heading', { name: "Modifier l'équipe" })).not.toBeVisible()
+
+    await expect(swatch).toHaveCSS('background-color', 'rgb(0, 170, 85)')
+  })
 })
 
 test.describe('Player — Équipes list', () => {
