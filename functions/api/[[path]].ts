@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
 import { authApp, bearer, userFromToken, type Env } from './auth'
 import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../src/lib/season'
-import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
+import { ffttIdFromIri, orderDivisions, playersPerGameFor, PLAYERS_PER_GAME_DEFAULT, type FfttDivision } from '../../src/lib/ffttDivisions'
 import { FFTT_PHASES, localPhaseId, phaseOrderKey } from '../../src/lib/ffttPhases'
-import { parseClubTeams, type FfttClubTeam, type FfttClubTeamEntry } from '../../src/lib/ffttTeams'
+import { type FfttClubTeam } from '../../src/lib/ffttTeams'
 import { parseSportMatches, poolNumberFromName, selectPoolForGroup, type FfttMatch, type FfttMatchTeam, type FfttPool, type FfttSportMatchNode } from '../../src/lib/ffttGames'
 
 const app = new Hono<Env>().basePath('/api')
@@ -524,110 +524,67 @@ app.post('/divisions/import', async (c) => {
   return c.json(result)
 })
 
-// --- FFTT teams import (#229) ---
+// --- FFTT teams import (#229, transport reworked in #231 follow-up) ---
+// FFTT blocks Cloudflare's egress IPs: server-side fetches fail
+// systematically (the fallback cache never saw a single successful fetch)
+// while the same requests succeed from any browser — and apiv2 sends
+// `access-control-allow-origin: *`. The client therefore queries apiv2
+// GraphQL directly and sends the parsed payload here. This API stays
+// authoritative over validation and persistence; an admin-supplied payload
+// grants no privilege beyond the existing manual CRUD endpoints.
 
-// The dafunker proxy exposes a club's engaged teams (current FFTT season, all
-// phases mixed) — apiv2.fftt.com has no equivalent per-club query.
-const FFTT_CLUB_TEAMS_URL = (affiliation: string) =>
-  `https://fftt.dafunker.com/v1/club/${encodeURIComponent(affiliation)}/equipes`
+const NUMERIC_ID = /^\d{1,10}$/
 
-async function fetchFfttClubTeams(affiliation: string): Promise<FfttClubTeam[] | null> {
-  const res = await fetchWithRetry(FFTT_CLUB_TEAMS_URL(affiliation))
-  if (!res) return null
-  try {
-    const body = await res.json()
-    return parseClubTeams(Array.isArray(body) ? (body as FfttClubTeamEntry[]) : [])
-  } catch {
-    return null
+// Strict shape validation of the client-fetched FFTT teams payload.
+function parseTeamsPayload(raw: unknown): FfttClubTeam[] {
+  if (!Array.isArray(raw)) return []
+  const out: FfttClubTeam[] = []
+  const seen = new Set<string>()
+  for (const t of raw.slice(0, 60)) {
+    if (!t || typeof t !== 'object') continue
+    const x = t as Record<string, unknown>
+    if (typeof x.id !== 'string' || !NUMERIC_ID.test(x.id) || seen.has(x.id)) continue
+    if (typeof x.divisionId !== 'string' || !NUMERIC_ID.test(x.divisionId)) continue
+    if (typeof x.poolId !== 'string' || !NUMERIC_ID.test(x.poolId)) continue
+    if (typeof x.number !== 'number' || !Number.isInteger(x.number) || x.number < 1 || x.number > 99) continue
+    if (x.phase !== null && !(typeof x.phase === 'number' && Number.isInteger(x.phase) && x.phase >= 1 && x.phase <= 3)) continue
+    const poolNumber = typeof x.poolNumber === 'number' && Number.isInteger(x.poolNumber) && x.poolNumber >= 1 && x.poolNumber <= 99
+      ? x.poolNumber : null
+    seen.add(x.id)
+    out.push({
+      id: x.id,
+      number: x.number,
+      phase: x.phase as number | null,
+      divisionId: x.divisionId,
+      divisionName: (typeof x.divisionName === 'string' && x.divisionName.trim())
+        ? x.divisionName.trim().slice(0, 80) : `Division ${x.divisionId}`,
+      poolId: x.poolId,
+      poolNumber,
+      label: typeof x.label === 'string' ? x.label.trim().slice(0, 80) : '',
+    })
   }
+  return out.sort((a, b) => (a.phase ?? 9) - (b.phase ?? 9) || a.number - b.number)
 }
 
-// --- Cache fallback (#229 follow-up) ---
-// The FFTT GraphQL API and, more often, the unofficial dafunker proxy
-// occasionally reject requests from Cloudflare's network specifically (a
-// plain curl from outside succeeds every time retries here still fail — this
-// looks like an upstream rate-limit/IP block rather than plain flakiness, so
-// more retries alone don't help). Caching the last successful result lets a
-// transient failure fall back to recent data instead of a hard 502.
-interface CacheResult<T> { data: T; stale: boolean; fetchedAt: string | null }
-
-// The cache is an optimization, never a correctness requirement, so neither
-// half may fail a request on its own: a write error still returns the fresh
-// data we already hold, and a read error is treated as "no cache" (the caller
-// then reports fftt_unavailable, i.e. the pre-cache behaviour). This also
-// keeps the deploy order-independent — PR previews share the production D1
-// but never run migrations, so the tables can legitimately be missing.
-async function cacheWrite(stmt: () => D1PreparedStatement): Promise<void> {
-  try {
-    await stmt().run()
-  } catch {
-    // Cache unavailable (e.g. migration 0013 not applied yet) — ignore.
-  }
+function parseSeasonPayload(raw: unknown): { id: string; displayName: string } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const s = raw as Record<string, unknown>
+  if (typeof s.id !== 'string' || !/^\d{1,3}$/.test(s.id)) return null
+  if (typeof s.displayName !== 'string' || !s.displayName || s.displayName.length > 20) return null
+  return { id: s.id, displayName: s.displayName }
 }
 
-async function cacheRead(stmt: () => D1PreparedStatement): Promise<Record<string, unknown> | null> {
-  try {
-    return await stmt().first()
-  } catch {
-    return null
-  }
-}
-
-async function cachedCurrentSeason(db: Env['Bindings']['DB']): Promise<CacheResult<{ id: string; displayName: string }> | null> {
-  const fresh = await fetchFfttCurrentSeason()
-  if (fresh) {
-    const now = new Date().toISOString()
-    await cacheWrite(() => db.prepare(
-      `INSERT INTO fftt_season_cache (id, payload, fetched_at) VALUES ('current', ?, ?)
-       ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
-    ).bind(JSON.stringify(fresh), now))
-    return { data: fresh, stale: false, fetchedAt: now }
-  }
-  const cached = await cacheRead(() =>
-    db.prepare(`SELECT payload, fetched_at FROM fftt_season_cache WHERE id = 'current'`))
-  if (!cached) return null
-  return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
-}
-
-async function cachedClubTeams(db: Env['Bindings']['DB'], clubId: string, affiliation: string): Promise<CacheResult<FfttClubTeam[]> | null> {
-  const fresh = await fetchFfttClubTeams(affiliation)
-  if (fresh) {
-    const now = new Date().toISOString()
-    await cacheWrite(() => db.prepare(
-      `INSERT INTO fftt_club_teams_cache (club_id, payload, fetched_at) VALUES (?, ?, ?)
-       ON CONFLICT(club_id) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
-    ).bind(clubId, JSON.stringify(fresh), now))
-    return { data: fresh, stale: false, fetchedAt: now }
-  }
-  const cached = await cacheRead(() =>
-    db.prepare('SELECT payload, fetched_at FROM fftt_club_teams_cache WHERE club_id = ?').bind(clubId))
-  if (!cached) return null
-  return { data: JSON.parse(cached.payload as string), stale: true, fetchedAt: cached.fetched_at as string }
-}
-
-// Shared context for the teams preview and import: the club, the FFTT current
-// season, and the club's parsed FFTT teams — live when reachable, otherwise
-// the last cached successful result.
-async function teamsImportContext(db: Env['Bindings']['DB'], clubId: string) {
+// Shared context for the teams preview and import: the club plus the
+// validated client-fetched FFTT payload (current season + engaged teams).
+async function teamsImportContext(db: Env['Bindings']['DB'], clubId: string, seasonRaw: unknown, teamsRaw: unknown) {
   const club = await db.prepare('SELECT id, affiliation_number, display_name FROM clubs WHERE id = ?')
     .bind(clubId).first()
   if (!club) return { error: 'club_not_found' as const }
-  const seasonResult = await cachedCurrentSeason(db)
-  if (!seasonResult) return { error: 'fftt_unavailable' as const }
-  const teamsResult = await cachedClubTeams(db, clubId, club.affiliation_number as string)
-  if (!teamsResult) return { error: 'fftt_unavailable' as const }
-  const teams = teamsResult.data
-  const seasonRow = await db.prepare('SELECT id FROM seasons WHERE id = ?').bind(seasonResult.data.id).first()
-  // Stable order: phase first, then team number.
-  teams.sort((a, b) => (a.phase ?? 9) - (b.phase ?? 9) || a.number - b.number)
-  return {
-    club, teams,
-    season: { ...seasonResult.data, exists: !!seasonRow },
-    stale: seasonResult.stale || teamsResult.stale,
-    // Teams data is what the preview mostly shows — prioritize its "as of"
-    // time; only the season's when that's the (rarer) stale one.
-    fetchedAt: teamsResult.stale ? teamsResult.fetchedAt : (seasonResult.stale ? seasonResult.fetchedAt : null),
-  }
+  const season = parseSeasonPayload(seasonRaw)
+  if (!season) return { error: 'invalid_payload' as const }
+  const teams = parseTeamsPayload(teamsRaw)
+  const seasonRow = await db.prepare('SELECT id, display_name FROM seasons WHERE id = ?').bind(season.id).first()
+  return { club, teams, season: { ...season, exists: !!seasonRow }, seasonRow }
 }
 
 // Existing teams of a club, for skip-matching by FFTT id or (phase, number).
@@ -639,13 +596,18 @@ async function clubTeamKeys(db: Env['Bindings']['DB'], clubId: string) {
   }
 }
 
-// GET /fftt/teams-preview — the club's FFTT teams flagged with what an import
-// would do (already present, division to auto-import, …).
-app.get('/fftt/teams-preview', async (c) => {
-  const clubId = c.req.query('clubId')
+// POST /fftt/teams-preview — the client-fetched FFTT teams flagged with what
+// an import would do (already present, division to auto-create, …). POST
+// because the browser sends the FFTT payload it fetched (see the transport
+// note above); the flags are computed here, against D1.
+app.post('/fftt/teams-preview', async (c) => {
+  const b = await c.req.json()
+  const clubId = typeof b.clubId === 'string' ? b.clubId : ''
   if (!clubId) return c.json({ error: 'invalid_params' }, 400)
-  const ctx = await teamsImportContext(c.env.DB, clubId)
-  if ('error' in ctx) return c.json({ error: ctx.error }, ctx.error === 'club_not_found' ? 404 : 502)
+  const ctx = await teamsImportContext(c.env.DB, clubId, b.season, b.ffttTeams)
+  if ('error' in ctx) {
+    return c.json({ error: ctx.error }, ctx.error === 'club_not_found' ? 404 : 400)
+  }
 
   const divisionRows = await c.env.DB.prepare('SELECT id, display_name, phase_id FROM divisions').all()
   const divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
@@ -654,8 +616,6 @@ app.get('/fftt/teams-preview', async (c) => {
   return c.json({
     club: { id: ctx.club.id, displayName: ctx.club.display_name },
     season: ctx.season,
-    stale: ctx.stale,
-    fetchedAt: ctx.fetchedAt,
     teams: ctx.teams.map((t) => {
       const division = divisionById.get(t.divisionId)
       const exists = existing.ids.has(t.id) ||
@@ -680,11 +640,11 @@ app.get('/fftt/teams-preview', async (c) => {
 
 type TeamImportOverride = { id: string; gameLocationId: string; defaultDay: string; defaultTime: string }
 
-// POST /teams/import — re-fetches from FFTT (never trusts a client list),
-// auto-imports missing divisions (and their phase) via the divisions import,
-// creates/reuses the FFTT pools as groups, and inserts only the requested
-// teams with their own venue / day / time. Rosters stay empty: completing
-// each team remains a manual step.
+// POST /teams/import — validates the client-fetched FFTT payload (see the
+// transport note above), auto-creates missing divisions (and their phase)
+// from that payload, creates/reuses the FFTT pools as groups, and inserts
+// only the requested teams with their own venue / day / time. Rosters stay
+// empty: completing each team remains a manual step.
 app.post('/teams/import', async (c) => {
   const b = await c.req.json()
   const clubId = typeof b.clubId === 'string' ? b.clubId : ''
@@ -702,35 +662,53 @@ app.post('/teams/import', async (c) => {
   const addressRows = await db.prepare('SELECT id FROM club_addresses WHERE club_id = ?').bind(clubId).all()
   const validLocationIds = new Set(addressRows.results.map((a) => a.id as string))
 
-  const ctx = await teamsImportContext(db, clubId)
-  if ('error' in ctx) return c.json({ error: ctx.error }, ctx.error === 'club_not_found' ? 404 : 502)
-  if (!ctx.season.exists) return c.json({ error: 'season_not_found' }, 404)
+  const ctx = await teamsImportContext(db, clubId, b.season, b.ffttTeams)
+  if ('error' in ctx) {
+    return c.json({ error: ctx.error }, ctx.error === 'club_not_found' ? 404 : 400)
+  }
+  if (!ctx.season.exists || !ctx.seasonRow) return c.json({ error: 'season_not_found' }, 404)
 
   const requestedById = new Map(requested.map((r) => [r.id, r]))
   const teamsToImport = ctx.teams.filter((t) => requestedById.has(t.id))
 
-  // Auto-import the divisions of every (organization, phase) pair we can't
-  // resolve locally — one championship import per pair (#219 logic).
+  // Create missing divisions (and their phase) straight from the payload —
+  // the #219 championship import can't run server-side anymore (FFTT blocks
+  // Cloudflare egress) and remains the precise path for full division lists.
   const createdPhases: ImportedPhase[] = []
   const createdDivisions: ImportedDivision[] = []
-  let divisionRows = await db.prepare('SELECT id, phase_id FROM divisions').all()
-  let divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
-  const pairs = new Map<string, { org: number; ph: number }>()
+  const divisionRows = await db.prepare('SELECT id, phase_id FROM divisions').all()
+  const divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
+  const phaseRowsAll = await db.prepare('SELECT id, season_id, name, display_name, status FROM phases').all()
+  const phaseByKey = new Map(phaseRowsAll.results.map((p) => [`${p.season_id}|${p.name}`, p]))
+  const rankRows = await db.prepare('SELECT phase_id, MAX(rank) AS max_rank FROM divisions GROUP BY phase_id').all()
+  const maxRankByPhase = new Map(rankRows.results.map((r) => [r.phase_id as string, (r.max_rank as number | null) ?? 0]))
+
   for (const t of teamsToImport) {
     if (divisionById.has(t.divisionId) || t.phase === null) continue
-    pairs.set(`${t.organizationId}|${t.phase}`, { org: Number(t.organizationId), ph: t.phase })
-  }
-  for (const { org, ph } of pairs.values()) {
-    const p = importParams(org, ctx.season.id, ph)
-    if (!p) continue
-    const result = await importDivisions(db, p)
-    if (typeof result === 'string') continue // affected teams end up skipped below
-    if (result.createdPhase) createdPhases.push(result.phase)
-    createdDivisions.push(...result.created)
-  }
-  if (pairs.size) {
-    divisionRows = await db.prepare('SELECT id, phase_id FROM divisions').all()
-    divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
+    const phaseName = `Phase ${t.phase}`
+    let phaseRow = phaseByKey.get(`${ctx.season.id}|${phaseName}`)
+    if (!phaseRow) {
+      // Created 'upcoming' on purpose: activation stays a manual step on /phases.
+      const id = localPhaseId(ctx.season.id, t.phase)
+      const displayName = `${ctx.seasonRow.display_name} ${phaseName}`
+      await db.prepare("INSERT INTO phases (id, season_id, name, display_name, status) VALUES (?, ?, ?, ?, 'upcoming')")
+        .bind(id, ctx.season.id, phaseName, displayName).run()
+      phaseRow = { id, season_id: ctx.season.id, name: phaseName, display_name: displayName, status: 'upcoming' }
+      phaseByKey.set(`${ctx.season.id}|${phaseName}`, phaseRow)
+      createdPhases.push({ id, seasonId: ctx.season.id, name: phaseName, displayName, status: 'upcoming' })
+    }
+    const rank = (maxRankByPhase.get(phaseRow.id as string) ?? 0) + 1
+    maxRankByPhase.set(phaseRow.id as string, rank)
+    // Players-per-game defaults to 4: the payload has no division identifier
+    // (e.g. "GE7P1") to apply the known overrides — adjustable on /divisions.
+    await db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES (?, ?, ?, ?, ?, 0)')
+      .bind(t.divisionId, phaseRow.id, t.divisionName, rank, PLAYERS_PER_GAME_DEFAULT).run()
+    const division = {
+      id: t.divisionId, phaseId: phaseRow.id as string, displayName: t.divisionName,
+      rank, playersPerGame: PLAYERS_PER_GAME_DEFAULT, isArchived: false,
+    }
+    createdDivisions.push(division)
+    divisionById.set(t.divisionId, { id: t.divisionId, phase_id: phaseRow.id })
   }
 
   const groupRows = await db.prepare('SELECT id, division_id, number, team_ids, is_archived FROM groups_tbl').all()
@@ -810,8 +788,6 @@ app.post('/teams/import', async (c) => {
     groups: [...touchedGroups.values()],
     createdTeams,
     skipped,
-    stale: ctx.stale,
-    fetchedAt: ctx.fetchedAt,
   })
 })
 

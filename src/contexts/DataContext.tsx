@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { DEV_LOGIN, useAuth } from '@/contexts/AuthContext'
@@ -43,6 +44,8 @@ import {
 } from '@/mock/data'
 import { seasonIdFromName } from '@/lib/season'
 import { ffttPhaseIdForName, localPhaseId, phaseOrderKey } from '@/lib/ffttPhases'
+import { fetchFfttCurrentSeasonFromBrowser, ffttGraphqlFromBrowser } from '@/lib/ffttClient'
+import { parsePoolOpponents, poolOpponentsQuery, type FfttClubTeam, type FfttPoolOpponentNode } from '@/lib/ffttTeams'
 
 // Chronology-aware demotion (#227): what stops being active is archived when
 // older than what becomes active, back to 'upcoming' when newer (rollback).
@@ -126,10 +129,6 @@ export interface FfttTeamPreview {
 export interface FfttTeamsPreview {
   club: { id: string; displayName: string }
   season: FfttCurrentSeason
-  /** True when FFTT/dafunker were unreachable and this is the last cached result (#229 follow-up). */
-  stale: boolean
-  /** ISO timestamp of the cached data when `stale`; null otherwise. */
-  fetchedAt: string | null
   teams: FfttTeamPreview[]
 }
 
@@ -141,9 +140,6 @@ export interface FfttTeamsImportResult {
   groups: Group[]
   createdTeams: Team[]
   skipped: Array<{ id: string; label: string; reason: 'already_exists' | 'division_missing' | 'invalid_location' }>
-  /** Whether the import used cached FFTT data because live lookups failed. */
-  stale: boolean
-  fetchedAt: string | null
 }
 
 /** Per-team venue / day / time chosen in the import dialog (#229 follow-up). */
@@ -533,29 +529,51 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     }
   }, [])
 
-  // --- FFTT teams import (#229) ---
+  // --- FFTT teams import (#229, transport reworked in #231 follow-up) ---
+  // FFTT blocks Cloudflare's egress IPs, so the FFTT reads happen here in the
+  // browser (apiv2 allows CORS) and the parsed payload is handed to our API,
+  // which validates and persists. The payload of the last successful preview
+  // is kept per club so the import sends exactly what the admin previewed.
+  const teamsPayloadRef = useRef<Record<string, { season: { id: string; displayName: string }; ffttTeams: FfttClubTeam[] }>>({})
+
   const fetchTeamsPreview = useCallback(async (
     clubId: string,
   ): Promise<FfttTeamsPreview | 'club_not_found' | null> => {
     try {
-      const params = new URLSearchParams({ clubId })
-      const r = await fetch(`/api/fftt/teams-preview?${params}`, { headers: authHeaders() })
+      const club = clubs.find((cl) => cl.id === clubId)
+      if (!club) return 'club_not_found'
+      const [season, data] = await Promise.all([
+        fetchFfttCurrentSeasonFromBrowser(),
+        ffttGraphqlFromBrowser<{ poolOpponents?: { edges?: Array<{ node?: FfttPoolOpponentNode }> } }>(
+          poolOpponentsQuery(club.affiliationNumber),
+        ),
+      ])
+      if (!season || data === null) return null
+      const ffttTeams = parsePoolOpponents(data.poolOpponents?.edges)
+      const r = await fetch('/api/fftt/teams-preview', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ clubId, season, ffttTeams }),
+      })
       if (r.status === 404) return 'club_not_found'
       if (!r.ok) return null
+      teamsPayloadRef.current[clubId] = { season, ffttTeams }
       return (await r.json()) as FfttTeamsPreview
     } catch {
       return null
     }
-  }, [])
+  }, [clubs])
 
   const importFfttTeams = useCallback(async (
     clubId: string, teams: TeamImportOverride[],
   ): Promise<FfttTeamsImportResult | null> => {
     try {
+      const payload = teamsPayloadRef.current[clubId]
+      if (!payload) return null
       const r = await fetch('/api/teams/import', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ clubId, teams }),
+        body: JSON.stringify({ clubId, teams, ...payload }),
       })
       if (!r.ok) return null
       const result = (await r.json()) as FfttTeamsImportResult

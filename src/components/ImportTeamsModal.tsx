@@ -14,12 +14,6 @@ function parseTime(t: string): { hour: string; minute: string } {
   return m ? { hour: m[1], minute: m[2] } : { hour: '', minute: '00' }
 }
 
-/** "2026-07-16T14:32:00.000Z" → "16/07/2026 14:32" (local time). */
-function formatFetchedAt(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
 
 interface RowState {
   selected: boolean
@@ -256,12 +250,6 @@ export function ImportTeamsModal({ onClose, lockedClubId }: { onClose: () => voi
                   Complétez maintenant chaque équipe (joueurs, capitaine) via « Modifier ».
                 </p>
               )}
-              {imported.stale && (
-                <p className="text-sm text-amber-700">
-                  FFTT était injoignable : import basé sur la dernière synchronisation
-                  {imported.fetchedAt ? ` (${formatFetchedAt(imported.fetchedAt)})` : ''}.
-                </p>
-              )}
             </div>
           )}
 
@@ -270,13 +258,6 @@ export function ImportTeamsModal({ onClose, lockedClubId }: { onClose: () => voi
               <p className="text-sm text-slate-600">
                 Saison FFTT : <span className="font-medium text-slate-800">{preview.season.displayName}</span>
               </p>
-              {preview.stale && (
-                <p className="text-sm text-amber-700">
-                  FFTT injoignable : données de la dernière synchronisation
-                  {preview.fetchedAt ? ` (${formatFetchedAt(preview.fetchedAt)})` : ''}. Réessayez « Rechercher »
-                  pour une version à jour avant d’importer.
-                </p>
-              )}
               {seasonMissing && (
                 <p className="text-sm text-amber-700">
                   La saison {preview.season.displayName} n’existe pas encore : créez-la depuis la page Saisons avant d’importer.
