@@ -5,7 +5,7 @@ import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../sr
 import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
 import { FFTT_PHASES, localPhaseId, phaseOrderKey } from '../../src/lib/ffttPhases'
 import { parseClubTeams, type FfttClubTeam, type FfttClubTeamEntry } from '../../src/lib/ffttTeams'
-import { parseSportMatches, type FfttMatch, type FfttMatchTeam, type FfttSportMatchNode } from '../../src/lib/ffttGames'
+import { parseSportMatches, poolNumberFromName, selectPoolForGroup, type FfttMatch, type FfttMatchTeam, type FfttPool, type FfttSportMatchNode } from '../../src/lib/ffttGames'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -818,22 +818,24 @@ app.post('/teams/import', async (c) => {
 // --- FFTT games import (#231) ---
 
 // Fetch every pool of an FFTT division ("group" in their schema) with its
-// matches. Returns pool-id → parsed matches, or null when FFTT is unreachable.
-async function fetchFfttDivisionMatches(divisionId: number): Promise<Map<string, FfttMatch[]> | null> {
+// matches, or null when FFTT is unreachable. The pool NAME (poule number)
+// travels along because apiv2 pool ids are a different id space than the
+// SPID cx_poule ids we use as local group ids — pools are matched to groups
+// by team membership or poule number, never by id (see selectPoolForGroup).
+async function fetchFfttDivisionPools(divisionId: number): Promise<FfttPool[] | null> {
   const data = await ffttGraphql<{
-    pools?: FfttEdges<{ id: string; sportMatches?: { edges?: Array<{ node?: FfttSportMatchNode }> } }>
+    pools?: FfttEdges<{ id: string; name?: string | null; sportMatches?: { edges?: Array<{ node?: FfttSportMatchNode }> } }>
   }>(
-    `{ pools(group_id: ${divisionId}) { edges { node { id sportMatches { edges { node { id roundNumber date ` +
+    `{ pools(group_id: ${divisionId}) { edges { node { id name sportMatches { edges { node { id roundNumber date ` +
     `homeOpponent { team { id name clubs { edges { node { identifier name } } } } } ` +
     `awayOpponent { team { id name clubs { edges { node { identifier name } } } } } } } } } } } }`,
   )
   if (data === null) return null
-  const byPool = new Map<string, FfttMatch[]>()
-  for (const e of data.pools?.edges ?? []) {
-    if (!e.node) continue
-    byPool.set(ffttIdFromIri(e.node.id), parseSportMatches(e.node.sportMatches?.edges))
-  }
-  return byPool
+  return (data.pools?.edges ?? []).flatMap((e) => e.node ? [{
+    id: ffttIdFromIri(e.node.id),
+    poolNumber: poolNumberFromName(e.node.name),
+    matches: parseSportMatches(e.node.sportMatches?.edges),
+  }] : [])
 }
 
 type GamesGroupError = 'group_not_found' | 'fftt_unavailable' | 'pool_not_found'
@@ -860,9 +862,9 @@ async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[])
     const g = groupById.get(gid)
     if (g && divisionById.has(g.division_id as string)) wantedDivisions.add(g.division_id as string)
   }
-  const poolsByDivision = new Map<string, Map<string, FfttMatch[]> | null>()
+  const poolsByDivision = new Map<string, FfttPool[] | null>()
   for (const divId of wantedDivisions) {
-    poolsByDivision.set(divId, await fetchFfttDivisionMatches(Number(divId)))
+    poolsByDivision.set(divId, await fetchFfttDivisionPools(Number(divId)))
   }
 
   return groupIds.map((groupId): GamesGroupContext => {
@@ -872,17 +874,18 @@ async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[])
     if (!division) return { groupId, error: 'group_not_found' }
     const pools = poolsByDivision.get(g.division_id as string)
     if (pools === null || pools === undefined) return { groupId, error: 'fftt_unavailable' }
-    const matches = pools.get(groupId)
-    if (!matches) return { groupId, error: 'pool_not_found' }
+    const group = {
+      id: groupId, divisionId: g.division_id as string, number: g.number as number,
+      teamIds: (jsonParse(g.team_ids) as string[]) ?? [],
+    }
+    const pool = selectPoolForGroup(pools, group)
+    if (!pool) return { groupId, error: 'pool_not_found' }
     return {
       groupId,
-      group: {
-        id: groupId, divisionId: g.division_id as string, number: g.number as number,
-        teamIds: (jsonParse(g.team_ids) as string[]) ?? [],
-      },
+      group,
       divisionName: division.display_name as string,
       phaseId: division.phase_id as string,
-      matches,
+      matches: pool.matches,
     }
   })
 }

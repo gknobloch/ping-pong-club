@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { parseSportMatch, parseSportMatches, teamNumberFromName, type FfttSportMatchNode } from './ffttGames'
+import {
+  parseSportMatch, parseSportMatches, poolNumberFromName, selectPoolForGroup, teamNumberFromName,
+  type FfttPool, type FfttSportMatchNode,
+} from './ffttGames'
 
 const NODE: FfttSportMatchNode = {
   id: '/api/sport_matches/5646635',
@@ -82,5 +85,53 @@ describe('teamNumberFromName', () => {
     ['SANS NUMERO', null],
   ])('%s → %s', (name, expected) => {
     expect(teamNumberFromName(name)).toBe(expected)
+  })
+})
+
+describe('poolNumberFromName', () => {
+  it.each([
+    ['3', 3],
+    [' 12 ', 12],
+    ['B', 2],
+    ['Poule 3', null],
+    ['', null],
+    [null, null],
+    [undefined, null],
+  ])('%s → %s', (name, expected) => {
+    expect(poolNumberFromName(name as string | null | undefined)).toBe(expected)
+  })
+})
+
+describe('selectPoolForGroup', () => {
+  const matchWith = (homeId: string, awayId: string) => ({
+    ...parseSportMatch(NODE)!,
+    home: { ...parseSportMatch(NODE)!.home, teamId: homeId },
+    away: { ...parseSportMatch(NODE)!.away, teamId: awayId },
+  })
+  const pools: FfttPool[] = [
+    { id: '1162587', poolNumber: 1, matches: [matchWith('100', '101')] },
+    { id: '1162588', poolNumber: 2, matches: [matchWith('200', '201')] },
+    { id: '1162590', poolNumber: 4, matches: [] },
+  ]
+
+  it('prefers the pool whose matches involve one of the group’s teams', () => {
+    // Numbering drifted (group says poule 9) but team 201 is known locally.
+    const pool = selectPoolForGroup(pools, { number: 9, teamIds: ['201', 'other'] })
+    expect(pool?.id).toBe('1162588')
+  })
+
+  it('falls back to matching the poule number', () => {
+    const pool = selectPoolForGroup(pools, { number: 4, teamIds: ['999'] })
+    expect(pool?.id).toBe('1162590')
+  })
+
+  it('membership beats a competing number match', () => {
+    const pool = selectPoolForGroup(pools, { number: 1, teamIds: ['200'] })
+    expect(pool?.id).toBe('1162588')
+  })
+
+  it('returns null when nothing lines up', () => {
+    expect(selectPoolForGroup(pools, { number: 9, teamIds: ['999'] })).toBeNull()
+    expect(selectPoolForGroup([], { number: 1, teamIds: [] })).toBeNull()
   })
 })

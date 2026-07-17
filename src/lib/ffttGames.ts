@@ -58,6 +58,43 @@ export function teamNumberFromName(name: string): number | null {
   return m ? Number(m[1]) : null
 }
 
+/**
+ * Poule number from an FFTT pool name: "3" → 3, letters map alphabetically
+ * ("B" → 2, as in the teams import); null when unreadable. Used to line a
+ * local group up with its apiv2 pool — SPID cx_poule ids (our local group
+ * ids) and apiv2 pool ids are different id spaces, so ids can't be compared.
+ */
+export function poolNumberFromName(name: string | null | undefined): number | null {
+  const trimmed = (name ?? '').trim()
+  if (/^\d+$/.test(trimmed)) return Number(trimmed)
+  if (/^[A-Za-z]$/.test(trimmed)) return trimmed.toUpperCase().charCodeAt(0) - 64
+  return null
+}
+
+/** A parsed apiv2 pool: its FFTT id, poule number (from the name), and matches. */
+export interface FfttPool {
+  id: string
+  poolNumber: number | null
+  matches: FfttMatch[]
+}
+
+/**
+ * Pick the pool corresponding to a local group. Membership wins: a pool whose
+ * matches involve one of the group's known team ids (local team ids are FFTT
+ * team ids for imported teams) is the right one even if numbering drifted.
+ * Otherwise fall back to poule number = group number.
+ */
+export function selectPoolForGroup(
+  pools: FfttPool[],
+  group: { number: number; teamIds: string[] },
+): FfttPool | null {
+  const known = new Set(group.teamIds)
+  const byMembership = pools.find((p) =>
+    p.matches.some((m) => known.has(m.home.teamId) || known.has(m.away.teamId)))
+  if (byMembership) return byMembership
+  return pools.find((p) => p.poolNumber !== null && p.poolNumber === group.number) ?? null
+}
+
 function parseOpponent(node: FfttMatchOpponentNode | null | undefined): FfttMatchTeam | null {
   const team = node?.team
   if (!team?.id || !team.name) return null
