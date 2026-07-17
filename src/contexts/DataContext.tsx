@@ -154,6 +154,44 @@ export interface TeamImportOverride {
   defaultTime: string
 }
 
+/** One group in the FFTT games preview (GET /api/fftt/games-preview, #231). */
+export interface FfttGamesGroupPreview {
+  groupId: string
+  /** Set when the group can't be imported; the count fields are then absent. */
+  error?: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found'
+  groupNumber?: number
+  divisionName?: string
+  /** Distinct rounds (journées) found on FFTT. */
+  rounds?: number
+  matches?: number
+  newMatchDays?: number
+  newGames?: number
+  existingGames?: number
+  /** Opponent teams that would be auto-created for this group. */
+  newTeams?: number
+}
+
+export interface FfttGamesPreview {
+  groups: FfttGamesGroupPreview[]
+  /** Deduplicated across all requested groups. */
+  totals: { newClubs: number; newTeams: number }
+}
+
+/** Response of POST /api/games/import. */
+export interface FfttGamesImportResult {
+  createdClubs: Club[]
+  createdTeams: Team[]
+  /** Groups whose team list changed, in their final state (client-side upsert). */
+  groups: Group[]
+  createdMatchDays: MatchDay[]
+  /** Journées whose FFTT date changed since the last import (re-import sync). */
+  updatedMatchDays: MatchDay[]
+  createdGames: Game[]
+  skippedGroups: Array<{ groupId: string; reason: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' }>
+  existingGames: number
+  skippedMatches: number
+}
+
 // Read the current session token (set by AuthContext) for the Authorization
 // header. Read at call time so mutations always use the latest token.
 function sessionToken(): string | null {
@@ -211,6 +249,10 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   fetchTeamsPreview: (clubId: string) => Promise<FfttTeamsPreview | 'club_not_found' | null>
   /** Import a club's FFTT teams with the chosen defaults (venue / day / time). */
   importFfttTeams: (clubId: string, teams: TeamImportOverride[]) => Promise<FfttTeamsImportResult | null>
+  /** Preview the FFTT calendars of the given groups (#231); null on failure. */
+  fetchGamesPreview: (groupIds: string[]) => Promise<FfttGamesPreview | null>
+  /** Import the FFTT calendars (journées + matchs, auto-creating opponents). */
+  importFfttGames: (groupIds: string[]) => Promise<FfttGamesImportResult | null>
   updatePhase: (id: string, patch: Partial<Phase>) => void
   archivePhase: (id: string) => void
   deletePhase: (id: string) => void
@@ -524,6 +566,49 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
         ])
       }
       if (result.createdTeams.length) setTeams((prev) => [...prev, ...result.createdTeams])
+      return result
+    } catch {
+      return null
+    }
+  }, [])
+
+  // --- FFTT games import (#231) ---
+  const fetchGamesPreview = useCallback(async (groupIds: string[]): Promise<FfttGamesPreview | null> => {
+    try {
+      const params = new URLSearchParams({ groupIds: groupIds.join(',') })
+      const r = await fetch(`/api/fftt/games-preview?${params}`, { headers: authHeaders() })
+      if (!r.ok) return null
+      return (await r.json()) as FfttGamesPreview
+    } catch {
+      return null
+    }
+  }, [])
+
+  const importFfttGames = useCallback(async (groupIds: string[]): Promise<FfttGamesImportResult | null> => {
+    try {
+      const r = await fetch('/api/games/import', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ groupIds }),
+      })
+      if (!r.ok) return null
+      const result = (await r.json()) as FfttGamesImportResult
+      if (result.createdClubs.length) setClubs((prev) => [...prev, ...result.createdClubs])
+      if (result.createdTeams.length) setTeams((prev) => [...prev, ...result.createdTeams])
+      if (result.groups.length) {
+        setGroups((prev) => [
+          ...prev.filter((g) => !result.groups.some((u) => u.id === g.id)),
+          ...result.groups,
+        ])
+      }
+      if (result.createdMatchDays.length || result.updatedMatchDays.length) {
+        const upserts = [...result.createdMatchDays, ...result.updatedMatchDays]
+        setMatchDays((prev) => [
+          ...prev.filter((m) => !upserts.some((u) => u.id === m.id)),
+          ...upserts,
+        ])
+      }
+      if (result.createdGames.length) setGames((prev) => [...prev, ...result.createdGames])
       return result
     } catch {
       return null
@@ -1193,6 +1278,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       importFfttDivisions,
       fetchTeamsPreview,
       importFfttTeams,
+      fetchGamesPreview,
+      importFfttGames,
       updatePhase,
       archivePhase,
       deletePhase,
@@ -1233,7 +1320,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason,
-      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
+      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, fetchGamesPreview, importFfttGames, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer, setAvatar, removeAvatar,

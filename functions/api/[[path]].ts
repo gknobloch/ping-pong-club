@@ -5,6 +5,7 @@ import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../sr
 import { ffttIdFromIri, orderDivisions, playersPerGameFor, type FfttDivision } from '../../src/lib/ffttDivisions'
 import { FFTT_PHASES, localPhaseId, phaseOrderKey } from '../../src/lib/ffttPhases'
 import { parseClubTeams, type FfttClubTeam, type FfttClubTeamEntry } from '../../src/lib/ffttTeams'
+import { parseSportMatches, type FfttMatch, type FfttMatchTeam, type FfttSportMatchNode } from '../../src/lib/ffttGames'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -811,6 +812,334 @@ app.post('/teams/import', async (c) => {
     skipped,
     stale: ctx.stale,
     fetchedAt: ctx.fetchedAt,
+  })
+})
+
+// --- FFTT games import (#231) ---
+
+// Fetch every pool of an FFTT division ("group" in their schema) with its
+// matches. Returns pool-id → parsed matches, or null when FFTT is unreachable.
+async function fetchFfttDivisionMatches(divisionId: number): Promise<Map<string, FfttMatch[]> | null> {
+  const data = await ffttGraphql<{
+    pools?: FfttEdges<{ id: string; sportMatches?: { edges?: Array<{ node?: FfttSportMatchNode }> } }>
+  }>(
+    `{ pools(group_id: ${divisionId}) { edges { node { id sportMatches { edges { node { id roundNumber date ` +
+    `homeOpponent { team { id name clubs { edges { node { identifier name } } } } } ` +
+    `awayOpponent { team { id name clubs { edges { node { identifier name } } } } } } } } } } } }`,
+  )
+  if (data === null) return null
+  const byPool = new Map<string, FfttMatch[]>()
+  for (const e of data.pools?.edges ?? []) {
+    if (!e.node) continue
+    byPool.set(ffttIdFromIri(e.node.id), parseSportMatches(e.node.sportMatches?.edges))
+  }
+  return byPool
+}
+
+type GamesGroupError = 'group_not_found' | 'fftt_unavailable' | 'pool_not_found'
+interface GamesGroupContext {
+  groupId: string
+  error?: GamesGroupError
+  group?: { id: string; divisionId: string; number: number; teamIds: string[] }
+  divisionName?: string
+  phaseId?: string
+  matches?: FfttMatch[]
+}
+
+// Shared context for the games preview and import: for each requested group,
+// its division/phase and the FFTT matches of the matching pool (local group
+// id = FFTT pool id, #229). One GraphQL call per distinct division.
+async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[]): Promise<GamesGroupContext[]> {
+  const groupRows = await db.prepare('SELECT id, division_id, number, team_ids FROM groups_tbl').all()
+  const groupById = new Map(groupRows.results.map((g) => [g.id as string, g]))
+  const divisionRows = await db.prepare('SELECT id, display_name, phase_id FROM divisions').all()
+  const divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
+
+  const wantedDivisions = new Set<string>()
+  for (const gid of groupIds) {
+    const g = groupById.get(gid)
+    if (g && divisionById.has(g.division_id as string)) wantedDivisions.add(g.division_id as string)
+  }
+  const poolsByDivision = new Map<string, Map<string, FfttMatch[]> | null>()
+  for (const divId of wantedDivisions) {
+    poolsByDivision.set(divId, await fetchFfttDivisionMatches(Number(divId)))
+  }
+
+  return groupIds.map((groupId): GamesGroupContext => {
+    const g = groupById.get(groupId)
+    if (!g) return { groupId, error: 'group_not_found' }
+    const division = divisionById.get(g.division_id as string)
+    if (!division) return { groupId, error: 'group_not_found' }
+    const pools = poolsByDivision.get(g.division_id as string)
+    if (pools === null || pools === undefined) return { groupId, error: 'fftt_unavailable' }
+    const matches = pools.get(groupId)
+    if (!matches) return { groupId, error: 'pool_not_found' }
+    return {
+      groupId,
+      group: {
+        id: groupId, divisionId: g.division_id as string, number: g.number as number,
+        teamIds: (jsonParse(g.team_ids) as string[]) ?? [],
+      },
+      divisionName: division.display_name as string,
+      phaseId: division.phase_id as string,
+      matches,
+    }
+  })
+}
+
+// Resolve an FFTT match side to a local team of the given phase: by FFTT id
+// first (imported teams share ids), then by club affiliation + team number.
+function makeTeamResolver(
+  clubRows: Array<Record<string, unknown>>, teamRows: Array<Record<string, unknown>>,
+) {
+  const clubByAffiliation = new Map(clubRows.map((c) => [c.affiliation_number as string, c.id as string]))
+  const teamByIdPhase = new Map(teamRows.map((t) => [`${t.id}|${t.phase_id}`, t.id as string]))
+  const teamByClubNumberPhase = new Map(teamRows.map((t) => [`${t.club_id}|${t.number}|${t.phase_id}`, t.id as string]))
+  const teamIds = new Set(teamRows.map((t) => t.id as string))
+  return {
+    clubByAffiliation,
+    teamIds,
+    resolve(side: FfttMatchTeam, phaseId: string): string | null {
+      const byId = teamByIdPhase.get(`${side.teamId}|${phaseId}`)
+      if (byId) return byId
+      const clubId = side.clubIdentifier ? clubByAffiliation.get(side.clubIdentifier) : undefined
+      if (clubId && side.teamNumber !== null) {
+        return teamByClubNumberPhase.get(`${clubId}|${side.teamNumber}|${phaseId}`) ?? null
+      }
+      return null
+    },
+    register(teamId: string, clubId: string, number: number, phaseId: string, ffttTeamId: string) {
+      teamIds.add(teamId)
+      teamByIdPhase.set(`${ffttTeamId}|${phaseId}`, teamId)
+      teamByClubNumberPhase.set(`${clubId}|${number}|${phaseId}`, teamId)
+    },
+  }
+}
+
+const parseGroupIds = (raw: unknown): string[] =>
+  Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 100) : []
+
+// GET /fftt/games-preview?groupIds=a,b — per group: what an import would do
+// (rounds/matches found, games and opponents to create).
+app.get('/fftt/games-preview', async (c) => {
+  const groupIds = (c.req.query('groupIds') ?? '').split(',').filter(Boolean)
+  if (groupIds.length === 0) return c.json({ error: 'invalid_params' }, 400)
+  const db = c.env.DB
+  const ctxs = await gamesImportContext(db, groupIds)
+
+  const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
+    db.prepare('SELECT id, affiliation_number FROM clubs').all(),
+    db.prepare('SELECT id, club_id, phase_id, number FROM teams').all(),
+    db.prepare('SELECT id, group_id, number FROM match_days').all(),
+    db.prepare('SELECT id FROM games').all(),
+  ])
+  const resolver = makeTeamResolver(clubRows.results, teamRows.results)
+  const matchDayKeys = new Set(mdRows.results.map((m) => `${m.group_id}|${m.number}`))
+  const gameIds = new Set(gameRows.results.map((g) => g.id as string))
+
+  const newClubIdentifiers = new Set<string>()
+  const newTeamKeys = new Set<string>()
+  const groups = ctxs.map((ctx) => {
+    if (ctx.error || !ctx.group || !ctx.matches) {
+      return { groupId: ctx.groupId, error: ctx.error ?? 'group_not_found' }
+    }
+    const rounds = new Set<number>()
+    let newGames = 0, existingGames = 0, newMatchDays = 0
+    const groupNewTeams = new Set<string>()
+    const seenRounds = new Set<number>()
+    for (const m of ctx.matches) {
+      rounds.add(m.round)
+      if (!seenRounds.has(m.round)) {
+        seenRounds.add(m.round)
+        if (!matchDayKeys.has(`${ctx.groupId}|${m.round}`)) newMatchDays++
+      }
+      if (gameIds.has(m.id)) existingGames++
+      else newGames++
+      for (const side of [m.home, m.away]) {
+        if (resolver.resolve(side, ctx.phaseId!)) continue
+        groupNewTeams.add(`${side.clubIdentifier}|${side.teamName}`)
+        newTeamKeys.add(`${side.clubIdentifier}|${side.teamName}|${ctx.phaseId}`)
+        if (side.clubIdentifier && !resolver.clubByAffiliation.has(side.clubIdentifier)) {
+          newClubIdentifiers.add(side.clubIdentifier)
+        }
+      }
+    }
+    return {
+      groupId: ctx.groupId,
+      groupNumber: ctx.group.number,
+      divisionName: ctx.divisionName,
+      rounds: rounds.size,
+      matches: ctx.matches.length,
+      newMatchDays,
+      newGames,
+      existingGames,
+      newTeams: groupNewTeams.size,
+    }
+  })
+
+  return c.json({ groups, totals: { newClubs: newClubIdentifiers.size, newTeams: newTeamKeys.size } })
+})
+
+// POST /games/import — re-fetches from FFTT (never trusts a client list),
+// auto-creates missing opponent clubs/teams, upserts the journées by
+// (group, round) — refreshing dates on re-import — and inserts the games not
+// already present (matched by FFTT match id, or same pairing on the same
+// journée for manually created ones). Scores are not imported (#231); manual
+// game times are never touched.
+app.post('/games/import', async (c) => {
+  const b = await c.req.json()
+  const groupIds = parseGroupIds(b.groupIds)
+  if (groupIds.length === 0) return c.json({ error: 'invalid_params' }, 400)
+  const db = c.env.DB
+  const ctxs = await gamesImportContext(db, groupIds)
+
+  const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
+    db.prepare('SELECT id, affiliation_number FROM clubs').all(),
+    db.prepare('SELECT id, club_id, phase_id, number FROM teams').all(),
+    db.prepare('SELECT id, group_id, number, date FROM match_days').all(),
+    db.prepare('SELECT id, match_day_id, home_team_id, away_team_id FROM games').all(),
+  ])
+  const resolver = makeTeamResolver(clubRows.results, teamRows.results)
+  const matchDayByKey = new Map(mdRows.results.map((m) => [`${m.group_id}|${m.number}`, m]))
+  const gameIds = new Set(gameRows.results.map((g) => g.id as string))
+  const pairingsByMatchDay = new Map<string, Set<string>>()
+  for (const g of gameRows.results) {
+    const key = g.match_day_id as string
+    if (!pairingsByMatchDay.has(key)) pairingsByMatchDay.set(key, new Set())
+    pairingsByMatchDay.get(key)!.add(`${g.home_team_id}|${g.away_team_id}`)
+    pairingsByMatchDay.get(key)!.add(`${g.away_team_id}|${g.home_team_id}`)
+  }
+
+  const createdClubs: Array<Record<string, unknown>> = []
+  const createdTeams: Array<Record<string, unknown>> = []
+  const createdMatchDays: Array<Record<string, unknown>> = []
+  let updatedMatchDays: Array<Record<string, unknown>> = []
+  // Pre-import dates of updated journées: a round spanning several dates makes
+  // the walk flip the date back and forth, and an entry that lands back on its
+  // original date is a no-op, not an update.
+  const originalDates = new Map<string, string>()
+  const createdGames: Array<Record<string, unknown>> = []
+  const touchedGroups = new Map<string, { id: string; divisionId: string; number: number; teamIds: string[]; isArchived: boolean }>()
+  const skippedGroups: Array<{ groupId: string; reason: GamesGroupError }> = []
+  let existingGames = 0, skippedMatches = 0
+
+  // Auto-created club ids are FFTT-aligned on the affiliation number, which
+  // doubles as the natural dedup key across groups in one import.
+  const clubIdFor = (side: FfttMatchTeam): string | null => {
+    if (!side.clubIdentifier) return null
+    const existing = resolver.clubByAffiliation.get(side.clubIdentifier)
+    if (existing) return existing
+    const id = `club-fftt-${side.clubIdentifier}`
+    const displayName = side.clubName || side.teamName.replace(/\s*\(?\d+\)?\s*$/, '')
+    createdClubs.push({ id, affiliationNumber: side.clubIdentifier, displayName, isArchived: false, addresses: [], channels: [] })
+    resolver.clubByAffiliation.set(side.clubIdentifier, id)
+    return id
+  }
+
+  for (const ctx of ctxs) {
+    if (ctx.error || !ctx.group || !ctx.matches || !ctx.phaseId) {
+      skippedGroups.push({ groupId: ctx.groupId, reason: ctx.error ?? 'group_not_found' })
+      continue
+    }
+    const group = touchedGroups.get(ctx.groupId) ??
+      { ...ctx.group, isArchived: false, teamIds: [...ctx.group.teamIds] }
+
+    const teamIdFor = (side: FfttMatchTeam): string | null => {
+      const existing = resolver.resolve(side, ctx.phaseId!)
+      if (existing) return existing
+      const clubId = clubIdFor(side)
+      if (!clubId || side.teamNumber === null) return null
+      // FFTT team ids are stable across phases, so the id may already be a
+      // team row of another phase — suffix to keep the primary key unique.
+      const id = resolver.teamIds.has(side.teamId) ? `${side.teamId}-${ctx.phaseId}` : side.teamId
+      createdTeams.push({
+        id, clubId, phaseId: ctx.phaseId, number: side.teamNumber,
+        divisionId: group.divisionId, groupId: group.id, gameLocationId: '',
+        defaultDay: '', defaultTime: '', captainId: '', playerIds: [], isArchived: false,
+      })
+      resolver.register(id, clubId, side.teamNumber, ctx.phaseId!, side.teamId)
+      if (!group.teamIds.includes(id)) group.teamIds.push(id)
+      touchedGroups.set(group.id, group)
+      return id
+    }
+
+    for (const m of ctx.matches) {
+      const mdKey = `${ctx.groupId}|${m.round}`
+      let md = matchDayByKey.get(mdKey)
+      if (!md) {
+        md = { id: `md-fftt-${ctx.groupId}-r${m.round}`, group_id: ctx.groupId, number: m.round, date: m.date }
+        matchDayByKey.set(mdKey, md)
+        createdMatchDays.push({ id: md.id, groupId: ctx.groupId, number: m.round, date: m.date })
+      } else if (md.date !== m.date) {
+        // FFTT can stagger one round across days; the journée keeps a single
+        // date, so the last one seen wins (stable across re-imports since
+        // matches are ordered by round then id).
+        const created = createdMatchDays.find((x) => x.id === md!.id)
+        if (created) {
+          created.date = m.date
+        } else {
+          const updated = updatedMatchDays.find((x) => x.id === md!.id)
+          if (updated) updated.date = m.date
+          else {
+            originalDates.set(md.id as string, md.date as string)
+            updatedMatchDays.push({ id: md.id, groupId: md.group_id, number: md.number, date: m.date })
+          }
+        }
+        md.date = m.date
+      }
+
+      if (gameIds.has(m.id)) { existingGames++; continue }
+      const homeId = teamIdFor(m.home)
+      const awayId = teamIdFor(m.away)
+      if (!homeId || !awayId) { skippedMatches++; continue }
+      // A manually created game for the same pairing on the same journée
+      // counts as existing — never duplicate it.
+      const pairings = pairingsByMatchDay.get(md.id as string)
+      if (pairings?.has(`${homeId}|${awayId}`)) { existingGames++; continue }
+      if (!pairingsByMatchDay.has(md.id as string)) pairingsByMatchDay.set(md.id as string, new Set())
+      pairingsByMatchDay.get(md.id as string)!.add(`${homeId}|${awayId}`)
+      pairingsByMatchDay.get(md.id as string)!.add(`${awayId}|${homeId}`)
+      gameIds.add(m.id)
+      createdGames.push({ id: m.id, matchDayId: md.id, homeTeamId: homeId, awayTeamId: awayId })
+    }
+  }
+
+  // Journées whose date walked back to its pre-import value are no-ops.
+  updatedMatchDays = updatedMatchDays.filter((m) => m.date !== originalDates.get(m.id as string))
+
+  const stmts = [
+    ...createdClubs.map((cl) =>
+      db.prepare('INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES (?, ?, ?, 0)')
+        .bind(cl.id, cl.affiliationNumber, cl.displayName)),
+    ...createdTeams.map((t) =>
+      db.prepare(
+        `INSERT INTO teams (id, club_id, phase_id, number, division_id, group_id, game_location_id, default_day, default_time, captain_id, player_ids, is_archived)
+         VALUES (?, ?, ?, ?, ?, ?, '', '', '', '', '[]', 0)`,
+      ).bind(t.id, t.clubId, t.phaseId, t.number, t.divisionId, t.groupId)),
+    ...[...touchedGroups.values()].map((g) =>
+      db.prepare('UPDATE groups_tbl SET team_ids = ? WHERE id = ?').bind(jsonStr(g.teamIds), g.id)),
+    ...createdMatchDays.map((m) =>
+      db.prepare('INSERT INTO match_days (id, group_id, number, date) VALUES (?, ?, ?, ?)')
+        .bind(m.id, m.groupId, m.number, m.date)),
+    ...updatedMatchDays.map((m) =>
+      db.prepare('UPDATE match_days SET date = ? WHERE id = ?').bind(m.date, m.id)),
+    ...createdGames.map((g) =>
+      db.prepare('INSERT INTO games (id, match_day_id, home_team_id, away_team_id, time) VALUES (?, ?, ?, ?, NULL)')
+        .bind(g.id, g.matchDayId, g.homeTeamId, g.awayTeamId)),
+  ]
+  for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50))
+
+  return c.json({
+    createdClubs,
+    createdTeams,
+    // Groups whose team list changed, in their final state (client-side upsert).
+    groups: [...touchedGroups.values()],
+    createdMatchDays,
+    updatedMatchDays,
+    createdGames,
+    skippedGroups,
+    existingGames,
+    skippedMatches,
   })
 })
 
