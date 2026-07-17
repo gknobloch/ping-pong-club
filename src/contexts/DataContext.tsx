@@ -157,8 +157,11 @@ export interface TeamImportOverride {
 /** One group in the FFTT games preview (GET /api/fftt/games-preview, #231). */
 export interface FfttGamesGroupPreview {
   groupId: string
-  /** Set when the group can't be imported; the count fields are then absent. */
-  error?: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found'
+  /** Set when the group can't be imported; the count fields are then absent.
+   *  'calendar_not_published' = the FFTT hasn't put this division's calendar
+   *  on apiv2 yet (season start) — retry later, nothing is wrong locally. */
+  error?: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' | 'calendar_not_published'
+  /** Present alongside `error` too, whenever the group exists locally. */
   groupNumber?: number
   divisionName?: string
   /** Distinct rounds (journées) found on FFTT. */
@@ -187,7 +190,7 @@ export interface FfttGamesImportResult {
   /** Journées whose FFTT date changed since the last import (re-import sync). */
   updatedMatchDays: MatchDay[]
   createdGames: Game[]
-  skippedGroups: Array<{ groupId: string; reason: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' }>
+  skippedGroups: Array<{ groupId: string; reason: 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' | 'calendar_not_published' }>
   existingGames: number
   skippedMatches: number
 }

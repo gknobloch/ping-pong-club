@@ -83,7 +83,8 @@ test.describe('General admin — Games FFTT import', () => {
         json: {
           groups: [
             previewOneGroup.groups[0],
-            { groupId: 'group-2', error: 'pool_not_found' },
+            { groupId: 'group-2', groupNumber: 2, divisionName: 'GE2', error: 'pool_not_found' },
+            { groupId: 'group-3', groupNumber: 3, divisionName: 'GE3', error: 'calendar_not_published' },
           ],
           totals: previewOneGroup.totals,
         },
@@ -95,7 +96,13 @@ test.describe('General admin — Games FFTT import', () => {
 
     await expect(page.getByText(/toutes les poules avec équipes/)).toBeVisible()
     await expect(page.getByText('GE1', { exact: true })).toBeVisible()
-    await expect(page.getByText('Poule inconnue côté FFTT')).toBeVisible()
+    // Error rows are named by division · poule, never by raw group id.
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('GE2', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Poule inconnue côté FFTT')).toBeVisible()
+    await expect(dialog.getByText('GE3', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Calendrier pas encore publié par la FFTT')).toBeVisible()
+    await expect(dialog.getByText(/Groupe group-/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Importer 12 matchs' })).toBeEnabled()
 
     expect(previewedGroupIds).toContain('group-1')

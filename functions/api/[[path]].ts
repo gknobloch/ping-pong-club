@@ -838,7 +838,7 @@ async function fetchFfttDivisionPools(divisionId: number): Promise<FfttPool[] | 
   }] : [])
 }
 
-type GamesGroupError = 'group_not_found' | 'fftt_unavailable' | 'pool_not_found'
+type GamesGroupError = 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' | 'calendar_not_published'
 interface GamesGroupContext {
   groupId: string
   error?: GamesGroupError
@@ -872,21 +872,28 @@ async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[])
     if (!g) return { groupId, error: 'group_not_found' }
     const division = divisionById.get(g.division_id as string)
     if (!division) return { groupId, error: 'group_not_found' }
-    const pools = poolsByDivision.get(g.division_id as string)
-    if (pools === null || pools === undefined) return { groupId, error: 'fftt_unavailable' }
     const group = {
       id: groupId, divisionId: g.division_id as string, number: g.number as number,
       teamIds: (jsonParse(g.team_ids) as string[]) ?? [],
     }
-    const pool = selectPoolForGroup(pools, group)
-    if (!pool) return { groupId, error: 'pool_not_found' }
-    return {
-      groupId,
-      group,
+    // Even error rows keep the division/poule identity so the UI can name
+    // them ("GE 2 Phase 1 · Poule 9") instead of a raw group id.
+    const identity = {
+      groupId, group,
       divisionName: division.display_name as string,
       phaseId: division.phase_id as string,
-      matches: pool.matches,
     }
+    const pools = poolsByDivision.get(g.division_id as string)
+    if (pools === null || pools === undefined) return { ...identity, error: 'fftt_unavailable' }
+    const pool = selectPoolForGroup(pools, group)
+    if (!pool) {
+      // No pools at all, or only empty shells: the FFTT simply hasn't
+      // published this division's calendar on apiv2 yet (season start) —
+      // that's not a mismatch on our side.
+      const published = pools.some((p) => p.matches.length > 0)
+      return { ...identity, error: published ? 'pool_not_found' : 'calendar_not_published' }
+    }
+    return { ...identity, matches: pool.matches }
   })
 }
 
@@ -944,7 +951,14 @@ app.get('/fftt/games-preview', async (c) => {
   const newTeamKeys = new Set<string>()
   const groups = ctxs.map((ctx) => {
     if (ctx.error || !ctx.group || !ctx.matches) {
-      return { groupId: ctx.groupId, error: ctx.error ?? 'group_not_found' }
+      return {
+        groupId: ctx.groupId,
+        error: ctx.error ?? 'group_not_found',
+        // Present whenever the group exists locally — lets the UI name the
+        // row ("GE 2 Phase 1 · Poule 9") instead of showing a raw id.
+        ...(ctx.group ? { groupNumber: ctx.group.number } : {}),
+        ...(ctx.divisionName ? { divisionName: ctx.divisionName } : {}),
+      }
     }
     const rounds = new Set<number>()
     let newGames = 0, existingGames = 0, newMatchDays = 0

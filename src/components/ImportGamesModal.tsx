@@ -5,6 +5,7 @@ import { ModalShell } from '@/components/ModalShell'
 type PreviewState = 'loading' | 'done' | 'error'
 
 const GROUP_ERROR_LABELS: Record<string, string> = {
+  calendar_not_published: 'Calendrier pas encore publié par la FFTT',
   pool_not_found: 'Poule inconnue côté FFTT',
   fftt_unavailable: 'FFTT injoignable',
   group_not_found: 'Groupe introuvable',
@@ -117,7 +118,16 @@ export function ImportGamesModal({
                   <li key={g.groupId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                     {g.error ? (
                       <>
-                        <span className="text-slate-400">Groupe {g.groupId}</span>
+                        <span className="min-w-0 text-slate-400">
+                          {g.divisionName ? (
+                            <>
+                              <span className="font-medium">{g.divisionName}</span>
+                              {g.groupNumber !== undefined && <span className="ml-1">· Poule {g.groupNumber}</span>}
+                            </>
+                          ) : (
+                            <>Groupe {g.groupId}</>
+                          )}
+                        </span>
                         <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
                           {GROUP_ERROR_LABELS[g.error] ?? g.error}
                         </span>
