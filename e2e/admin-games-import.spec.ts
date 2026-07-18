@@ -45,6 +45,9 @@ const importResult = {
 test.describe('General admin — Games FFTT import', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'admin')
+    // Hermetic guard: the client only queries apiv2 for FFTT-aligned (numeric)
+    // division ids — the mock data has none, so this must never be hit.
+    await page.route('https://apiv2.fftt.com/api/graphql', (route) => route.abort())
   })
 
   test('imports a team’s pool calendar from /equipes', async ({ page }) => {
@@ -71,14 +74,13 @@ test.describe('General admin — Games FFTT import', () => {
     await expect(page.getByText('1 journée redatée d’après la FFTT.')).toBeVisible()
     await expect(page.getByText('Adversaires créés : 1 équipe et 1 club.')).toBeVisible()
 
-    expect(importBody).toEqual({ groupIds: ['group-1'] })
+    expect(importBody).toEqual({ groupIds: ['group-1'], pools: [] })
   })
 
   test('imports the whole phase from /journees, flagging unimportable groups', async ({ page }) => {
     let previewedGroupIds: string[] = []
     await page.route(PREVIEW, (route) => {
-      const url = new URL(route.request().url())
-      previewedGroupIds = (url.searchParams.get('groupIds') ?? '').split(',')
+      previewedGroupIds = (route.request().postDataJSON() as { groupIds: string[] }).groupIds
       return route.fulfill({
         json: {
           groups: [

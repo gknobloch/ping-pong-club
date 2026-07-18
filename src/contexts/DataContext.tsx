@@ -46,6 +46,7 @@ import { seasonIdFromName } from '@/lib/season'
 import { ffttPhaseIdForName, localPhaseId, phaseOrderKey } from '@/lib/ffttPhases'
 import { fetchFfttCurrentSeasonFromBrowser, ffttGraphqlFromBrowser } from '@/lib/ffttClient'
 import { parsePoolOpponents, poolOpponentsQuery, type FfttClubTeam, type FfttPoolOpponentNode } from '@/lib/ffttTeams'
+import { divisionPoolsQuery, parseDivisionPools, type FfttDivisionPoolsData, type FfttPool } from '@/lib/ffttGames'
 
 // Chronology-aware demotion (#227): what stops being active is archived when
 // older than what becomes active, back to 'upcoming' when newer (rollback).
@@ -593,24 +594,51 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     }
   }, [])
 
-  // --- FFTT games import (#231) ---
+  // --- FFTT games import (#231, browser-side transport like the teams) ---
+  // The browser fetches each requested group's division pools from apiv2
+  // (FFTT blocks Cloudflare egress) and hands the parsed payload to our API.
+  // The payload of the last successful preview is kept per group set so the
+  // import sends exactly what the admin previewed.
+  const gamesPayloadRef = useRef<Record<string, Array<{ divisionId: string; pools: FfttPool[] }>>>({})
+
   const fetchGamesPreview = useCallback(async (groupIds: string[]): Promise<FfttGamesPreview | null> => {
     try {
-      const params = new URLSearchParams({ groupIds: groupIds.join(',') })
-      const r = await fetch(`/api/fftt/games-preview?${params}`, { headers: authHeaders() })
+      // Distinct FFTT-aligned (numeric) division ids of the requested groups;
+      // non-numeric ones predate the FFTT imports and can't be queried.
+      const divisionIds = [...new Set(
+        groupIds
+          .map((gid) => groups.find((g) => g.id === gid)?.divisionId)
+          .filter((id): id is string => !!id && /^\d+$/.test(id)),
+      )]
+      const fetched = await Promise.all(divisionIds.map(async (divisionId) => {
+        const data = await ffttGraphqlFromBrowser<FfttDivisionPoolsData>(divisionPoolsQuery(divisionId))
+        return data === null ? null : { divisionId, pools: parseDivisionPools(data) }
+      }))
+      const pools = fetched.filter((f): f is { divisionId: string; pools: FfttPool[] } => f !== null)
+      // Every FFTT-aligned division unreachable → same as FFTT being down.
+      if (divisionIds.length > 0 && pools.length === 0) return null
+
+      const r = await fetch('/api/fftt/games-preview', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ groupIds, pools }),
+      })
       if (!r.ok) return null
+      gamesPayloadRef.current[groupIds.join(',')] = pools
       return (await r.json()) as FfttGamesPreview
     } catch {
       return null
     }
-  }, [])
+  }, [groups])
 
   const importFfttGames = useCallback(async (groupIds: string[]): Promise<FfttGamesImportResult | null> => {
     try {
+      const pools = gamesPayloadRef.current[groupIds.join(',')]
+      if (!pools) return null
       const r = await fetch('/api/games/import', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ groupIds }),
+        body: JSON.stringify({ groupIds, pools }),
       })
       if (!r.ok) return null
       const result = (await r.json()) as FfttGamesImportResult

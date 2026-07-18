@@ -79,6 +79,32 @@ export interface FfttPool {
 }
 
 /**
+ * The GraphQL document the browser sends to apiv2 for a division's pools and
+ * their matches. Browser-side because FFTT blocks Cloudflare egress IPs
+ * (see ffttClient.ts); the id is numeric-sanitized before interpolation.
+ */
+export function divisionPoolsQuery(divisionId: string): string {
+  const safe = divisionId.replace(/\D/g, '') || '0'
+  return `{ pools(group_id: ${safe}) { edges { node { id name sportMatches { edges { node { id roundNumber date ` +
+    `homeOpponent { team { id name clubs { edges { node { identifier name } } } } } ` +
+    `awayOpponent { team { id name clubs { edges { node { identifier name } } } } } } } } } } } }`
+}
+
+/** GraphQL response shape of divisionPoolsQuery. */
+export interface FfttDivisionPoolsData {
+  pools?: { edges?: Array<{ node?: { id: string; name?: string | null; sportMatches?: { edges?: Array<{ node?: FfttSportMatchNode }> } } }> }
+}
+
+/** Parse a divisionPoolsQuery response into typed pools. */
+export function parseDivisionPools(data: FfttDivisionPoolsData): FfttPool[] {
+  return (data.pools?.edges ?? []).flatMap((e) => e.node ? [{
+    id: ffttIdFromIri(e.node.id),
+    poolNumber: poolNumberFromName(e.node.name),
+    matches: parseSportMatches(e.node.sportMatches?.edges),
+  }] : [])
+}
+
+/**
  * Pick the pool corresponding to a local group. Membership wins: a pool whose
  * matches involve one of the group's known team ids (local team ids are FFTT
  * team ids for imported teams) is the right one even if numbering drifted.

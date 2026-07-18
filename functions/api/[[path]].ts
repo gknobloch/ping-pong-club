@@ -5,7 +5,7 @@ import { seasonIdFromFftt, seasonIdFromName, seasonNameFromFftt } from '../../sr
 import { ffttIdFromIri, orderDivisions, playersPerGameFor, PLAYERS_PER_GAME_DEFAULT, type FfttDivision } from '../../src/lib/ffttDivisions'
 import { FFTT_PHASES, localPhaseId, phaseOrderKey } from '../../src/lib/ffttPhases'
 import { type FfttClubTeam } from '../../src/lib/ffttTeams'
-import { parseSportMatches, poolNumberFromName, selectPoolForGroup, type FfttMatch, type FfttMatchTeam, type FfttPool, type FfttSportMatchNode } from '../../src/lib/ffttGames'
+import { selectPoolForGroup, type FfttMatch, type FfttMatchTeam, type FfttPool } from '../../src/lib/ffttGames'
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -798,20 +798,62 @@ app.post('/teams/import', async (c) => {
 // travels along because apiv2 pool ids are a different id space than the
 // SPID cx_poule ids we use as local group ids — pools are matched to groups
 // by team membership or poule number, never by id (see selectPoolForGroup).
-async function fetchFfttDivisionPools(divisionId: number): Promise<FfttPool[] | null> {
-  const data = await ffttGraphql<{
-    pools?: FfttEdges<{ id: string; name?: string | null; sportMatches?: { edges?: Array<{ node?: FfttSportMatchNode }> } }>
-  }>(
-    `{ pools(group_id: ${divisionId}) { edges { node { id name sportMatches { edges { node { id roundNumber date ` +
-    `homeOpponent { team { id name clubs { edges { node { identifier name } } } } } ` +
-    `awayOpponent { team { id name clubs { edges { node { identifier name } } } } } } } } } } } }`,
-  )
-  if (data === null) return null
-  return (data.pools?.edges ?? []).flatMap((e) => e.node ? [{
-    id: ffttIdFromIri(e.node.id),
-    poolNumber: poolNumberFromName(e.node.name),
-    matches: parseSportMatches(e.node.sportMatches?.edges),
-  }] : [])
+// Strict shape validation of the client-fetched pools payload
+// ([{ divisionId, pools: [{ id, poolNumber, matches: FfttMatch[] }] }]).
+// Same trust model as the teams import: the browser fetched it from apiv2
+// (FFTT blocks Cloudflare egress), the server only accepts sane shapes.
+function parseMatchSide(raw: unknown): FfttMatchTeam | null {
+  if (!raw || typeof raw !== 'object') return null
+  const s = raw as Record<string, unknown>
+  if (typeof s.teamId !== 'string' || !NUMERIC_ID.test(s.teamId)) return null
+  if (typeof s.teamName !== 'string' || !s.teamName.trim()) return null
+  const teamNumber = typeof s.teamNumber === 'number' && Number.isInteger(s.teamNumber) && s.teamNumber >= 1 && s.teamNumber <= 99
+    ? s.teamNumber : null
+  const clubIdentifier = typeof s.clubIdentifier === 'string' && /^\d{0,10}$/.test(s.clubIdentifier) ? s.clubIdentifier : ''
+  return {
+    teamId: s.teamId,
+    teamName: s.teamName.trim().slice(0, 80),
+    teamNumber,
+    clubIdentifier,
+    clubName: typeof s.clubName === 'string' ? s.clubName.trim().slice(0, 80) : '',
+  }
+}
+
+function parsePoolsPayload(raw: unknown): Map<string, FfttPool[]> {
+  const byDivision = new Map<string, FfttPool[]>()
+  if (!Array.isArray(raw)) return byDivision
+  for (const entry of raw.slice(0, 30)) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    if (typeof e.divisionId !== 'string' || !NUMERIC_ID.test(e.divisionId) || byDivision.has(e.divisionId)) continue
+    if (!Array.isArray(e.pools)) continue
+    const pools: FfttPool[] = []
+    for (const p of (e.pools as unknown[]).slice(0, 30)) {
+      if (!p || typeof p !== 'object') continue
+      const x = p as Record<string, unknown>
+      if (typeof x.id !== 'string' || !NUMERIC_ID.test(x.id)) continue
+      const poolNumber = typeof x.poolNumber === 'number' && Number.isInteger(x.poolNumber) && x.poolNumber >= 1 && x.poolNumber <= 99
+        ? x.poolNumber : null
+      const matches: FfttMatch[] = []
+      const seenMatchIds = new Set<string>()
+      for (const m of (Array.isArray(x.matches) ? x.matches as unknown[] : []).slice(0, 200)) {
+        if (!m || typeof m !== 'object') continue
+        const y = m as Record<string, unknown>
+        if (typeof y.id !== 'string' || !NUMERIC_ID.test(y.id) || seenMatchIds.has(y.id)) continue
+        if (typeof y.round !== 'number' || !Number.isInteger(y.round) || y.round < 1 || y.round > 99) continue
+        if (typeof y.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(y.date)) continue
+        const home = parseMatchSide(y.home)
+        const away = parseMatchSide(y.away)
+        if (!home || !away) continue
+        seenMatchIds.add(y.id)
+        matches.push({ id: y.id, round: y.round, date: y.date, home, away })
+      }
+      matches.sort((a, b) => a.round - b.round || a.id.localeCompare(b.id, undefined, { numeric: true }))
+      pools.push({ id: x.id, poolNumber, matches })
+    }
+    byDivision.set(e.divisionId, pools)
+  }
+  return byDivision
 }
 
 type GamesGroupError = 'group_not_found' | 'fftt_unavailable' | 'pool_not_found' | 'calendar_not_published'
@@ -825,23 +867,15 @@ interface GamesGroupContext {
 }
 
 // Shared context for the games preview and import: for each requested group,
-// its division/phase and the FFTT matches of the matching pool (local group
-// id = FFTT pool id, #229). One GraphQL call per distinct division.
-async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[]): Promise<GamesGroupContext[]> {
+// its division/phase and the matching pool's matches out of the validated
+// client-fetched payload. A division absent from the payload means the
+// browser couldn't fetch it from apiv2.
+async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[], poolsRaw: unknown): Promise<GamesGroupContext[]> {
   const groupRows = await db.prepare('SELECT id, division_id, number, team_ids FROM groups_tbl').all()
   const groupById = new Map(groupRows.results.map((g) => [g.id as string, g]))
   const divisionRows = await db.prepare('SELECT id, display_name, phase_id FROM divisions').all()
   const divisionById = new Map(divisionRows.results.map((d) => [d.id as string, d]))
-
-  const wantedDivisions = new Set<string>()
-  for (const gid of groupIds) {
-    const g = groupById.get(gid)
-    if (g && divisionById.has(g.division_id as string)) wantedDivisions.add(g.division_id as string)
-  }
-  const poolsByDivision = new Map<string, FfttPool[] | null>()
-  for (const divId of wantedDivisions) {
-    poolsByDivision.set(divId, await fetchFfttDivisionPools(Number(divId)))
-  }
+  const poolsByDivision = parsePoolsPayload(poolsRaw)
 
   return groupIds.map((groupId): GamesGroupContext => {
     const g = groupById.get(groupId)
@@ -860,7 +894,7 @@ async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[])
       phaseId: division.phase_id as string,
     }
     const pools = poolsByDivision.get(g.division_id as string)
-    if (pools === null || pools === undefined) return { ...identity, error: 'fftt_unavailable' }
+    if (pools === undefined) return { ...identity, error: 'fftt_unavailable' }
     const pool = selectPoolForGroup(pools, group)
     if (!pool) {
       // No pools at all, or only empty shells: the FFTT simply hasn't
@@ -905,13 +939,16 @@ function makeTeamResolver(
 const parseGroupIds = (raw: unknown): string[] =>
   Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 100) : []
 
-// GET /fftt/games-preview?groupIds=a,b — per group: what an import would do
-// (rounds/matches found, games and opponents to create).
-app.get('/fftt/games-preview', async (c) => {
-  const groupIds = (c.req.query('groupIds') ?? '').split(',').filter(Boolean)
+// POST /fftt/games-preview — per group: what an import would do
+// (rounds/matches found, games and opponents to create). POST because the
+// browser sends the FFTT pools payload it fetched (see the transport note on
+// the teams import); the flags are computed here, against D1.
+app.post('/fftt/games-preview', async (c) => {
+  const b = await c.req.json()
+  const groupIds = parseGroupIds(b.groupIds)
   if (groupIds.length === 0) return c.json({ error: 'invalid_params' }, 400)
   const db = c.env.DB
-  const ctxs = await gamesImportContext(db, groupIds)
+  const ctxs = await gamesImportContext(db, groupIds, b.pools)
 
   const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
     db.prepare('SELECT id, affiliation_number FROM clubs').all(),
@@ -984,7 +1021,7 @@ app.post('/games/import', async (c) => {
   const groupIds = parseGroupIds(b.groupIds)
   if (groupIds.length === 0) return c.json({ error: 'invalid_params' }, 400)
   const db = c.env.DB
-  const ctxs = await gamesImportContext(db, groupIds)
+  const ctxs = await gamesImportContext(db, groupIds, b.pools)
 
   const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
     db.prepare('SELECT id, affiliation_number FROM clubs').all(),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  parseSportMatch, parseSportMatches, poolNumberFromName, selectPoolForGroup, teamNumberFromName,
+  divisionPoolsQuery, parseDivisionPools, parseSportMatch, parseSportMatches,
+  poolNumberFromName, selectPoolForGroup, teamNumberFromName,
   type FfttPool, type FfttSportMatchNode,
 } from './ffttGames'
 
@@ -85,6 +86,33 @@ describe('teamNumberFromName', () => {
     ['SANS NUMERO', null],
   ])('%s → %s', (name, expected) => {
     expect(teamNumberFromName(name)).toBe(expected)
+  })
+})
+
+describe('divisionPoolsQuery / parseDivisionPools', () => {
+  it('sanitizes the division id to digits', () => {
+    expect(divisionPoolsQuery('234461"x{}')).toContain('pools(group_id: 234461)')
+    expect(divisionPoolsQuery('abc')).toContain('pools(group_id: 0)')
+  })
+
+  it('parses a pools response into typed pools', () => {
+    const pools = parseDivisionPools({
+      pools: {
+        edges: [
+          { node: { id: '/api/pools/1287199', name: '1', sportMatches: { edges: [{ node: NODE }] } } },
+          { node: { id: '/api/pools/1287200', name: 'B' } },
+          {},
+        ],
+      },
+    })
+    expect(pools).toHaveLength(2)
+    expect(pools[0]).toMatchObject({ id: '1287199', poolNumber: 1 })
+    expect(pools[0].matches).toHaveLength(1)
+    expect(pools[1]).toMatchObject({ id: '1287200', poolNumber: 2, matches: [] })
+  })
+
+  it('returns no pools for an empty response', () => {
+    expect(parseDivisionPools({})).toEqual([])
   })
 })
 
