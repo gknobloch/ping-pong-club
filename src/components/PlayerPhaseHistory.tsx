@@ -5,7 +5,7 @@ import { computeBrulage } from '@/lib/brulage'
 import { getTeamName } from '@/lib/teamName'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
-import { HomeIcon, AwayIcon, InfoIcon } from '@/components/icons'
+import { HomeIcon, AwayIcon, InfoIcon, PhaseSwitchButton } from '@/components/icons'
 import type { Team } from '@/types'
 
 type HistoryEntry = {
@@ -36,12 +36,22 @@ type PhaseBlock = {
 }
 
 // One card per phase a player took part in (rostered or fielded for another of
-// the club's teams), side by side on wide screens, stacked otherwise. Shared
-// by PlayerDetailPage (viewing any player) and HomePage (the logged-in
-// player's own "Tous mes matchs").
-export function PlayerPhaseHistory({ playerId, title }: { playerId: string; title?: string }) {
+// the club's teams). Shared by PlayerDetailPage (viewing any player — side by
+// side on wide screens, stacked otherwise) and HomePage (the logged-in
+// player's own "Tous mes matchs" — `seasonSwitcher` shows one phase at a
+// time, defaulting to the active one, matching the mobile Mes matchs screen).
+export function PlayerPhaseHistory({
+  playerId,
+  title,
+  seasonSwitcher,
+}: {
+  playerId: string
+  title?: string
+  seasonSwitcher?: boolean
+}) {
   const { players, teams, clubs, phases, matchDays, games, gameSelections } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | undefined>(undefined)
 
   const player = players.find((p) => p.id === playerId)
   const today = new Date().toISOString().slice(0, 10)
@@ -138,17 +148,46 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
 
   if (phaseBlocks.length === 0) return null
 
+  // #233: on the Home screen, show one phase (= "season") at a time via a
+  // switcher rather than every phase the player ever played in, mirroring
+  // the mobile Mes matchs screen. Defaults to the active phase, falling back
+  // to the most recent participated one when the player has none active yet.
+  const activePhase = phases.find((p) => p.status === 'active')
+  const fallbackBlock =
+    (activePhase && phaseBlocks.find((b) => b.phaseId === activePhase.id)) ??
+    phaseBlocks[phaseBlocks.length - 1]
+  const currentBlock = seasonSwitcher
+    ? (phaseBlocks.find((b) => b.phaseId === selectedPhaseId) ?? fallbackBlock)
+    : undefined
+  const phaseIndex = currentBlock ? phaseBlocks.findIndex((b) => b.phaseId === currentBlock.phaseId) : -1
+  const visibleBlocks = seasonSwitcher ? (currentBlock ? [currentBlock] : []) : phaseBlocks
+
   return (
     <div className="space-y-3">
       {title && <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>}
-      <div className={`grid gap-5 ${phaseBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-        {phaseBlocks.map((b) => (
+      {seasonSwitcher && currentBlock && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
+          <PhaseSwitchButton
+            dir="prev"
+            disabled={phaseIndex <= 0}
+            onClick={() => phaseIndex > 0 && setSelectedPhaseId(phaseBlocks[phaseIndex - 1].phaseId)}
+          />
+          <span className="font-display text-sm font-semibold text-slate-800">{currentBlock.label}</span>
+          <PhaseSwitchButton
+            dir="next"
+            disabled={phaseIndex >= phaseBlocks.length - 1}
+            onClick={() => phaseIndex < phaseBlocks.length - 1 && setSelectedPhaseId(phaseBlocks[phaseIndex + 1].phaseId)}
+          />
+        </div>
+      )}
+      <div className={`grid gap-5 ${visibleBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+        {visibleBlocks.map((b) => (
           <section
             key={b.phaseId}
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
             <div className="border-b border-slate-100 px-5 py-3">
-              <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>
+              {!seasonSwitcher && <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>}
               {b.total !== undefined && (
                 <p className="mt-0.5 text-xs font-medium text-slate-500">
                   {b.played}{b.borrowedPlayed > 0 ? ` + ${b.borrowedPlayed}` : ''} / {b.total} joués

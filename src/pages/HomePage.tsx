@@ -238,9 +238,9 @@ export function HomePage() {
         </>
       )}
 
-      {/* Full match history — one card per phase, side by side (like the
-          player-detail screen), stacked on narrow viewports. */}
-      {myPlayerId && <PlayerPhaseHistory playerId={myPlayerId} title="Tous mes matchs" />}
+      {/* Match history — one phase (season) at a time via the switcher (#233),
+          defaulting to the active one. */}
+      {myPlayerId && <PlayerPhaseHistory playerId={myPlayerId} title="Tous mes matchs" seasonSwitcher />}
 
       {quickGame && (
         <GameQuickView gameId={quickGame.gameId} teamId={quickGame.teamId} onClose={() => setQuickGame(null)} />
