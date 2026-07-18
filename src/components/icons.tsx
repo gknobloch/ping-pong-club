@@ -55,6 +55,16 @@ export function WhatsAppIcon({ className = 'h-4 w-4' }: { className?: string }) 
   )
 }
 
+export function ImportIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M4 21h16" />
+    </svg>
+  )
+}
+
 export function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span className="rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
