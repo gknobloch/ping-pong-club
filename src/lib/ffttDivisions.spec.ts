@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canMoveDivisionDown,
+  canMoveDivisionUp,
   ffttIdFromIri,
   orderDivisions,
   playersPerGameFor,
@@ -83,5 +85,36 @@ describe('orderDivisions', () => {
 
   it('returns an empty list unchanged', () => {
     expect(orderDivisions([])).toEqual([])
+  })
+})
+
+describe('canMoveDivisionUp / canMoveDivisionDown', () => {
+  // Ranked A, B, C — B is A's child; C has no parent.
+  const a = { id: 'a' }
+  const b = { id: 'b', parentId: 'a' }
+  const c = { id: 'c' }
+  const inPhase = [a, b, c]
+
+  it('blocks the top of the list from moving up, and the bottom from moving down', () => {
+    expect(canMoveDivisionUp(a, inPhase)).toBe(false)
+    expect(canMoveDivisionDown(c, inPhase)).toBe(false)
+  })
+
+  it('blocks a child from moving above its own parent', () => {
+    expect(canMoveDivisionUp(b, inPhase)).toBe(false)
+  })
+
+  it('blocks a parent from moving below its own child', () => {
+    expect(canMoveDivisionDown(a, inPhase)).toBe(false)
+  })
+
+  it('allows moves that do not cross the parent/child boundary', () => {
+    expect(canMoveDivisionUp(c, inPhase)).toBe(true) // swaps with b, not its parent
+    expect(canMoveDivisionDown(b, inPhase)).toBe(true) // swaps with c, not its child
+  })
+
+  it('returns false for a division not in the list', () => {
+    expect(canMoveDivisionUp({ id: 'missing' }, inPhase)).toBe(false)
+    expect(canMoveDivisionDown({ id: 'missing' }, inPhase)).toBe(false)
   })
 })

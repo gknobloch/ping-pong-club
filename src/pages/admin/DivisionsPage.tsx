@@ -4,6 +4,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportDivisionsModal } from '@/components/ImportDivisionsModal'
 import { PhaseSwitchButton } from '@/components/icons'
+import { canMoveDivisionDown, canMoveDivisionUp } from '@/lib/ffttDivisions'
 
 export function DivisionsPage() {
   const {
@@ -31,7 +32,7 @@ export function DivisionsPage() {
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [form, setForm] = useState({ phaseId: '', displayName: '', rank: 1, playersPerGame: 4 })
+  const [form, setForm] = useState({ phaseId: '', displayName: '', parentId: '', playersPerGame: 4 })
 
   const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
   const archivedDivisions = useMemo(() => allDivisions.filter((d) => d.isArchived), [allDivisions])
@@ -44,17 +45,18 @@ export function DivisionsPage() {
     .slice()
     .sort((a, b) => a.rank - b.rank)
 
+  // #236: a division with a parent is locked relative to it (see
+  // canMoveDivisionUp/Down) — it can never rank above its own parent, nor can
+  // the parent rank below it.
   const getCanMoveUp = (div: Division) => {
     if (div.isArchived) return false
     const inPhase = activeDivisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
-    const idx = inPhase.findIndex((d) => d.id === div.id)
-    return idx > 0
+    return canMoveDivisionUp(div, inPhase)
   }
   const getCanMoveDown = (div: Division) => {
     if (div.isArchived) return false
     const inPhase = activeDivisions.filter((d) => d.phaseId === div.phaseId).sort((a, b) => a.rank - b.rank)
-    const idx = inPhase.findIndex((d) => d.id === div.id)
-    return idx >= 0 && idx < inPhase.length - 1
+    return canMoveDivisionDown(div, inPhase)
   }
 
   const openEdit = (div: Division) => {
@@ -63,7 +65,7 @@ export function DivisionsPage() {
     setForm({
       phaseId: div.phaseId,
       displayName: div.displayName,
-      rank: div.rank,
+      parentId: div.parentId ?? '',
       playersPerGame: div.playersPerGame,
     })
   }
@@ -72,12 +74,10 @@ export function DivisionsPage() {
     setEditing(null)
     setCreating(true)
     const phaseId = filterPhase?.id || phases[0]?.id || ''
-    const inPhase = activeDivisions.filter((d) => d.phaseId === phaseId)
-    const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
     setForm({
       phaseId,
       displayName: '',
-      rank: maxRank,
+      parentId: '',
       playersPerGame: 4,
     })
   }
@@ -91,17 +91,26 @@ export function DivisionsPage() {
     if (editing) {
       updateDivision(editing.id, {
         displayName: form.displayName,
-        rank: form.rank,
         playersPerGame: form.playersPerGame,
       })
       closeModal()
     } else if (creating && form.phaseId) {
+      // Rank derives from the chosen parent (#236): dropped right after it,
+      // pushing every division already ranked there (or below) down by one.
+      // No parent = appended at the end, as before.
+      const inPhase = activeDivisions.filter((d) => d.phaseId === form.phaseId).sort((a, b) => a.rank - b.rank)
+      const parent = inPhase.find((d) => d.id === form.parentId)
+      const rank = parent ? parent.rank + 1 : Math.max(0, ...inPhase.map((d) => d.rank)) + 1
+      for (const d of inPhase) {
+        if (d.rank >= rank) updateDivision(d.id, { rank: d.rank + 1 })
+      }
       addDivision({
         phaseId: form.phaseId,
         displayName: form.displayName,
-        rank: form.rank,
+        rank,
         playersPerGame: form.playersPerGame,
         isArchived: false,
+        ...(parent ? { parentId: parent.id } : {}),
       })
       closeModal()
     }
@@ -283,12 +292,7 @@ export function DivisionsPage() {
                   <select
                     id="edit-phaseId"
                     value={form.phaseId}
-                    onChange={(e) => {
-                      const phaseId = e.target.value
-                      const inPhase = activeDivisions.filter((d) => d.phaseId === phaseId)
-                      const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
-                      setForm((f) => ({ ...f, phaseId, rank: maxRank }))
-                    }}
+                    onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value, parentId: '' }))}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                   >
                     {phases.map((p) => (
@@ -311,17 +315,23 @@ export function DivisionsPage() {
               </div>
               {creating && (
                 <div>
-                  <label htmlFor="edit-rank" className="block text-sm font-medium text-slate-700">
-                    Rang (ordre dans la phase)
+                  <label htmlFor="edit-parentId" className="block text-sm font-medium text-slate-700">
+                    Division parente
                   </label>
-                  <input
-                    id="edit-rank"
-                    type="number"
-                    min={1}
-                    value={form.rank}
-                    onChange={(e) => setForm((f) => ({ ...f, rank: Number(e.target.value) || 1 }))}
+                  <select
+                    id="edit-parentId"
+                    value={form.parentId}
+                    onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
-                  />
+                  >
+                    <option value="">Aucune (division de tête)</option>
+                    {activeDivisions
+                      .filter((d) => d.phaseId === form.phaseId)
+                      .sort((a, b) => a.rank - b.rank)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>{d.displayName}</option>
+                      ))}
+                  </select>
                 </div>
               )}
               <div>

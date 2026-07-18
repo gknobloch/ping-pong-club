@@ -111,6 +111,7 @@ app.get('/data', async (c) => {
       id: r.id, phaseId: r.phase_id, displayName: r.display_name,
       rank: r.rank, playersPerGame: r.players_per_game,
       isArchived: bool(r.is_archived),
+      ...(r.parent_id ? { parentId: r.parent_id } : {}),
     })),
     clubs: clubsR.results.map(r => ({
       id: r.id, affiliationNumber: r.affiliation_number, displayName: r.display_name,
@@ -449,7 +450,11 @@ app.get('/fftt/divisions-preview', async (c) => {
 })
 
 type ImportedPhase = { id: string; seasonId: unknown; name: unknown; displayName: unknown; status: unknown }
-type ImportedDivision = { id: string; phaseId: string; displayName: string; rank: number; playersPerGame: number; isArchived: boolean }
+type ImportedDivision = {
+  id: string; phaseId: string; displayName: string; rank: number; playersPerGame: number; isArchived: boolean
+  /** FFTT id of the parent division (#236); the local match may not exist yet — see importDivisions. */
+  parentId?: string
+}
 
 // Core of the divisions import: re-fetches from FFTT (never trusts a client
 // list), creates the phase if missing (inactive), inserts the divisions not
@@ -494,12 +499,13 @@ async function importDivisions(db: Env['Bindings']['DB'], p: { org: number; seas
     created.push({
       id: d.id, phaseId, displayName: d.name, rank,
       playersPerGame: playersPerGameFor(d.identifier), isArchived: false,
+      ...(d.parentId ? { parentId: d.parentId } : {}),
     })
   }
   if (created.length) {
     await db.batch(created.map((d) =>
-      db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES (?, ?, ?, ?, ?, 0)')
-        .bind(d.id, d.phaseId, d.displayName, d.rank, d.playersPerGame),
+      db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived, parent_id) VALUES (?, ?, ?, ?, ?, 0, ?)')
+        .bind(d.id, d.phaseId, d.displayName, d.rank, d.playersPerGame, d.parentId ?? null),
     ))
   }
   return {
@@ -1407,8 +1413,8 @@ app.delete('/phases/:id', async (c) => {
 app.post('/divisions', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    'INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(d.id, d.phaseId, d.displayName, d.rank, d.playersPerGame, d.isArchived ? 1 : 0).run()
+    'INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(d.id, d.phaseId, d.displayName, d.rank, d.playersPerGame, d.isArchived ? 1 : 0, d.parentId ?? null).run()
   return c.json({ ok: true })
 })
 
@@ -1421,6 +1427,7 @@ app.patch('/divisions/:id', async (c) => {
   if ('rank' in p) { s.push('rank = ?'); v.push(p.rank) }
   if ('playersPerGame' in p) { s.push('players_per_game = ?'); v.push(p.playersPerGame) }
   if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
+  if ('parentId' in p) { s.push('parent_id = ?'); v.push(p.parentId ?? null) }
   if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE divisions SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
   return c.json({ ok: true })
 })

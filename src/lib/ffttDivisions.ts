@@ -82,3 +82,33 @@ export function orderDivisions(divisions: FfttDivision[]): FfttDivision[] {
 
   return ordered
 }
+
+// ---------------------------------------------------------------------------
+// Manual reordering (#236)
+// ---------------------------------------------------------------------------
+
+type RankedDivision = { id: string; parentId?: string }
+
+/**
+ * Whether `division` can move up one rank. Reordering is always an adjacent
+ * swap, and a division with a parent is locked relative to it — it can never
+ * end up ranked above its own parent — so it's blocked exactly when the
+ * division directly above (by rank) is its parent. `inPhase` must already be
+ * sorted by rank ascending and scoped to the same phase.
+ */
+export function canMoveDivisionUp(division: RankedDivision, inPhase: RankedDivision[]): boolean {
+  const idx = inPhase.findIndex((d) => d.id === division.id)
+  if (idx <= 0) return false
+  return inPhase[idx - 1].id !== division.parentId
+}
+
+/**
+ * Symmetric to canMoveDivisionUp: a division can never end up ranked below
+ * one of its own children, so moving down is blocked exactly when the
+ * division directly below is a child of `division`.
+ */
+export function canMoveDivisionDown(division: RankedDivision, inPhase: RankedDivision[]): boolean {
+  const idx = inPhase.findIndex((d) => d.id === division.id)
+  if (idx < 0 || idx >= inPhase.length - 1) return false
+  return inPhase[idx + 1].parentId !== division.id
+}
