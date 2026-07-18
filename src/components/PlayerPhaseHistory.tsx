@@ -5,7 +5,7 @@ import { computeBrulage } from '@/lib/brulage'
 import { getTeamName } from '@/lib/teamName'
 import { TeamBadge } from '@/components/TeamBadge'
 import { GameQuickView } from '@/components/GameQuickView'
-import { HomeIcon, AwayIcon, InfoIcon } from '@/components/icons'
+import { HomeIcon, AwayIcon, InfoIcon, PhaseSwitchButton } from '@/components/icons'
 import type { Team } from '@/types'
 
 type HistoryEntry = {
@@ -22,6 +22,7 @@ type HistoryEntry = {
 
 type PhaseBlock = {
   phaseId: string
+  seasonId: string
   label: string
   team?: Team
   isCaptain: boolean
@@ -35,13 +36,14 @@ type PhaseBlock = {
   history: HistoryEntry[]
 }
 
-// One card per phase a player took part in (rostered or fielded for another of
-// the club's teams), side by side on wide screens, stacked otherwise. Shared
-// by PlayerDetailPage (viewing any player) and HomePage (the logged-in
-// player's own "Tous mes matchs").
+// Scopes to one season at a time via a switcher — a season can have several
+// phases, shown together as side-by-side cards — defaulting to the active
+// season. Shared by PlayerDetailPage (viewing any player) and HomePage (the
+// logged-in player's own "Tous mes matchs") (#233).
 export function PlayerPhaseHistory({ playerId, title }: { playerId: string; title?: string }) {
-  const { players, teams, clubs, phases, matchDays, games, gameSelections } = useAppData()
+  const { players, teams, clubs, phases, seasons, matchDays, games, gameSelections } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | undefined>(undefined)
 
   const player = players.find((p) => p.id === playerId)
   const today = new Date().toISOString().slice(0, 10)
@@ -123,6 +125,7 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
 
         return {
           phaseId: ph.id,
+          seasonId: ph.seasonId,
           label: `Saison ${ph.displayName}`,
           team: rosterTeam,
           isCaptain: rosterTeam?.captainId === playerId,
@@ -138,11 +141,45 @@ export function PlayerPhaseHistory({ playerId, title }: { playerId: string; titl
 
   if (phaseBlocks.length === 0) return null
 
+  // Falls back to the most recent participated season when the player has
+  // none active yet. Chronological order comes for free: phaseBlocks is
+  // already sorted by phase displayName ("2025/2026 Phase 1", "2025/2026
+  // Phase 2", "2026/2027 Phase 1", …), so de-duping its seasonIds in order
+  // keeps that ordering.
+  const orderedSeasonIds: string[] = []
+  for (const b of phaseBlocks) if (!orderedSeasonIds.includes(b.seasonId)) orderedSeasonIds.push(b.seasonId)
+  const activeSeasonId = seasons.find((s) => s.status === 'active')?.id
+  const fallbackSeasonId =
+    (activeSeasonId && orderedSeasonIds.includes(activeSeasonId) ? activeSeasonId : undefined) ??
+    orderedSeasonIds[orderedSeasonIds.length - 1]
+  const currentSeasonId =
+    selectedSeasonId && orderedSeasonIds.includes(selectedSeasonId) ? selectedSeasonId : fallbackSeasonId
+  const seasonIndex = orderedSeasonIds.indexOf(currentSeasonId)
+  const currentSeasonLabel = seasons.find((s) => s.id === currentSeasonId)?.displayName
+  const visibleBlocks = phaseBlocks.filter((b) => b.seasonId === currentSeasonId)
+
   return (
     <div className="space-y-3">
       {title && <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>}
-      <div className={`grid gap-5 ${phaseBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-        {phaseBlocks.map((b) => (
+      {currentSeasonLabel && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
+          <PhaseSwitchButton
+            dir="prev"
+            disabled={seasonIndex <= 0}
+            onClick={() => seasonIndex > 0 && setSelectedSeasonId(orderedSeasonIds[seasonIndex - 1])}
+            prevLabel="Saison précédente"
+          />
+          <span className="font-display text-sm font-semibold text-slate-800">Saison {currentSeasonLabel}</span>
+          <PhaseSwitchButton
+            dir="next"
+            disabled={seasonIndex >= orderedSeasonIds.length - 1}
+            onClick={() => seasonIndex < orderedSeasonIds.length - 1 && setSelectedSeasonId(orderedSeasonIds[seasonIndex + 1])}
+            nextLabel="Saison suivante"
+          />
+        </div>
+      )}
+      <div className={`grid gap-5 ${visibleBlocks.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+        {visibleBlocks.map((b) => (
           <section
             key={b.phaseId}
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
