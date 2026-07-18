@@ -791,6 +791,101 @@ app.post('/teams/import', async (c) => {
   })
 })
 
+// --- FFTT groups import (#237) ---
+// Same trust model as the teams/games imports above: the browser fetched the
+// division's pools from apiv2 (FFTT blocks Cloudflare egress), this API only
+// accepts sane shapes and re-validates against D1 before persisting. Unlike
+// the teams import (which only creates the pools that have an engaged team of
+// the importing club), this creates every pool of the division — including
+// ones with no team yet — so the group structure can be set up ahead of time.
+
+function parsePoolsList(raw: unknown): Array<{ id: string; number: number | null }> {
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ id: string; number: number | null }> = []
+  const seen = new Set<string>()
+  for (const p of raw.slice(0, 40)) {
+    if (!p || typeof p !== 'object') continue
+    const x = p as Record<string, unknown>
+    if (typeof x.id !== 'string' || !NUMERIC_ID.test(x.id) || seen.has(x.id)) continue
+    const number = typeof x.poolNumber === 'number' && Number.isInteger(x.poolNumber) && x.poolNumber >= 1 && x.poolNumber <= 99
+      ? x.poolNumber : null
+    seen.add(x.id)
+    out.push({ id: x.id, number })
+  }
+  return out
+}
+
+type GroupsImportContext =
+  | { error: 'division_not_found' }
+  | {
+      division: { id: string; displayName: string }
+      pools: Array<{ id: string; number: number | null }>
+      existingIds: Set<string>
+      existingNumbers: Set<number>
+    }
+
+async function groupsImportContext(db: Env['Bindings']['DB'], divisionId: string, poolsRaw: unknown): Promise<GroupsImportContext> {
+  const division = await db.prepare('SELECT id, display_name FROM divisions WHERE id = ?').bind(divisionId).first()
+  if (!division) return { error: 'division_not_found' }
+  const existingRows = await db.prepare('SELECT id, number FROM groups_tbl WHERE division_id = ?').bind(divisionId).all()
+  return {
+    division: { id: division.id as string, displayName: division.display_name as string },
+    pools: parsePoolsList(poolsRaw),
+    existingIds: new Set(existingRows.results.map((g) => g.id as string)),
+    existingNumbers: new Set(existingRows.results.map((g) => g.number as number)),
+  }
+}
+
+// POST /fftt/groups-preview — the client-fetched division pools flagged with
+// what an import would do (already present or not). POST because the browser
+// sends the FFTT payload it fetched (see the transport note above).
+app.post('/fftt/groups-preview', async (c) => {
+  const b = await c.req.json()
+  const divisionId = typeof b.divisionId === 'string' ? b.divisionId : ''
+  if (!divisionId) return c.json({ error: 'invalid_params' }, 400)
+  const ctx = await groupsImportContext(c.env.DB, divisionId, b.pools)
+  if ('error' in ctx) return c.json({ error: ctx.error }, 404)
+  return c.json({
+    divisionId,
+    divisionName: ctx.division.displayName,
+    groups: ctx.pools.map((p) => ({
+      id: p.id,
+      number: p.number,
+      exists: ctx.existingIds.has(p.id) || (p.number !== null && ctx.existingNumbers.has(p.number)),
+    })),
+  })
+})
+
+// POST /groups/import — creates the division's FFTT pools not already present
+// locally (by pool id, or by poule number when the id is unknown), leaving
+// existing groups (and their teams) untouched.
+app.post('/groups/import', async (c) => {
+  const b = await c.req.json()
+  const divisionId = typeof b.divisionId === 'string' ? b.divisionId : ''
+  if (!divisionId) return c.json({ error: 'invalid_params' }, 400)
+  const ctx = await groupsImportContext(c.env.DB, divisionId, b.pools)
+  if ('error' in ctx) return c.json({ error: ctx.error }, 404)
+
+  const created: Array<{ id: string; divisionId: string; number: number; teamIds: string[]; isArchived: boolean }> = []
+  const skipped: Array<{ id: string; number: number | null }> = []
+  for (const p of ctx.pools) {
+    if (ctx.existingIds.has(p.id) || (p.number !== null && ctx.existingNumbers.has(p.number))) {
+      skipped.push({ id: p.id, number: p.number })
+      continue
+    }
+    const number = p.number ?? 1
+    created.push({ id: p.id, divisionId, number, teamIds: [], isArchived: false })
+    ctx.existingIds.add(p.id)
+    ctx.existingNumbers.add(number)
+  }
+  if (created.length) {
+    await c.env.DB.batch(created.map((g) =>
+      c.env.DB.prepare('INSERT INTO groups_tbl (id, division_id, number, team_ids, is_archived) VALUES (?, ?, ?, ?, 0)')
+        .bind(g.id, g.divisionId, g.number, jsonStr(g.teamIds))))
+  }
+  return c.json({ created, skipped })
+})
+
 // --- FFTT games import (#231) ---
 
 // Fetch every pool of an FFTT division ("group" in their schema) with its

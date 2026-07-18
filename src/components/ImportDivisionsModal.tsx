@@ -2,15 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Organization } from '@/types'
 import { useAppData, type FfttDivisionsPreview } from '@/contexts/DataContext'
 import { FFTT_PHASES } from '@/lib/ffttPhases'
+import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
 import { ModalShell } from '@/components/ModalShell'
-
-// Dropdown group labels/order for the FFTT organization types.
-const ORG_TYPE_GROUPS: Array<{ type: string; label: string }> = [
-  { type: 'League', label: 'Ligues' },
-  { type: 'Committee', label: 'Comités' },
-  { type: 'Zone', label: 'Zones' },
-  { type: 'Federation', label: 'Fédération' },
-]
 
 type PreviewState = 'idle' | 'loading' | 'done' | 'no_contest' | 'error'
 
@@ -57,14 +50,7 @@ export function ImportDivisionsModal({ onClose }: { onClose: () => void }) {
     else setOrgsError(true)
   }
 
-  const orgGroups = useMemo(() => {
-    const byType = new Map<string, Organization[]>()
-    for (const o of orgs ?? []) byType.set(o.type, [...(byType.get(o.type) ?? []), o])
-    return ORG_TYPE_GROUPS.filter((g) => byType.has(g.type)).map((g) => ({
-      ...g,
-      organizations: byType.get(g.type)!,
-    }))
-  }, [orgs])
+  const orgGroups = useMemo(() => groupOrganizationsByType(orgs), [orgs])
 
   const handleSearch = async () => {
     setPreviewState('loading')

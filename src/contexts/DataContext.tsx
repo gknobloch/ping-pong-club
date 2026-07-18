@@ -192,6 +192,28 @@ export interface FfttGamesImportResult {
   skippedMatches: number
 }
 
+/** One pool/group in the FFTT groups import preview (POST /api/fftt/groups-preview, #237). */
+export interface FfttGroupPreview {
+  /** FFTT pool id — becomes the local group id on import. */
+  id: string
+  /** Poule number parsed from the FFTT name; null when unreadable. */
+  number: number | null
+  /** Already present locally for that division — will be skipped on import. */
+  exists: boolean
+}
+
+export interface FfttGroupsPreview {
+  divisionId: string
+  divisionName: string
+  groups: FfttGroupPreview[]
+}
+
+/** Response of POST /api/groups/import (#237). */
+export interface FfttGroupsImportResult {
+  created: Group[]
+  skipped: Array<{ id: string; number: number | null }>
+}
+
 // Read the current session token (set by AuthContext) for the Authorization
 // header. Read at call time so mutations always use the latest token.
 function sessionToken(): string | null {
@@ -253,6 +275,10 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   fetchGamesPreview: (groupIds: string[]) => Promise<FfttGamesPreview | null>
   /** Import the FFTT calendars (journées + matchs, auto-creating opponents). */
   importFfttGames: (groupIds: string[]) => Promise<FfttGamesImportResult | null>
+  /** Preview a division's FFTT groups/pools (#237); null on failure. */
+  fetchGroupsPreview: (divisionId: string) => Promise<FfttGroupsPreview | null>
+  /** Import a division's FFTT groups not already present locally. */
+  importFfttGroups: (divisionId: string) => Promise<FfttGroupsImportResult | null>
   updatePhase: (id: string, patch: Partial<Phase>) => void
   archivePhase: (id: string) => void
   deletePhase: (id: string) => void
@@ -658,6 +684,52 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
         ])
       }
       if (result.createdGames.length) setGames((prev) => [...prev, ...result.createdGames])
+      return result
+    } catch {
+      return null
+    }
+  }, [])
+
+  // --- FFTT groups import (#237, same browser-side transport as the games
+  // import above: FFTT blocks Cloudflare egress, so the browser fetches the
+  // division's pools from apiv2 and hands the parsed payload to our API.) ---
+  const groupsPayloadRef = useRef<Record<string, FfttPool[]>>({})
+
+  const fetchGroupsPreview = useCallback(async (divisionId: string): Promise<FfttGroupsPreview | null> => {
+    try {
+      // Only FFTT-aligned (numeric) division ids can be queried on apiv2; a
+      // division that predates the FFTT imports simply has no pools to offer.
+      let pools: FfttPool[] = []
+      if (/^\d+$/.test(divisionId)) {
+        const data = await ffttGraphqlFromBrowser<FfttDivisionPoolsData>(divisionPoolsQuery(divisionId))
+        if (data === null) return null
+        pools = parseDivisionPools(data)
+      }
+      const r = await fetch('/api/fftt/groups-preview', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ divisionId, pools }),
+      })
+      if (!r.ok) return null
+      groupsPayloadRef.current[divisionId] = pools
+      return (await r.json()) as FfttGroupsPreview
+    } catch {
+      return null
+    }
+  }, [])
+
+  const importFfttGroups = useCallback(async (divisionId: string): Promise<FfttGroupsImportResult | null> => {
+    try {
+      const pools = groupsPayloadRef.current[divisionId]
+      if (!pools) return null
+      const r = await fetch('/api/groups/import', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ divisionId, pools }),
+      })
+      if (!r.ok) return null
+      const result = (await r.json()) as FfttGroupsImportResult
+      if (result.created.length) setGroups((prev) => [...prev, ...result.created])
       return result
     } catch {
       return null
@@ -1329,6 +1401,8 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       importFfttTeams,
       fetchGamesPreview,
       importFfttGames,
+      fetchGroupsPreview,
+      importFfttGroups,
       updatePhase,
       archivePhase,
       deletePhase,
@@ -1369,7 +1443,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason,
-      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, fetchGamesPreview, importFfttGames, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
+      fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, fetchGamesPreview, importFfttGames, fetchGroupsPreview, importFfttGroups, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
       addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer, setAvatar, removeAvatar,
