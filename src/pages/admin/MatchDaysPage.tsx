@@ -8,6 +8,7 @@ import { sortByName } from '@/lib/sortByName'
 import { ClubLogo } from '@/components/ClubLogo'
 import { ImportGamesModal } from '@/components/ImportGamesModal'
 import { ModalShell } from '@/components/ModalShell'
+import { ImportIcon } from '@/components/icons'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
 function TeamSelect({
@@ -915,9 +916,11 @@ export function MatchDaysPage() {
               <button
                 type="button"
                 onClick={() => setImportGamesOpen(true)}
-                className="rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700"
+                title="Importer les matchs FFTT"
+                aria-label="Importer les matchs FFTT"
+                className="rounded-lg bg-accent-600 p-2 text-white hover:bg-accent-700"
               >
-                Importer les matchs FFTT
+                <ImportIcon className="h-4 w-4" />
               </button>
             )}
           </div>
