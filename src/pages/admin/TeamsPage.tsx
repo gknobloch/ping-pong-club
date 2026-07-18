@@ -8,6 +8,7 @@ import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/compo
 import { ClubLogo } from '@/components/ClubLogo'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportTeamsModal } from '@/components/ImportTeamsModal'
+import { ImportGamesModal } from '@/components/ImportGamesModal'
 import { ImportPreviousPhaseRosterModal } from '@/components/ImportPreviousPhaseRosterModal'
 
 export function TeamsPage() {
@@ -34,6 +35,7 @@ export function TeamsPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [importRosterOpen, setImportRosterOpen] = useState(false)
+  const [importGamesFor, setImportGamesFor] = useState<Team | null>(null)
 
   const allVisibleTeams = useMemo(() => {
     let t = allTeams
@@ -451,6 +453,15 @@ export function TeamsPage() {
                         >
                           Modifier
                         </button>
+                        {team.groupId && (
+                          <button
+                            type="button"
+                            onClick={() => setImportGamesFor(team)}
+                            className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                          >
+                            Importer les matchs
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleArchive(team)}
@@ -808,6 +819,14 @@ export function TeamsPage() {
             </div>
           </div>
         </ModalShell>
+      )}
+
+      {importGamesFor && (
+        <ImportGamesModal
+          onClose={() => setImportGamesFor(null)}
+          groupIds={[importGamesFor.groupId]}
+          context={`${getClubName(importGamesFor.clubId)} ${importGamesFor.number} — calendrier de sa poule`}
+        />
       )}
 
       {importRosterOpen && editing && previousPhase && editingClub && (

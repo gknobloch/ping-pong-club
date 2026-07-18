@@ -6,6 +6,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { computeBrulage, isPlayerEligibleForTeam } from '@/lib/brulage'
 import { sortByName } from '@/lib/sortByName'
 import { ClubLogo } from '@/components/ClubLogo'
+import { ImportGamesModal } from '@/components/ImportGamesModal'
 import { ModalShell } from '@/components/ModalShell'
 
 /** Custom team dropdown with colored dots. Options ordered: player's team (if any), empty, then other teams. */
@@ -391,9 +392,19 @@ export function MatchDaysPage() {
   } = useAppData()
   const hasClubScope = (user?.role === 'club_admin' || user?.role === 'player') && !!user?.clubId
   const scopedClub = hasClubScope ? clubs.find((c) => c.id === user?.clubId) : undefined
+  const isAdmin = user?.role === 'general_admin' || user?.role === 'club_admin'
   const [selectedPhaseId, setSelectedPhaseId] = useState<string>(
     () => phases.find((p) => p.status === 'active')?.id ?? phases[0]?.id ?? ''
   )
+  const [importGamesOpen, setImportGamesOpen] = useState(false)
+
+  /** Groups of the selected phase that contain at least one team — the FFTT
+   *  calendar import scope for this page (#231). */
+  const importableGroupIds = useMemo(() => {
+    const divIds = new Set(divisions.filter((d) => d.phaseId === selectedPhaseId).map((d) => d.id))
+    const populated = new Set(teams.filter((t) => !t.isArchived).map((t) => t.groupId))
+    return groups.filter((g) => divIds.has(g.divisionId) && populated.has(g.id)).map((g) => g.id)
+  }, [divisions, groups, teams, selectedPhaseId])
 
   /** All teams of the user's club in the selected phase (one block per team; each team has its own group's match-days). */
   const userClubId = user?.clubId
@@ -899,9 +910,27 @@ export function MatchDaysPage() {
                 </button>
               </div>
             )}
+
+            {isAdmin && importableGroupIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setImportGamesOpen(true)}
+                className="rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700"
+              >
+                Importer les matchs FFTT
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {importGamesOpen && (
+        <ImportGamesModal
+          onClose={() => setImportGamesOpen(false)}
+          groupIds={importableGroupIds}
+          context={`${selectedPhase?.displayName ?? ''} — toutes les poules avec équipes`}
+        />
+      )}
 
       {selectedPhaseId && myClubTeamsInPhase.length === 0 && (
         <p className="text-sm text-slate-600">Aucune équipe de votre club dans cette phase.</p>

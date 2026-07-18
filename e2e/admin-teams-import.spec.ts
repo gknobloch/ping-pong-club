@@ -1,9 +1,45 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { loginAs } from './helpers'
 
 // The E2E dev server has no API; the FFTT teams endpoints are mocked per test.
 const PREVIEW = '**/api/fftt/teams-preview*'
 const IMPORT = '**/api/teams/import'
+
+// The browser fetches apiv2 GraphQL directly (#231 follow-up: FFTT blocks
+// Cloudflare egress, apiv2 allows CORS) — always mocked so E2E stays hermetic.
+const FFTT_GRAPHQL = 'https://apiv2.fftt.com/api/graphql'
+
+const graphqlTeamNode = (teamId: string, teamName: string, poolId: string, poolName: string, divisionId: string, divisionName: string) => ({
+  node: {
+    opponent: { team: { id: `/api/teams/${teamId}`, name: teamName } },
+    pool: {
+      id: `/api/pools/${poolId}`, name: poolName,
+      group: { tour: { division: { id: `/api/divisions/${divisionId}`, name: divisionName, phase: { id: '/api/phases/1' } } } },
+    },
+  },
+})
+
+async function mockFfttGraphql(page: Page) {
+  await page.route(FFTT_GRAPHQL, (route) => {
+    const body = route.request().postData() ?? ''
+    if (body.includes('seasons(current: true)')) {
+      return route.fulfill({ json: { data: { seasons: { edges: [{ node: { id: '/api/seasons/26', name: '2025 / 2026' } }] } } } })
+    }
+    return route.fulfill({
+      json: {
+        data: {
+          poolOpponents: {
+            edges: [
+              graphqlTeamNode('9101', 'PPA RIXHEIM 1', '801', '3', '901', 'GE1'),
+              graphqlTeamNode('9110', 'PPA RIXHEIM 10', '807', '5', '907', 'GE7'),
+              graphqlTeamNode('9111', 'PPA RIXHEIM 11', '808', '2', '234700', 'GE 8 Phase 1'),
+            ],
+          },
+        },
+      },
+    })
+  })
+}
 
 // Matches the mock data: club-1 (PPA Rixheim) already has teams 1..8 in
 // phase-1 (2025/2026 Phase 1, active); divisions div-1..div-7 exist locally;
@@ -11,8 +47,6 @@ const IMPORT = '**/api/teams/import'
 const preview = {
   club: { id: 'club-1', displayName: 'PPA Rixheim' },
   season: { id: '26', displayName: '2025/2026', exists: true },
-  stale: false,
-  fetchedAt: null,
   teams: [
     {
       id: '9101', name: 'PPA Rixheim 1', number: 1, phase: 1,
@@ -52,13 +86,12 @@ const importResult = {
     },
   ],
   skipped: [{ id: '9101', label: 'RIXHEIM PPA 1 - Phase 1', reason: 'already_exists' }],
-  stale: false,
-  fetchedAt: null,
 }
 
 test.describe('General admin — Teams FFTT import', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'admin')
+    await mockFfttGraphql(page)
   })
 
   test('import is the primary action, manual add still available', async ({ page }) => {
@@ -125,13 +158,17 @@ test.describe('General admin — Teams FFTT import', () => {
     await expect(page.getByText('2 équipes importées.')).toBeVisible()
     await expect(page.getByText('1 division importée automatiquement.')).toBeVisible()
 
-    expect(importBody).toEqual({
+    // The body also carries the browser-fetched FFTT payload (season + teams)
+    // that the server validates before persisting anything.
+    expect(importBody).toMatchObject({
       clubId: 'club-1',
       teams: [
         { id: '9110', gameLocationId: 'addr-2', defaultDay: 'Jeudi', defaultTime: '20h00' },
         { id: '9111', gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00' },
       ],
+      season: { id: '26', displayName: '2025/2026' },
     })
+    expect((importBody as { ffttTeams: unknown[] }).ffttTeams).toHaveLength(3)
 
     await page.getByRole('button', { name: 'Fermer' }).click()
     await expect(page.getByText('PPA Rixheim 10')).toBeVisible()
@@ -158,32 +195,16 @@ test.describe('General admin — Teams FFTT import', () => {
     expect(importBody?.teams.map((t) => t.id)).toEqual(['9111'])
   })
 
-  test('reports when the FFTT API is unreachable', async ({ page }) => {
-    await page.route(PREVIEW, (route) => route.fulfill({ status: 502, json: { error: 'fftt_unavailable' } }))
+  test('reports when the FFTT API is unreachable from the browser', async ({ page }) => {
+    // The real prod failure path: the browser can't reach apiv2 — no request
+    // ever hits our API.
+    await page.route(FFTT_GRAPHQL, (route) => route.abort())
 
     await page.goto('/equipes')
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
     await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
     await expect(page.getByText(/Impossible de contacter l’API FFTT/)).toBeVisible()
-  })
-
-  test('flags stale (cached) data instead of failing outright (#229 follow-up)', async ({ page }) => {
-    await page.route(PREVIEW, (route) =>
-      route.fulfill({ json: { ...preview, stale: true, fetchedAt: '2026-07-16T14:32:00.000Z' } }),
-    )
-    await page.route(IMPORT, (route) =>
-      route.fulfill({ json: { ...importResult, stale: true, fetchedAt: '2026-07-16T14:32:00.000Z' } }),
-    )
-
-    await page.goto('/equipes')
-    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
-    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
-    await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
-    await expect(page.getByText(/FFTT injoignable : données de la dernière synchronisation/)).toBeVisible()
-
-    await page.getByRole('button', { name: 'Importer 2 équipes' }).click()
-    await expect(page.getByText(/FFTT était injoignable : import basé sur la dernière synchronisation/)).toBeVisible()
   })
 
   test('blocks the import when the FFTT season is missing locally', async ({ page }) => {
@@ -210,6 +231,7 @@ test.describe('General admin — Teams FFTT import', () => {
 test.describe('Club admin — Teams FFTT import', () => {
   test('the club is locked to the admin’s own club', async ({ page }) => {
     await loginAs(page, 'club.admin')
+    await mockFfttGraphql(page)
     await page.route(PREVIEW, (route) => route.fulfill({ json: preview }))
 
     await page.goto('/equipes')
