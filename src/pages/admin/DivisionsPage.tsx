@@ -3,6 +3,7 @@ import type { Division } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportDivisionsModal } from '@/components/ImportDivisionsModal'
+import { PhaseSwitchButton } from '@/components/icons'
 
 export function DivisionsPage() {
   const {
@@ -16,8 +17,16 @@ export function DivisionsPage() {
     deleteDivision,
   } = useAppData()
 
-  const activePhaseId = phases.find((p) => p.status === 'active')?.id ?? ''
-  const [filterPhaseId, setFilterPhaseId] = useState(activePhaseId)
+  // Phase switcher — defaults to the active phase, chronological order (#235).
+  const orderedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [phases],
+  )
+  const activePhase = phases.find((p) => p.status === 'active')
+  const [filterPhaseId, setFilterPhaseId] = useState<string | undefined>(undefined)
+  const filterPhase = orderedPhases.find((p) => p.id === filterPhaseId) ?? activePhase ?? orderedPhases[orderedPhases.length - 1]
+  const phaseIndex = orderedPhases.findIndex((p) => p.id === filterPhase?.id)
+
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
@@ -27,16 +36,13 @@ export function DivisionsPage() {
   const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
   const archivedDivisions = useMemo(() => allDivisions.filter((d) => d.isArchived), [allDivisions])
   const visibleDivisions = showArchived ? allDivisions : activeDivisions
-  const divisions = filterPhaseId
-    ? visibleDivisions.filter((d) => d.phaseId === filterPhaseId)
+  const divisions = filterPhase
+    ? visibleDivisions.filter((d) => d.phaseId === filterPhase.id)
     : visibleDivisions
-
-  const getPhaseName = (phaseId: string) =>
-    phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
 
   const divisionsByPhase = divisions
     .slice()
-    .sort((a, b) => (a.phaseId !== b.phaseId ? a.phaseId.localeCompare(b.phaseId) : a.rank - b.rank))
+    .sort((a, b) => a.rank - b.rank)
 
   const getCanMoveUp = (div: Division) => {
     if (div.isArchived) return false
@@ -65,7 +71,7 @@ export function DivisionsPage() {
   const openCreate = () => {
     setEditing(null)
     setCreating(true)
-    const phaseId = filterPhaseId || phases[0]?.id || ''
+    const phaseId = filterPhase?.id || phases[0]?.id || ''
     const inPhase = activeDivisions.filter((d) => d.phaseId === phaseId)
     const maxRank = inPhase.length > 0 ? Math.max(...inPhase.map((d) => d.rank)) + 1 : 1
     setForm({
@@ -136,20 +142,22 @@ export function DivisionsPage() {
         </div>
       </div>
       {importOpen && <ImportDivisionsModal onClose={() => setImportOpen(false)} />}
-      <div className="flex items-center gap-3">
-        <label htmlFor="filter-phase" className="text-sm font-medium text-slate-700">Phase :</label>
-        <select
-          id="filter-phase"
-          value={filterPhaseId}
-          onChange={(e) => setFilterPhaseId(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
-        >
-          <option value="">Toutes les phases</option>
-          {phases.filter((p) => p.status !== 'archived').map((p) => (
-            <option key={p.id} value={p.id}>{p.displayName}</option>
-          ))}
-        </select>
-      </div>
+      {/* Phase switcher (#235) */}
+      {filterPhase && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
+          <PhaseSwitchButton
+            dir="prev"
+            disabled={phaseIndex <= 0}
+            onClick={() => phaseIndex > 0 && setFilterPhaseId(orderedPhases[phaseIndex - 1].id)}
+          />
+          <span className="font-display text-sm font-semibold text-slate-800">{filterPhase.displayName}</span>
+          <PhaseSwitchButton
+            dir="next"
+            disabled={phaseIndex >= orderedPhases.length - 1}
+            onClick={() => phaseIndex < orderedPhases.length - 1 && setFilterPhaseId(orderedPhases[phaseIndex + 1].id)}
+          />
+        </div>
+      )}
       {archivedDivisions.length > 0 && (
         <label className="flex items-center gap-2">
           <input
@@ -169,9 +177,6 @@ export function DivisionsPage() {
             <tr>
               <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
                 Division
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Phase
               </th>
               <th scope="col" className="px-4 py-3 text-center text-sm font-medium text-slate-700 w-24">
                 Ordre
@@ -195,7 +200,6 @@ export function DivisionsPage() {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{getPhaseName(div.phaseId)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-0.5">
                     <button
