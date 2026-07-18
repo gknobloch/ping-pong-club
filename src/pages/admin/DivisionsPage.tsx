@@ -19,7 +19,7 @@ export function DivisionsPage() {
 
   // Phase switcher — defaults to the active phase, chronological order (#235).
   const orderedPhases = useMemo(
-    () => phases.filter((p) => p.status !== 'archived').slice().sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [phases],
   )
   const activePhase = phases.find((p) => p.status === 'active')
