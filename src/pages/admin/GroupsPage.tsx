@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportGroupsModal } from '@/components/ImportGroupsModal'
-import { PhaseSwitchButton, ImportIcon } from '@/components/icons'
+import { PhaseSwitchButton } from '@/components/icons'
 import { ffttPhaseIdForName } from '@/lib/ffttPhases'
 import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
 
@@ -165,11 +165,9 @@ export function GroupsPage() {
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              title="Importer les groupes FFTT"
-              aria-label="Importer les groupes FFTT"
-              className="rounded-lg bg-accent-600 p-2 text-white hover:bg-accent-700"
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
             >
-              <ImportIcon className="h-4 w-4" />
+              Importer les groupes FFTT
             </button>
           )}
         </div>
