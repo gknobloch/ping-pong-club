@@ -22,6 +22,7 @@ type HistoryEntry = {
 
 type PhaseBlock = {
   phaseId: string
+  seasonId: string
   label: string
   team?: Team
   isCaptain: boolean
@@ -36,10 +37,11 @@ type PhaseBlock = {
 }
 
 // One card per phase a player took part in (rostered or fielded for another of
-// the club's teams). Shared by PlayerDetailPage (viewing any player — side by
-// side on wide screens, stacked otherwise) and HomePage (the logged-in
-// player's own "Tous mes matchs" — `seasonSwitcher` shows one phase at a
-// time, defaulting to the active one, matching the mobile Mes matchs screen).
+// the club's teams), side by side on wide screens, stacked otherwise. Shared
+// by PlayerDetailPage (viewing any player) and HomePage (the logged-in
+// player's own "Tous mes matchs" — `seasonSwitcher` scopes the cards to one
+// season at a time (still showing all of that season's phases together),
+// defaulting to the active season.
 export function PlayerPhaseHistory({
   playerId,
   title,
@@ -49,9 +51,9 @@ export function PlayerPhaseHistory({
   title?: string
   seasonSwitcher?: boolean
 }) {
-  const { players, teams, clubs, phases, matchDays, games, gameSelections } = useAppData()
+  const { players, teams, clubs, phases, seasons, matchDays, games, gameSelections } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
-  const [selectedPhaseId, setSelectedPhaseId] = useState<string | undefined>(undefined)
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | undefined>(undefined)
 
   const player = players.find((p) => p.id === playerId)
   const today = new Date().toISOString().slice(0, 10)
@@ -133,6 +135,7 @@ export function PlayerPhaseHistory({
 
         return {
           phaseId: ph.id,
+          seasonId: ph.seasonId,
           label: `Saison ${ph.displayName}`,
           team: rosterTeam,
           isCaptain: rosterTeam?.captainId === playerId,
@@ -148,35 +151,45 @@ export function PlayerPhaseHistory({
 
   if (phaseBlocks.length === 0) return null
 
-  // #233: on the Home screen, show one phase (= "season") at a time via a
-  // switcher rather than every phase the player ever played in, mirroring
-  // the mobile Mes matchs screen. Defaults to the active phase, falling back
-  // to the most recent participated one when the player has none active yet.
-  const activePhase = phases.find((p) => p.status === 'active')
-  const fallbackBlock =
-    (activePhase && phaseBlocks.find((b) => b.phaseId === activePhase.id)) ??
-    phaseBlocks[phaseBlocks.length - 1]
-  const currentBlock = seasonSwitcher
-    ? (phaseBlocks.find((b) => b.phaseId === selectedPhaseId) ?? fallbackBlock)
+  // #233: on the Home screen, scope the cards to one season at a time via a
+  // switcher — a season can have several phases, shown together — rather
+  // than every season the player ever played in. Defaults to the active
+  // season, falling back to the most recent participated one otherwise.
+  // Chronological order comes for free: phaseBlocks is already sorted by
+  // phase displayName ("2025/2026 Phase 1", "2025/2026 Phase 2", "2026/2027
+  // Phase 1", …), so de-duping its seasonIds in order keeps that ordering.
+  const orderedSeasonIds: string[] = []
+  for (const b of phaseBlocks) if (!orderedSeasonIds.includes(b.seasonId)) orderedSeasonIds.push(b.seasonId)
+  const activeSeasonId = seasons.find((s) => s.status === 'active')?.id
+  const fallbackSeasonId =
+    (activeSeasonId && orderedSeasonIds.includes(activeSeasonId) ? activeSeasonId : undefined) ??
+    orderedSeasonIds[orderedSeasonIds.length - 1]
+  const currentSeasonId = seasonSwitcher
+    ? (selectedSeasonId && orderedSeasonIds.includes(selectedSeasonId) ? selectedSeasonId : fallbackSeasonId)
     : undefined
-  const phaseIndex = currentBlock ? phaseBlocks.findIndex((b) => b.phaseId === currentBlock.phaseId) : -1
-  const visibleBlocks = seasonSwitcher ? (currentBlock ? [currentBlock] : []) : phaseBlocks
+  const seasonIndex = currentSeasonId ? orderedSeasonIds.indexOf(currentSeasonId) : -1
+  const currentSeasonLabel = currentSeasonId ? seasons.find((s) => s.id === currentSeasonId)?.displayName : undefined
+  const visibleBlocks = seasonSwitcher
+    ? phaseBlocks.filter((b) => b.seasonId === currentSeasonId)
+    : phaseBlocks
 
   return (
     <div className="space-y-3">
       {title && <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>}
-      {seasonSwitcher && currentBlock && (
+      {seasonSwitcher && currentSeasonLabel && (
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
           <PhaseSwitchButton
             dir="prev"
-            disabled={phaseIndex <= 0}
-            onClick={() => phaseIndex > 0 && setSelectedPhaseId(phaseBlocks[phaseIndex - 1].phaseId)}
+            disabled={seasonIndex <= 0}
+            onClick={() => seasonIndex > 0 && setSelectedSeasonId(orderedSeasonIds[seasonIndex - 1])}
+            prevLabel="Saison précédente"
           />
-          <span className="font-display text-sm font-semibold text-slate-800">{currentBlock.label}</span>
+          <span className="font-display text-sm font-semibold text-slate-800">Saison {currentSeasonLabel}</span>
           <PhaseSwitchButton
             dir="next"
-            disabled={phaseIndex >= phaseBlocks.length - 1}
-            onClick={() => phaseIndex < phaseBlocks.length - 1 && setSelectedPhaseId(phaseBlocks[phaseIndex + 1].phaseId)}
+            disabled={seasonIndex >= orderedSeasonIds.length - 1}
+            onClick={() => seasonIndex < orderedSeasonIds.length - 1 && setSelectedSeasonId(orderedSeasonIds[seasonIndex + 1])}
+            nextLabel="Saison suivante"
           />
         </div>
       )}
@@ -187,7 +200,7 @@ export function PlayerPhaseHistory({
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
             <div className="border-b border-slate-100 px-5 py-3">
-              {!seasonSwitcher && <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>}
+              <h2 className="font-display text-base font-semibold text-slate-800">{b.label}</h2>
               {b.total !== undefined && (
                 <p className="mt-0.5 text-xs font-medium text-slate-500">
                   {b.played}{b.borrowedPlayed > 0 ? ` + ${b.borrowedPlayed}` : ''} / {b.total} joués
