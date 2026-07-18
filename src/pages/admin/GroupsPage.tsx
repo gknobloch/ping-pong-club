@@ -1,26 +1,93 @@
-import { useMemo, useState } from 'react'
-import type { Group } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Group, Organization } from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
+import { ImportGroupsModal } from '@/components/ImportGroupsModal'
+import { PhaseSwitchButton } from '@/components/icons'
+import { ffttPhaseIdForName } from '@/lib/ffttPhases'
+import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
 
 export function GroupsPage() {
-  const { groups: allGroups, divisions, phases, teams, clubs, updateGroup, addGroup, archiveGroup, deleteGroup } = useAppData()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'general_admin' || user?.role === 'club_admin'
+  const {
+    groups: allGroups, divisions, phases, teams, clubs,
+    updateGroup, addGroup, archiveGroup, deleteGroup,
+    fetchOrganizations, fetchDivisionsPreview,
+  } = useAppData()
+
+  // Phase switcher — defaults to the active phase, chronological order (#237).
+  const orderedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [phases],
+  )
+  const activePhase = phases.find((p) => p.status === 'active')
+  const [phaseId, setPhaseId] = useState<string | undefined>(undefined)
+  const phase = phases.find((p) => p.id === phaseId) ?? activePhase ?? orderedPhases[orderedPhases.length - 1]
+  const phaseIndex = orderedPhases.findIndex((p) => p.id === phase?.id)
+
+  // Organization — optional filter narrowing the division picker to one FFTT
+  // championship (#237). Best-effort: it never blocks browsing when the FFTT
+  // lookup is slow or fails, it just stops narrowing.
+  const [orgs, setOrgs] = useState<Organization[] | null>(null)
+  const [organizationId, setOrganizationId] = useState('')
+  const [orgDivisionIds, setOrgDivisionIds] = useState<Set<string> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchOrganizations().then((list) => { if (!cancelled && list) setOrgs(list) })
+    return () => { cancelled = true }
+  }, [fetchOrganizations])
+
+  useEffect(() => {
+    const ffttPhaseId = phase ? ffttPhaseIdForName(phase.name) : null
+    if (!organizationId || !phase || !ffttPhaseId) {
+      setOrgDivisionIds(null)
+      return
+    }
+    let cancelled = false
+    fetchDivisionsPreview(organizationId, phase.seasonId, Number(ffttPhaseId)).then((result) => {
+      if (cancelled) return
+      setOrgDivisionIds(
+        result && result !== 'no_contest'
+          ? new Set(result.divisions.filter((d) => d.exists).map((d) => d.id))
+          : new Set(),
+      )
+    })
+    return () => { cancelled = true }
+  }, [organizationId, phase, fetchDivisionsPreview])
+
+  const orgGroups = useMemo(() => groupOrganizationsByType(orgs), [orgs])
+
+  // Division — the actual scope of the page; reset whenever the phase or the
+  // organization filter changes so a stale, now-hidden division can't linger.
+  const [divisionId, setDivisionId] = useState('')
+  useEffect(() => { setDivisionId('') }, [phase?.id, organizationId])
+
+  const divisionsInPhase = useMemo(
+    () =>
+      divisions
+        .filter((d) => d.phaseId === phase?.id && !d.isArchived)
+        .filter((d) => !orgDivisionIds || orgDivisionIds.has(d.id))
+        .sort((a, b) => a.rank - b.rank),
+    [divisions, phase?.id, orgDivisionIds],
+  )
+  const division = divisionsInPhase.find((d) => d.id === divisionId)
+
   const [editing, setEditing] = useState<Group | null>(null)
   const [creating, setCreating] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [form, setForm] = useState({ divisionId: '', number: 1 })
-
   const [showArchived, setShowArchived] = useState(false)
 
   const activeGroups = useMemo(() => allGroups.filter((g) => !g.isArchived), [allGroups])
   const archivedGroups = useMemo(() => allGroups.filter((g) => g.isArchived), [allGroups])
-  const groups = showArchived ? allGroups : activeGroups
+  const visibleGroups = showArchived ? allGroups : activeGroups
+  const groups = division
+    ? visibleGroups.filter((g) => g.divisionId === division.id).sort((a, b) => a.number - b.number)
+    : []
 
-  const getDivisionName = (divisionId: string) =>
-    divisions.find((d) => d.id === divisionId)?.displayName ?? divisionId
-  const getPhaseName = (phaseId: string) =>
-    phases.find((p) => p.id === phaseId)?.displayName ?? phaseId
-  const getPhaseIdForDivision = (divisionId: string) =>
-    divisions.find((d) => d.id === divisionId)?.phaseId
   const getTeamLabel = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
     if (!team) return teamId
@@ -37,9 +104,10 @@ export function GroupsPage() {
   const openCreate = () => {
     setEditing(null)
     setCreating(true)
+    const divId = division?.id ?? divisions[0]?.id ?? ''
     setForm({
-      divisionId: divisions[0]?.id ?? '',
-      number: allGroups.filter((g) => g.divisionId === divisions[0]?.id).length + 1,
+      divisionId: divId,
+      number: allGroups.filter((g) => g.divisionId === divId).length + 1,
     })
   }
 
@@ -64,13 +132,13 @@ export function GroupsPage() {
   }
 
   const handleArchive = (group: Group) => {
-    if (window.confirm(`Archiver le groupe "${getDivisionName(group.divisionId)} - Groupe ${group.number}" ? Il ne sera plus visible dans la liste active.`)) {
+    if (window.confirm(`Archiver le groupe "${division?.displayName ?? ''} - Groupe ${group.number}" ? Il ne sera plus visible dans la liste active.`)) {
       archiveGroup(group.id)
     }
   }
 
   const handleDelete = (group: Group) => {
-    if (window.confirm(`Supprimer définitivement le groupe "${getDivisionName(group.divisionId)} - Groupe ${group.number}" ? Les équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
+    if (window.confirm(`Supprimer définitivement le groupe "${division?.displayName ?? ''} - Groupe ${group.number}" ? Les équipes, journées, matchs, disponibilités et compositions associés seront également supprimés. Cette action est irréversible.`)) {
       deleteGroup(group.id)
     }
   }
@@ -85,14 +153,83 @@ export function GroupsPage() {
             groupes pour les matchs.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 shrink-0"
-        >
-          Ajouter un groupe
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+          >
+            Ajouter un groupe
+          </button>
+          {isAdmin && division && (
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            >
+              Importer les groupes FFTT
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Phase switcher */}
+      {phase && (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
+          <PhaseSwitchButton
+            dir="prev"
+            disabled={phaseIndex <= 0}
+            onClick={() => phaseIndex > 0 && setPhaseId(orderedPhases[phaseIndex - 1].id)}
+          />
+          <span className="font-display text-sm font-semibold text-slate-800">Saison {phase.displayName}</span>
+          <PhaseSwitchButton
+            dir="next"
+            disabled={phaseIndex >= orderedPhases.length - 1}
+            onClick={() => phaseIndex < orderedPhases.length - 1 && setPhaseId(orderedPhases[phaseIndex + 1].id)}
+          />
+        </div>
+      )}
+
+      {/* Organization (optional filter) + Division pickers */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor="groups-org" className="block text-sm font-medium text-slate-700">
+            Organisation <span className="font-normal text-slate-400">(filtre optionnel)</span>
+          </label>
+          <select
+            id="groups-org"
+            value={organizationId}
+            onChange={(e) => setOrganizationId(e.target.value)}
+            className="mt-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
+          >
+            <option value="">Toutes</option>
+            {orgGroups.map((g) => (
+              <optgroup key={g.type} label={g.label}>
+                {g.organizations.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name} ({o.identifier})</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="groups-division" className="block text-sm font-medium text-slate-700">
+            Division
+          </label>
+          <select
+            id="groups-division"
+            value={divisionId}
+            onChange={(e) => setDivisionId(e.target.value)}
+            className="mt-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
+          >
+            <option value="">Choisir une division…</option>
+            {divisionsInPhase.map((d) => (
+              <option key={d.id} value={d.id}>{d.displayName}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {archivedGroups.length > 0 && (
         <label className="flex items-center gap-2">
           <input
@@ -106,79 +243,91 @@ export function GroupsPage() {
           </span>
         </label>
       )}
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Division
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Phase
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                N° groupe
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                Équipes
-              </th>
-              <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 bg-white">
-            {groups.map((group) => (
-              <tr key={group.id} className={`hover:bg-slate-50/50 ${group.isArchived ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                  {getDivisionName(group.divisionId)}
-                  {group.isArchived && (
-                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
-                      Archivé
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {getPhaseName(getPhaseIdForDivision(group.divisionId) ?? '')}
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{group.number}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {group.teamIds.map(getTeamLabel).join(', ') || '—'}
-                </td>
-                <td className="px-4 py-3 text-right space-x-3">
-                  {!group.isArchived && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(group)}
-                      className="text-sm font-medium text-accent-600 hover:text-accent-800"
-                    >
-                      Modifier
-                    </button>
-                  )}
-                  {!group.isArchived && (
-                    <button
-                      type="button"
-                      onClick={() => handleArchive(group)}
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
-                    >
-                      Archiver
-                    </button>
-                  )}
-                  {group.isArchived && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(group)}
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
-                    >
-                      Supprimer
-                    </button>
-                  )}
-                </td>
+
+      {!division ? (
+        <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+          Sélectionnez une division pour afficher ses groupes.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
+                  N° groupe
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-slate-700">
+                  Équipes
+                </th>
+                <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-slate-700">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {groups.map((group) => (
+                <tr key={group.id} className={`hover:bg-slate-50/50 ${group.isArchived ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                    {group.number}
+                    {group.isArchived && (
+                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+                        Archivé
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {group.teamIds.map(getTeamLabel).join(', ') || '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-3">
+                    {!group.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => openEdit(group)}
+                        className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                      >
+                        Modifier
+                      </button>
+                    )}
+                    {!group.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(group)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Archiver
+                      </button>
+                    )}
+                    {group.isArchived && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(group)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {groups.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-slate-500">
+                    Aucun groupe pour cette division.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {importOpen && division && (
+        <ImportGroupsModal
+          onClose={() => setImportOpen(false)}
+          divisionId={division.id}
+          divisionName={division.displayName}
+        />
+      )}
 
       {(editing || creating) && (
         <ModalShell
