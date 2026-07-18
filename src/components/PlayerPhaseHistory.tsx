@@ -36,21 +36,11 @@ type PhaseBlock = {
   history: HistoryEntry[]
 }
 
-// One card per phase a player took part in (rostered or fielded for another of
-// the club's teams), side by side on wide screens, stacked otherwise. Shared
-// by PlayerDetailPage (viewing any player) and HomePage (the logged-in
-// player's own "Tous mes matchs" — `seasonSwitcher` scopes the cards to one
-// season at a time (still showing all of that season's phases together),
-// defaulting to the active season.
-export function PlayerPhaseHistory({
-  playerId,
-  title,
-  seasonSwitcher,
-}: {
-  playerId: string
-  title?: string
-  seasonSwitcher?: boolean
-}) {
+// Scopes to one season at a time via a switcher — a season can have several
+// phases, shown together as side-by-side cards — defaulting to the active
+// season. Shared by PlayerDetailPage (viewing any player) and HomePage (the
+// logged-in player's own "Tous mes matchs") (#233).
+export function PlayerPhaseHistory({ playerId, title }: { playerId: string; title?: string }) {
   const { players, teams, clubs, phases, seasons, matchDays, games, gameSelections } = useAppData()
   const [quickGame, setQuickGame] = useState<{ gameId: string; teamId: string } | null>(null)
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | undefined>(undefined)
@@ -151,32 +141,27 @@ export function PlayerPhaseHistory({
 
   if (phaseBlocks.length === 0) return null
 
-  // #233: on the Home screen, scope the cards to one season at a time via a
-  // switcher — a season can have several phases, shown together — rather
-  // than every season the player ever played in. Defaults to the active
-  // season, falling back to the most recent participated one otherwise.
-  // Chronological order comes for free: phaseBlocks is already sorted by
-  // phase displayName ("2025/2026 Phase 1", "2025/2026 Phase 2", "2026/2027
-  // Phase 1", …), so de-duping its seasonIds in order keeps that ordering.
+  // Falls back to the most recent participated season when the player has
+  // none active yet. Chronological order comes for free: phaseBlocks is
+  // already sorted by phase displayName ("2025/2026 Phase 1", "2025/2026
+  // Phase 2", "2026/2027 Phase 1", …), so de-duping its seasonIds in order
+  // keeps that ordering.
   const orderedSeasonIds: string[] = []
   for (const b of phaseBlocks) if (!orderedSeasonIds.includes(b.seasonId)) orderedSeasonIds.push(b.seasonId)
   const activeSeasonId = seasons.find((s) => s.status === 'active')?.id
   const fallbackSeasonId =
     (activeSeasonId && orderedSeasonIds.includes(activeSeasonId) ? activeSeasonId : undefined) ??
     orderedSeasonIds[orderedSeasonIds.length - 1]
-  const currentSeasonId = seasonSwitcher
-    ? (selectedSeasonId && orderedSeasonIds.includes(selectedSeasonId) ? selectedSeasonId : fallbackSeasonId)
-    : undefined
-  const seasonIndex = currentSeasonId ? orderedSeasonIds.indexOf(currentSeasonId) : -1
-  const currentSeasonLabel = currentSeasonId ? seasons.find((s) => s.id === currentSeasonId)?.displayName : undefined
-  const visibleBlocks = seasonSwitcher
-    ? phaseBlocks.filter((b) => b.seasonId === currentSeasonId)
-    : phaseBlocks
+  const currentSeasonId =
+    selectedSeasonId && orderedSeasonIds.includes(selectedSeasonId) ? selectedSeasonId : fallbackSeasonId
+  const seasonIndex = orderedSeasonIds.indexOf(currentSeasonId)
+  const currentSeasonLabel = seasons.find((s) => s.id === currentSeasonId)?.displayName
+  const visibleBlocks = phaseBlocks.filter((b) => b.seasonId === currentSeasonId)
 
   return (
     <div className="space-y-3">
       {title && <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>}
-      {seasonSwitcher && currentSeasonLabel && (
+      {currentSeasonLabel && (
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">
           <PhaseSwitchButton
             dir="prev"

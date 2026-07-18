@@ -240,7 +240,7 @@ export function HomePage() {
 
       {/* Match history — one phase (season) at a time via the switcher (#233),
           defaulting to the active one. */}
-      {myPlayerId && <PlayerPhaseHistory playerId={myPlayerId} title="Tous mes matchs" seasonSwitcher />}
+      {myPlayerId && <PlayerPhaseHistory playerId={myPlayerId} title="Tous mes matchs" />}
 
       {quickGame && (
         <GameQuickView gameId={quickGame.gameId} teamId={quickGame.teamId} onClose={() => setQuickGame(null)} />
