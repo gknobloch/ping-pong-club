@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
 import { ClubLogo } from '@/components/ClubLogo'
+import { IdentityCard } from '@/components/IdentityCard'
 import { PlayerPhaseHistory, InfoRow } from '@/components/PlayerPhaseHistory'
 import { ModalShell } from '@/components/ModalShell'
 
@@ -34,29 +35,28 @@ export function PlayerDetailPage() {
       </Link>
 
       {/* Identity */}
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <button
-          type="button"
-          onClick={() => player.avatarUpdatedAt && setZoom(true)}
-          className={player.avatarUpdatedAt ? 'cursor-zoom-in' : 'cursor-default'}
-          aria-label="Agrandir l'avatar"
-        >
-          <Avatar
-            playerId={player.id}
-            avatarUpdatedAt={player.avatarUpdatedAt}
-            firstName={player.firstName}
-            lastName={player.lastName}
-            size={64}
-          />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">
-            {player.firstName} {player.lastName}
-          </h1>
-          {club && <p className="text-slate-500">{club.displayName}</p>}
-        </div>
-        {club && <ClubLogo clubId={club.id} logoUpdatedAt={club.logoUpdatedAt} size={64} />}
-      </div>
+      <IdentityCard
+        leading={
+          <button
+            type="button"
+            onClick={() => player.avatarUpdatedAt && setZoom(true)}
+            className={player.avatarUpdatedAt ? 'cursor-zoom-in' : 'cursor-default'}
+            aria-label="Agrandir l'avatar"
+          >
+            <Avatar
+              playerId={player.id}
+              avatarUpdatedAt={player.avatarUpdatedAt}
+              firstName={player.firstName}
+              lastName={player.lastName}
+              size={64}
+            />
+          </button>
+        }
+        title={`${player.firstName} ${player.lastName}`}
+        trailing={club && <ClubLogo clubId={club.id} logoUpdatedAt={club.logoUpdatedAt} size={64} />}
+      >
+        {club && <p className="text-slate-500">{club.displayName}</p>}
+      </IdentityCard>
 
       {/* Informations (player-level — not phase-relative) */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

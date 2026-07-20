@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { Avatar } from '@/components/Avatar'
+import { IdentityCard } from '@/components/IdentityCard'
 import { fileToAvatar } from '@/lib/avatarFile'
 import { getTeamName } from '@/lib/teamName'
 
@@ -69,39 +70,40 @@ export function ComptePage() {
   return (
     <div className="space-y-5">
       {/* Identity + avatar */}
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="relative shrink-0">
-          {me ? (
-            <Avatar playerId={me.id} avatarUpdatedAt={me.avatarUpdatedAt} firstName={me.firstName} lastName={me.lastName} size={72} />
-          ) : (
-            <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-slate-200 text-2xl font-bold text-slate-500">
-              {(user?.email?.[0] ?? '?').toUpperCase()}
-            </span>
-          )}
-          {uploading && (
-            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-xs font-medium text-white">
-              …
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">{displayName}</h1>
-          <p className="text-sm text-slate-500">{roleLabel}</p>
-          {me && (
-            <div className="mt-2 flex items-center gap-4 text-sm">
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="font-medium text-accent-600 hover:text-accent-800 disabled:opacity-50">
-                Changer la photo
+      <IdentityCard
+        leading={
+          <div className="relative shrink-0">
+            {me ? (
+              <Avatar playerId={me.id} avatarUpdatedAt={me.avatarUpdatedAt} firstName={me.firstName} lastName={me.lastName} size={72} />
+            ) : (
+              <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-slate-200 text-2xl font-bold text-slate-500">
+                {(user?.email?.[0] ?? '?').toUpperCase()}
+              </span>
+            )}
+            {uploading && (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-xs font-medium text-white">
+                …
+              </span>
+            )}
+          </div>
+        }
+        title={displayName}
+      >
+        <p className="text-sm text-slate-500">{roleLabel}</p>
+        {me && (
+          <div className="mt-2 flex items-center gap-4 text-sm">
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="font-medium text-accent-600 hover:text-accent-800 disabled:opacity-50">
+              Changer la photo
+            </button>
+            {me.avatarUpdatedAt && (
+              <button type="button" onClick={() => removeAvatar(me.id)} disabled={uploading} className="font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50">
+                Supprimer
               </button>
-              {me.avatarUpdatedAt && (
-                <button type="button" onClick={() => removeAvatar(me.id)} disabled={uploading} className="font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50">
-                  Supprimer
-                </button>
-              )}
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
-            </div>
-          )}
-        </div>
-      </div>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
+          </div>
+        )}
+      </IdentityCard>
 
       {/* Coordonnées */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
