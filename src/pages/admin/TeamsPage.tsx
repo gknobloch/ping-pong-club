@@ -6,6 +6,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
 import { PageHeader } from '@/components/PageHeader'
+import { PrimaryButton, SecondaryButton } from '@/components/Button'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportTeamsModal } from '@/components/ImportTeamsModal'
 import { ImportGamesModal } from '@/components/ImportGamesModal'
@@ -329,20 +330,8 @@ export function TeamsPage() {
           isAdmin && (
             <>
               {/* Manual add is the fallback; FFTT import is the default path (#229). */}
-              <button
-                type="button"
-                onClick={openCreate}
-                className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-              >
-                Ajouter une équipe
-              </button>
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-              >
-                Importer depuis la FFTT
-              </button>
+              <SecondaryButton onClick={openCreate}>Ajouter une équipe</SecondaryButton>
+              <PrimaryButton onClick={() => setImportOpen(true)}>Importer depuis la FFTT</PrimaryButton>
             </>
           )
         }

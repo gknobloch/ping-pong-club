@@ -6,6 +6,7 @@ import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
 import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
 import { PageHeader } from '@/components/PageHeader'
+import { PrimaryButton } from '@/components/Button'
 
 export function PhasesPage() {
   const { phases: allPhases, seasons, updatePhase, addPhase, archivePhase, deletePhase } = useAppData()
@@ -122,15 +123,7 @@ export function PhasesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Phases"
-        actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Ajouter une phase
-          </button>
-        }
+        actions={<PrimaryButton onClick={openCreate}>Ajouter une phase</PrimaryButton>}
       />
       {archivedPhases.length > 0 && (
         <label className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportGroupsModal } from '@/components/ImportGroupsModal'
 import { PageHeader } from '@/components/PageHeader'
+import { PrimaryButton, SecondaryButton } from '@/components/Button'
 import { PhaseSwitchButton } from '@/components/icons'
 import { ffttPhaseIdForName } from '@/lib/ffttPhases'
 import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
@@ -150,21 +151,9 @@ export function GroupsPage() {
         title="Groupes"
         actions={
           <>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-            >
-              Ajouter un groupe
-            </button>
+            <SecondaryButton onClick={openCreate}>Ajouter un groupe</SecondaryButton>
             {isAdmin && division && (
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-              >
-                Importer les groupes FFTT
-              </button>
+              <PrimaryButton onClick={() => setImportOpen(true)}>Importer les groupes FFTT</PrimaryButton>
             )}
           </>
         }

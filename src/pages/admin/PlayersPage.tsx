@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { Player as PlayerType } from '@/types'
 import { Avatar } from '@/components/Avatar'
 import { PageHeader } from '@/components/PageHeader'
+import { PrimaryButton } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
@@ -151,17 +152,7 @@ export function PlayersPage() {
       <PageHeader
         title="Joueurs"
         club={scopedClub}
-        actions={
-          canEditPlayers && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-            >
-              Ajouter un joueur
-            </button>
-          )
-        }
+        actions={canEditPlayers && <PrimaryButton onClick={openCreate}>Ajouter un joueur</PrimaryButton>}
       />
       <div className="flex items-center gap-3">
         <input
