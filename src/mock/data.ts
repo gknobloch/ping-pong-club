@@ -32,7 +32,7 @@ const baseClubs: Omit<Club, 'channels'>[] = [
   { id: 'club-ingersheim', affiliationNumber: '06680008', displayName: 'Ingersheim', isArchived: false, addresses: opponentAddr('addr-ingersheim', 'Ingersheim') },
   { id: 'club-issenheim', affiliationNumber: '06680009', displayName: 'Issenheim', isArchived: false, addresses: opponentAddr('addr-issenheim', 'Issenheim') },
   { id: 'club-wintzfelden', affiliationNumber: '06680010', displayName: 'Wintzfelden', isArchived: false, addresses: opponentAddr('addr-wintzfelden', 'Wintzfelden') },
-  { id: 'club-thann', affiliationNumber: '06680012', displayName: 'Thann', isArchived: false, addresses: opponentAddr('addr-thann', 'Thann') },
+  { id: 'club-thann', affiliationNumber: '06680111', displayName: 'Thann', isArchived: false, addresses: opponentAddr('addr-thann', 'Thann') },
   { id: 'club-soultz', affiliationNumber: '06680013', displayName: 'Soultz', isArchived: false, addresses: opponentAddr('addr-soultz', 'Soultz') },
   { id: 'club-wittelsheim', affiliationNumber: '06680014', displayName: 'Wittelsheim', isArchived: false, addresses: opponentAddr('addr-wittelsheim', 'Wittelsheim') },
   { id: 'club-fc-mulhouse', affiliationNumber: '06680015', displayName: 'FC Mulhouse', isArchived: false, addresses: opponentAddr('addr-fcm', 'Mulhouse') },

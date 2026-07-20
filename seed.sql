@@ -37,7 +37,7 @@ INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES
   ('club-ingersheim', '06680008', 'Ingersheim', 0),
   ('club-issenheim', '06680009', 'Issenheim', 0),
   ('club-wintzfelden', '06680010', 'Wintzfelden', 0),
-  ('club-thann', '06680012', 'Thann', 0),
+  ('club-thann', '06680111', 'Thann', 0),
   ('club-soultz', '06680013', 'Soultz', 0),
   ('club-wittelsheim', '06680014', 'Wittelsheim', 0),
   ('club-fc-mulhouse', '06680015', 'FC Mulhouse', 0),
