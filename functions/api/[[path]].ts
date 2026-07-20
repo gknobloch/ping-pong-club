@@ -556,6 +556,8 @@ function parseTeamsPayload(raw: unknown): FfttClubTeam[] {
     if (x.phase !== null && !(typeof x.phase === 'number' && Number.isInteger(x.phase) && x.phase >= 1 && x.phase <= 3)) continue
     const poolNumber = typeof x.poolNumber === 'number' && Number.isInteger(x.poolNumber) && x.poolNumber >= 1 && x.poolNumber <= 99
       ? x.poolNumber : null
+    const divisionParentId = typeof x.divisionParentId === 'string' && NUMERIC_ID.test(x.divisionParentId)
+      ? x.divisionParentId : null
     seen.add(x.id)
     out.push({
       id: x.id,
@@ -564,6 +566,7 @@ function parseTeamsPayload(raw: unknown): FfttClubTeam[] {
       divisionId: x.divisionId,
       divisionName: (typeof x.divisionName === 'string' && x.divisionName.trim())
         ? x.divisionName.trim().slice(0, 80) : `Division ${x.divisionId}`,
+      divisionParentId,
       poolId: x.poolId,
       poolNumber,
       label: typeof x.label === 'string' ? x.label.trim().slice(0, 80) : '',
@@ -707,11 +710,15 @@ app.post('/teams/import', async (c) => {
     maxRankByPhase.set(phaseRow.id as string, rank)
     // Players-per-game defaults to 4: the payload has no division identifier
     // (e.g. "GE7P1") to apply the known overrides — adjustable on /divisions.
-    await db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES (?, ?, ?, ?, ?, 0)')
-      .bind(t.divisionId, phaseRow.id, t.divisionName, rank, PLAYERS_PER_GAME_DEFAULT).run()
+    // parentId (#236) is the FFTT id of a division that may not exist locally
+    // yet (e.g. a lower pool imported before its parent) — same caveat as the
+    // dedicated divisions import; the lock simply has no effect until it does.
+    await db.prepare('INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived, parent_id) VALUES (?, ?, ?, ?, ?, 0, ?)')
+      .bind(t.divisionId, phaseRow.id, t.divisionName, rank, PLAYERS_PER_GAME_DEFAULT, t.divisionParentId).run()
     const division = {
       id: t.divisionId, phaseId: phaseRow.id as string, displayName: t.divisionName,
       rank, playersPerGame: PLAYERS_PER_GAME_DEFAULT, isArchived: false,
+      ...(t.divisionParentId ? { parentId: t.divisionParentId } : {}),
     }
     createdDivisions.push(division)
     divisionById.set(t.divisionId, { id: t.divisionId, phase_id: phaseRow.id })

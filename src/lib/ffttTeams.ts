@@ -27,6 +27,7 @@ export interface FfttPoolOpponentNode {
           id: string
           name?: string | null
           phase?: { id: string } | null
+          parent?: { id: string } | null
         } | null
       } | null
     } | null
@@ -45,6 +46,8 @@ export interface FfttClubTeam {
   divisionId: string
   /** Division display name, e.g. "GE 2 Phase 1". */
   divisionName: string
+  /** FFTT id of the division's parent (#236); null when it has none. */
+  divisionParentId: string | null
   /** apiv2 pool id — becomes the local group id (the id space the games import queries). */
   poolId: string
   /** Poule number (pool name "9" → 9); null when unreadable. */
@@ -78,6 +81,7 @@ export function parsePoolOpponent(node: FfttPoolOpponentNode): FfttClubTeam | nu
     phase: Number.isInteger(phase) && phase >= 1 ? phase : null,
     divisionId: ffttIdFromIri(division.id),
     divisionName: (division.name ?? '').trim() || `Division ${ffttIdFromIri(division.id)}`,
+    divisionParentId: division.parent ? ffttIdFromIri(division.parent.id) : null,
     poolId: ffttIdFromIri(pool.id),
     poolNumber: poolNumber(pool.name),
     label: team.name.trim(),
@@ -100,5 +104,5 @@ export function poolOpponentsQuery(affiliation: string): string {
   const safe = affiliation.replace(/[^0-9A-Za-z]/g, '')
   return `{ poolOpponents(opponent_team_clubs_identifier: "${safe}", pool_group_tour_division_contest_season_current: true, first: 60) ` +
     `{ edges { node { opponent { team { id name } } ` +
-    `pool { id name group { tour { division { id name phase { id } } } } } } } } }`
+    `pool { id name group { tour { division { id name phase { id } parent { id } } } } } } } } }`
 }
