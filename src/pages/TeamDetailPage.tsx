@@ -6,6 +6,7 @@ import { sortByName } from '@/lib/sortByName'
 import { getTeamName } from '@/lib/teamName'
 import { Avatar } from '@/components/Avatar'
 import { GameQuickView } from '@/components/GameQuickView'
+import { IdentityCard } from '@/components/IdentityCard'
 import { HomeIcon, AwayIcon, InfoIcon, PhaseSwitchButton } from '@/components/icons'
 
 // Player/captain-facing team detail: identity + a phase switcher paging the
@@ -82,20 +83,19 @@ export function TeamDetailPage() {
       </Link>
 
       {/* Identity */}
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <span
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
-          style={{ backgroundColor: team.color ?? '#e23b3b' }}
-        >
-          {team.number}
-        </span>
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">
-            {getTeamName(team, clubs)}
-          </h1>
-          {division && <p className="text-slate-500">{division.displayName}</p>}
-        </div>
-      </div>
+      <IdentityCard
+        leading={
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
+            style={{ backgroundColor: team.color ?? '#e23b3b' }}
+          >
+            {team.number}
+          </span>
+        }
+        title={getTeamName(team, clubs)}
+      >
+        {division && <p className="text-slate-500">{division.displayName}</p>}
+      </IdentityCard>
 
       {/* Phase switcher */}
       {current && (

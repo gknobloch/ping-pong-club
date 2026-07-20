@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { ClubDetailView, ChannelIcon, channelTypeLabel } from '@/components/ClubDetailView'
 import { ClubLogo } from '@/components/ClubLogo'
+import { IdentityCard } from '@/components/IdentityCard'
 
 export function MyClubPage() {
   const { user } = useAuth()
@@ -52,22 +53,23 @@ export function MyClubPage() {
   return (
     <div className="space-y-5">
       {/* Identity */}
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <ClubLogo clubId={currentClub.id} logoUpdatedAt={currentClub.logoUpdatedAt} size={56} />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">{currentClub.displayName}</h1>
-          <p className="text-slate-500">N° {currentClub.affiliationNumber}</p>
-        </div>
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Modifier
-          </button>
-        )}
-      </div>
+      <IdentityCard
+        leading={<ClubLogo clubId={currentClub.id} logoUpdatedAt={currentClub.logoUpdatedAt} size={56} />}
+        title={currentClub.displayName}
+        trailing={
+          canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            >
+              Modifier
+            </button>
+          )
+        }
+      >
+        <p className="text-slate-500">N° {currentClub.affiliationNumber}</p>
+      </IdentityCard>
 
       {/* Addresses */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -828,7 +828,7 @@ export function MatchDaysPage() {
         </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Phase switcher */}
-          <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+          <div className="flex h-9 items-center gap-2 rounded border border-slate-200 bg-white px-2">
             <button
               type="button"
               onClick={() => handlePhaseChange(phases[selectedPhaseIndex - 1].id)}
@@ -857,14 +857,14 @@ export function MatchDaysPage() {
           </div>
             {/* Team toggle buttons */}
             {myClubTeamsInPhase.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex h-9 items-center gap-1">
                 <span className="text-xs text-slate-500 mr-1">Aller à</span>
                 {myClubTeamsInPhase.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => scrollToTeam(t.id)}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
                   >
                     {t.number}
                   </button>
@@ -873,7 +873,7 @@ export function MatchDaysPage() {
                   <button
                     type="button"
                     onClick={scrollToOtherPlayers}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 transition-colors"
                   >
                     Autres
                   </button>
@@ -883,7 +883,7 @@ export function MatchDaysPage() {
 
             {/* Global match-day switcher */}
             {globalMaxMatchDays > VISIBLE_MATCH_DAY_COUNT && (
-              <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+              <div className="flex h-9 items-center gap-2 rounded border border-slate-200 bg-white px-2">
                 <button
                   type="button"
                   onClick={() => setGlobalOffset(globalMatchDayOffset - 1)}
@@ -918,7 +918,7 @@ export function MatchDaysPage() {
                 onClick={() => setImportGamesOpen(true)}
                 title="Importer les matchs FFTT"
                 aria-label="Importer les matchs FFTT"
-                className="rounded-lg bg-accent-600 p-2 text-white hover:bg-accent-700"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-600 text-white hover:bg-accent-700"
               >
                 <ImportIcon className="h-4 w-4" />
               </button>

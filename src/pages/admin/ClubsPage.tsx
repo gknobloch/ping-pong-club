@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import type { Club } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
+import { PageHeader } from '@/components/PageHeader'
+import { PrimaryButton } from '@/components/Button'
 
 export function ClubsPage() {
   const navigate = useNavigate()
@@ -43,16 +45,10 @@ export function ClubsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-slate-800">Clubs</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-        >
-          Ajouter un club
-        </button>
-      </div>
+      <PageHeader
+        title="Clubs"
+        actions={<PrimaryButton onClick={openCreate}>Ajouter un club</PrimaryButton>}
+      />
       {archivedClubs.length > 0 && (
         <label className="flex items-center gap-2">
           <input
