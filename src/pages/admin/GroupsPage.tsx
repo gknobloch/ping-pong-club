@@ -145,14 +145,8 @@ export function GroupsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-slate-800">Groupes</h1>
-          <p className="mt-1 text-slate-600 text-sm">
-            Chaque division contient un ou plusieurs groupes ; les équipes sont réparties dans ces
-            groupes pour les matchs.
-          </p>
-        </div>
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h1 className="font-display text-2xl font-semibold text-slate-800">Groupes</h1>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"

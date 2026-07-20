@@ -119,7 +119,7 @@ export function PhasesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h1 className="font-display text-2xl font-semibold text-slate-800">Phases</h1>
         <button
           type="button"
