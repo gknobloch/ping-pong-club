@@ -9,14 +9,16 @@ INSERT INTO phases (id, season_id, name, display_name, status) VALUES
   ('phase-1', '26', 'Phase 1', '2025/2026 Phase 1', 'active');
 
 -- divisions
-INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived) VALUES
-  ('div-1', 'phase-1', 'GE1', 1, 4, 0),
-  ('div-2', 'phase-1', 'GE2', 2, 4, 0),
-  ('div-3', 'phase-1', 'GE3', 3, 4, 0),
-  ('div-4', 'phase-1', 'GE4', 4, 4, 0),
-  ('div-5', 'phase-1', 'GE5', 5, 4, 0),
-  ('div-6', 'phase-1', 'GE6', 6, 3, 0),
-  ('div-7', 'phase-1', 'GE7', 7, 3, 0);
+-- GE1 -> GE5 form a parent chain (#236); GE6/GE7 are orphans, same as real
+-- FFTT data (see src/mock/data.ts for the rationale).
+INSERT INTO divisions (id, phase_id, display_name, rank, players_per_game, is_archived, parent_id) VALUES
+  ('div-1', 'phase-1', 'GE1', 1, 4, 0, NULL),
+  ('div-2', 'phase-1', 'GE2', 2, 4, 0, 'div-1'),
+  ('div-3', 'phase-1', 'GE3', 3, 4, 0, 'div-2'),
+  ('div-4', 'phase-1', 'GE4', 4, 4, 0, 'div-3'),
+  ('div-5', 'phase-1', 'GE5', 5, 4, 0, 'div-4'),
+  ('div-6', 'phase-1', 'GE6', 6, 3, 0, NULL),
+  ('div-7', 'phase-1', 'GE7', 7, 3, 0, NULL);
 
 -- clubs
 INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES

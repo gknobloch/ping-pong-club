@@ -58,12 +58,16 @@ export const mockPhases: Phase[] = [
 // ---------------------------------------------------------------------------
 // Divisions
 // ---------------------------------------------------------------------------
+// GE1 → GE5 form a parent chain (each the previous one's parent, like the
+// real GRAND-EST GEEP1→GE5P1 chain in ffttDivisions.spec.ts); GE6 and GE7
+// are orphans, same as real FFTT data — lets #236's locked reordering be
+// exercised locally without needing a live FFTT import.
 export const mockDivisions: Division[] = [
   { id: 'div-1', phaseId: 'phase-1', displayName: 'GE1', rank: 1, playersPerGame: 4, isArchived: false },
-  { id: 'div-2', phaseId: 'phase-1', displayName: 'GE2', rank: 2, playersPerGame: 4, isArchived: false },
-  { id: 'div-3', phaseId: 'phase-1', displayName: 'GE3', rank: 3, playersPerGame: 4, isArchived: false },
-  { id: 'div-4', phaseId: 'phase-1', displayName: 'GE4', rank: 4, playersPerGame: 4, isArchived: false },
-  { id: 'div-5', phaseId: 'phase-1', displayName: 'GE5', rank: 5, playersPerGame: 4, isArchived: false },
+  { id: 'div-2', phaseId: 'phase-1', displayName: 'GE2', rank: 2, playersPerGame: 4, isArchived: false, parentId: 'div-1' },
+  { id: 'div-3', phaseId: 'phase-1', displayName: 'GE3', rank: 3, playersPerGame: 4, isArchived: false, parentId: 'div-2' },
+  { id: 'div-4', phaseId: 'phase-1', displayName: 'GE4', rank: 4, playersPerGame: 4, isArchived: false, parentId: 'div-3' },
+  { id: 'div-5', phaseId: 'phase-1', displayName: 'GE5', rank: 5, playersPerGame: 4, isArchived: false, parentId: 'div-4' },
   { id: 'div-6', phaseId: 'phase-1', displayName: 'GE6', rank: 6, playersPerGame: 3, isArchived: false },
   { id: 'div-7', phaseId: 'phase-1', displayName: 'GE7', rank: 7, playersPerGame: 3, isArchived: false },
 ]
