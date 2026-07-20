@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
 import { ClockIcon, CaptainIcon, WhatsAppIcon, PhaseSwitchButton } from '@/components/icons'
-import { ClubLogo } from '@/components/ClubLogo'
+import { PageHeader } from '@/components/PageHeader'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportTeamsModal } from '@/components/ImportTeamsModal'
 import { ImportGamesModal } from '@/components/ImportGamesModal'
@@ -322,32 +322,31 @@ export function TeamsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">Équipes</h1>
-          {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
-        </div>
-        {isAdmin && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {/* Manual add is the fallback; FFTT import is the default path (#229). */}
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-            >
-              Ajouter une équipe
-            </button>
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-            >
-              Importer depuis la FFTT
-            </button>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Équipes"
+        club={scopedClub}
+        actions={
+          isAdmin && (
+            <>
+              {/* Manual add is the fallback; FFTT import is the default path (#229). */}
+              <button
+                type="button"
+                onClick={openCreate}
+                className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+              >
+                Ajouter une équipe
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+              >
+                Importer depuis la FFTT
+              </button>
+            </>
+          )
+        }
+      />
       {importOpen && (
         <ImportTeamsModal
           onClose={() => setImportOpen(false)}

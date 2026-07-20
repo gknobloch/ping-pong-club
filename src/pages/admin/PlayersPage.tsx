@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Player as PlayerType } from '@/types'
 import { Avatar } from '@/components/Avatar'
-import { ClubLogo } from '@/components/ClubLogo'
+import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { sortByName } from '@/lib/sortByName'
@@ -148,22 +148,21 @@ export function PlayersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        {scopedClub && <ClubLogo clubId={scopedClub.id} logoUpdatedAt={scopedClub.logoUpdatedAt} size={56} />}
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold text-slate-800">Joueurs</h1>
-          {scopedClub && <p className="text-slate-500">{scopedClub.displayName}</p>}
-        </div>
-        {canEditPlayers && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-          >
-            Ajouter un joueur
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Joueurs"
+        club={scopedClub}
+        actions={
+          canEditPlayers && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+            >
+              Ajouter un joueur
+            </button>
+          )
+        }
+      />
       <div className="flex items-center gap-3">
         <input
           type="search"

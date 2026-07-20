@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportGroupsModal } from '@/components/ImportGroupsModal'
+import { PageHeader } from '@/components/PageHeader'
 import { PhaseSwitchButton } from '@/components/icons'
 import { ffttPhaseIdForName } from '@/lib/ffttPhases'
 import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
@@ -145,27 +146,29 @@ export function GroupsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="font-display text-2xl font-semibold text-slate-800">Groupes</h1>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={openCreate}
-            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-          >
-            Ajouter un groupe
-          </button>
-          {isAdmin && division && (
+      <PageHeader
+        title="Groupes"
+        actions={
+          <>
             <button
               type="button"
-              onClick={() => setImportOpen(true)}
-              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+              onClick={openCreate}
+              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
             >
-              Importer les groupes FFTT
+              Ajouter un groupe
             </button>
-          )}
-        </div>
-      </div>
+            {isAdmin && division && (
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+              >
+                Importer les groupes FFTT
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Phase switcher */}
       {phase && (

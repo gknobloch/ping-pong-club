@@ -5,6 +5,7 @@ import { FFTT_PHASES, phaseOrderKey } from '@/lib/ffttPhases'
 import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
 import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
+import { PageHeader } from '@/components/PageHeader'
 
 export function PhasesPage() {
   const { phases: allPhases, seasons, updatePhase, addPhase, archivePhase, deletePhase } = useAppData()
@@ -119,16 +120,18 @@ export function PhasesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="font-display text-2xl font-semibold text-slate-800">Phases</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
-        >
-          Ajouter une phase
-        </button>
-      </div>
+      <PageHeader
+        title="Phases"
+        actions={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
+          >
+            Ajouter une phase
+          </button>
+        }
+      />
       {archivedPhases.length > 0 && (
         <label className="flex items-center gap-2">
           <input

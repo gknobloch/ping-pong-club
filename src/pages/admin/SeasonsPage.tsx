@@ -6,6 +6,7 @@ import { phaseOrderKey } from '@/lib/ffttPhases'
 import { STATUS_BADGES, STATUS_LABELS } from '@/lib/status'
 import { StatusRadioGroup } from '@/components/StatusRadioGroup'
 import { ModalShell } from '@/components/ModalShell'
+import { PageHeader } from '@/components/PageHeader'
 
 export function SeasonsPage() {
   const {
@@ -104,28 +105,30 @@ export function SeasonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="font-display text-2xl font-semibold text-slate-800">Saisons</h1>
-        <div className="flex items-center gap-2">
-          {/* Manual add is the fallback; the FFTT check/import is the default
-              path — same layout as the Divisions page. */}
-          <button
-            type="button"
-            onClick={openCreate}
-            className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
-          >
-            Ajouter une saison
-          </button>
-          <button
-            type="button"
-            onClick={handleCheck}
-            disabled={checking}
-            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
-          >
-            {checking ? 'Vérification…' : 'Vérifier la saison FFTT'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Saisons"
+        actions={
+          <>
+            {/* Manual add is the fallback; the FFTT check/import is the default
+                path — same layout as the Divisions page. */}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="rounded-lg border border-accent-600 px-4 py-2 text-sm font-medium text-accent-600 hover:bg-accent-50"
+            >
+              Ajouter une saison
+            </button>
+            <button
+              type="button"
+              onClick={handleCheck}
+              disabled={checking}
+              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-50"
+            >
+              {checking ? 'Vérification…' : 'Vérifier la saison FFTT'}
+            </button>
+          </>
+        }
+      />
       {checkResult === 'error' && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm text-red-700">
