@@ -8,7 +8,10 @@ const NODE: FfttPoolOpponentNode = {
     name: '9',
     group: {
       tour: {
-        division: { id: '/api/divisions/234461', name: 'GE 2 Phase 1', phase: { id: '/api/phases/1' } },
+        division: {
+          id: '/api/divisions/234461', name: 'GE 2 Phase 1', phase: { id: '/api/phases/1' },
+          parent: { id: '/api/divisions/234322' },
+        },
       },
     },
   },
@@ -22,10 +25,22 @@ describe('parsePoolOpponent', () => {
       phase: 1,
       divisionId: '234461',
       divisionName: 'GE 2 Phase 1',
+      divisionParentId: '234322',
       poolId: '1502306',
       poolNumber: 9,
       label: 'RIXHEIM PPA  2',
     })
+  })
+
+  it('is null when the division has no parent (#236)', () => {
+    const t = parsePoolOpponent({
+      ...NODE,
+      pool: {
+        ...NODE.pool!,
+        group: { tour: { division: { id: '/api/divisions/1', name: 'GE 7 Phase 1', parent: null } } },
+      },
+    })
+    expect(t?.divisionParentId).toBeNull()
   })
 
   it('reads parenthesised team numbers ("RIXHEIM PPA (5)")', () => {
@@ -77,5 +92,9 @@ describe('poolOpponentsQuery', () => {
     const q = poolOpponentsQuery('06680011"x{}')
     expect(q).toContain('opponent_team_clubs_identifier: "06680011x"')
     expect(q).toContain('season_current: true')
+  })
+
+  it('requests the division parent (#236)', () => {
+    expect(poolOpponentsQuery('06680011')).toContain('phase { id } parent { id }')
   })
 })
