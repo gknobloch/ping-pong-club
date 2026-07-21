@@ -4,12 +4,14 @@ import type { Club } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { PageHeader } from '@/components/PageHeader'
-import { PrimaryButton } from '@/components/Button'
+import { PrimaryButton, SecondaryButton } from '@/components/Button'
+import { ImportClubModal } from '@/components/ImportClubModal'
 
 export function ClubsPage() {
   const navigate = useNavigate()
   const { clubs, addClub, archiveClub } = useAppData()
   const [creating, setCreating] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
 
@@ -47,7 +49,12 @@ export function ClubsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Clubs"
-        actions={<PrimaryButton onClick={openCreate}>Ajouter un club</PrimaryButton>}
+        actions={
+          <>
+            <SecondaryButton onClick={openCreate}>Ajouter un club</SecondaryButton>
+            <PrimaryButton onClick={() => setImportOpen(true)}>Importer depuis la FFTT</PrimaryButton>
+          </>
+        }
       />
       {archivedClubs.length > 0 && (
         <label className="flex items-center gap-2">
@@ -182,6 +189,8 @@ export function ClubsPage() {
           </div>
         </ModalShell>
       )}
+
+      {importOpen && <ImportClubModal onClose={() => setImportOpen(false)} />}
     </div>
   )
 }
