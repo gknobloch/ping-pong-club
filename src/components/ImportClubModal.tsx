@@ -22,7 +22,7 @@ interface ClubDraft {
  * fetched and parsed — no dedicated preview/import API endpoint needed.
  */
 export function ImportClubModal({ onClose }: { onClose: () => void }) {
-  const { clubs, addClub } = useAppData()
+  const { clubs, addClub, updateClub } = useAppData()
 
   const [affiliationNumber, setAffiliationNumber] = useState('')
   const [state, setState] = useState<SearchState>('idle')
@@ -65,6 +65,12 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
       city: parsed.city,
     })
     setState('found')
+  }
+
+  const handleReactivate = () => {
+    if (!existingClub) return
+    updateClub(existingClub.id, { isArchived: false })
+    setExistingClub({ ...existingClub, isArchived: false })
   }
 
   const handleImport = () => {
@@ -140,7 +146,12 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-2">
               <p className="text-sm text-amber-700">Un club avec ce numéro d’affiliation existe déjà :</p>
               <div className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                <p className="font-medium text-slate-800">{existingClub.displayName}</p>
+                <p className="font-medium text-slate-800">
+                  {existingClub.displayName}
+                  {existingClub.isArchived && (
+                    <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">Archivé</span>
+                  )}
+                </p>
                 <p className="text-slate-500">N° {existingClub.affiliationNumber}</p>
                 <p className="text-slate-500">
                   {existingClub.addresses?.length
@@ -148,13 +159,24 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
                     : 'Aucun lieu de jeu enregistré.'}
                 </p>
               </div>
-              <Link
-                to={`/clubs/${existingClub.affiliationNumber}`}
-                onClick={onClose}
-                className="text-sm font-medium text-accent-600 hover:text-accent-800"
-              >
-                Modifier ce club
-              </Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  to={`/clubs/${existingClub.affiliationNumber}`}
+                  onClick={onClose}
+                  className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                >
+                  Modifier ce club
+                </Link>
+                {existingClub.isArchived && (
+                  <button
+                    type="button"
+                    onClick={handleReactivate}
+                    className="text-sm font-medium text-green-700 hover:text-green-900"
+                  >
+                    Réactiver ce club
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

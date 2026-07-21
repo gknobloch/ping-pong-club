@@ -245,6 +245,7 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   deleteDivision: (id: string) => void
   updateClub: (id: string, patch: Partial<Club>) => void
   archiveClub: (id: string) => void
+  deleteClub: (id: string) => void
   addClubAddress: (clubId: string, data: Omit<Address, 'id'>) => Address
   updateClubAddress: (clubId: string, addressId: string, patch: Partial<Address>) => void
   deleteClubAddress: (clubId: string, addressId: string) => void
@@ -929,6 +930,13 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     if (persist) api(`/clubs/${id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: true }) })
   }, [persist])
 
+  // No cascade: the UI only offers this once it's confirmed the club has no
+  // teams/players left (a club with dependents can be archived, not deleted).
+  const deleteClub = useCallback((id: string) => {
+    setClubs((prev) => prev.filter((c) => c.id !== id))
+    if (persist) api(`/clubs/${id}`, { method: 'DELETE' })
+  }, [persist])
+
   const addClubAddress = useCallback((clubId: string, data: Omit<Address, 'id'>) => {
     const id = nextId('addr')
     const address: Address = { ...data, id }
@@ -1380,6 +1388,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       deleteDivision,
       updateClub,
       archiveClub,
+      deleteClub,
       addClubAddress,
       updateClubAddress,
       deleteClubAddress,
@@ -1440,7 +1449,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       divisions, clubs, seasons, phases, groups, teams, players,
       matchDays, games,
       updateDivision, archiveDivision, deleteDivision,
-      updateClub, archiveClub, addClubAddress, updateClubAddress, deleteClubAddress,
+      updateClub, archiveClub, deleteClub, addClubAddress, updateClubAddress, deleteClubAddress,
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason,
       fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, fetchGamesPreview, importFfttGames, fetchGroupsPreview, importFfttGroups, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,

@@ -1519,6 +1519,20 @@ app.patch('/clubs/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// Only ever called on a club the admin has confirmed has no teams/players
+// left (checked client-side, #247 follow-up) — no cascade needed here.
+app.delete('/clubs/:id', async (c) => {
+  const db = c.env.DB
+  const id = c.req.param('id')
+  await db.batch([
+    db.prepare('DELETE FROM club_addresses WHERE club_id = ?').bind(id),
+    db.prepare('DELETE FROM club_channels WHERE club_id = ?').bind(id),
+    db.prepare('DELETE FROM club_logos WHERE club_id = ?').bind(id),
+    db.prepare('DELETE FROM clubs WHERE id = ?').bind(id),
+  ])
+  return c.json({ ok: true })
+})
+
 // --- Club Addresses ---
 app.post('/clubs/:clubId/addresses', async (c) => {
   const clubId = c.req.param('clubId')
