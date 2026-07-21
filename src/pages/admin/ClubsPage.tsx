@@ -4,12 +4,14 @@ import type { Club } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { PageHeader } from '@/components/PageHeader'
-import { PrimaryButton } from '@/components/Button'
+import { PrimaryButton, SecondaryButton } from '@/components/Button'
+import { ImportClubModal } from '@/components/ImportClubModal'
 
 export function ClubsPage() {
   const navigate = useNavigate()
-  const { clubs, addClub, archiveClub } = useAppData()
+  const { clubs, addClub, archiveClub, updateClub, deleteClub, teams, players } = useAppData()
   const [creating, setCreating] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
 
@@ -39,6 +41,20 @@ export function ClubsPage() {
     }
   }
 
+  const handleActivate = (club: Club) => {
+    updateClub(club.id, { isArchived: false })
+  }
+
+  const clubHasDependents = (club: Club) =>
+    teams.some((t) => t.clubId === club.id) || players.some((p) => p.clubId === club.id)
+
+  const handleDelete = (club: Club) => {
+    if (clubHasDependents(club)) return
+    if (window.confirm(`Supprimer définitivement le club "${club.displayName}" ? Cette action est irréversible.`)) {
+      deleteClub(club.id)
+    }
+  }
+
   const closeCreateModal = () => {
     setCreating(false)
   }
@@ -47,7 +63,12 @@ export function ClubsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Clubs"
-        actions={<PrimaryButton onClick={openCreate}>Ajouter un club</PrimaryButton>}
+        actions={
+          <>
+            <SecondaryButton onClick={openCreate}>Ajouter un club</SecondaryButton>
+            <PrimaryButton onClick={() => setImportOpen(true)}>Importer depuis la FFTT</PrimaryButton>
+          </>
+        }
       />
       {archivedClubs.length > 0 && (
         <label className="flex items-center gap-2">
@@ -105,7 +126,7 @@ export function ClubsPage() {
                   >
                     Modifier
                   </button>
-                  {!club.isArchived && (
+                  {!club.isArchived ? (
                     <button
                       type="button"
                       onClick={() => handleArchive(club)}
@@ -113,6 +134,25 @@ export function ClubsPage() {
                     >
                       Archiver
                     </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleActivate(club)}
+                        className="text-sm font-medium text-green-700 hover:text-green-900"
+                      >
+                        Activer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(club)}
+                        disabled={clubHasDependents(club)}
+                        title={clubHasDependents(club) ? 'Ce club a des équipes ou des joueurs rattachés : archivez-le plutôt que de le supprimer.' : undefined}
+                        className="text-sm font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:text-slate-300"
+                      >
+                        Supprimer
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -182,6 +222,8 @@ export function ClubsPage() {
           </div>
         </ModalShell>
       )}
+
+      {importOpen && <ImportClubModal onClose={() => setImportOpen(false)} />}
     </div>
   )
 }
