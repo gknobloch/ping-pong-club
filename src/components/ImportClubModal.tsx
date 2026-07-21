@@ -81,7 +81,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
       isArchived: false,
       addresses: hasVenueInfo(draft)
         ? [{
-            id: `addr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            id: `addr-${affiliationNumber}-1`,
             label: draft.venueLabel || 'Salle', street: draft.street,
             postalCode: draft.postalCode, city: draft.city, isDefault: true,
           }]

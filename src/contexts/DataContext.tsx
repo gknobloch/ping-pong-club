@@ -918,7 +918,11 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [persist])
 
   const addClub = useCallback((data: Omit<Club, 'id'>) => {
-    const id = nextId('club')
+    // The affiliation number IS the id when known (#247 follow-up): the
+    // PRIMARY KEY then blocks a club from ever existing twice under two ids.
+    // Only a club with no known affiliation number yet (a real, ongoing
+    // state) falls back to an arbitrary id.
+    const id = data.affiliationNumber.trim() || nextId('club')
     const club: Club = { ...data, id }
     setClubs((prev) => [...prev, club])
     if (persist) api('/clubs', { method: 'POST', body: JSON.stringify(club) })
@@ -938,12 +942,15 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [persist])
 
   const addClubAddress = useCallback((clubId: string, data: Omit<Address, 'id'>) => {
-    const id = nextId('addr')
-    const address: Address = { ...data, id }
+    // A simple per-club counter reads better than nextId()'s timestamp+random
+    // (#247 follow-up); this id is never user-facing, only a React key and a
+    // PATCH/DELETE URL segment, so per-club uniqueness is all that matters.
+    let address: Address = { ...data, id: '' }
     setClubs((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c
         const addresses = c.addresses ?? []
+        address = { ...data, id: `addr-${clubId}-${addresses.length + 1}` }
         const newAddresses = data.isDefault
           ? [...addresses.map((a) => ({ ...a, isDefault: false })), address]
           : addresses.length === 0
@@ -1001,13 +1008,16 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
 
   // --- Club communication channels (#135) ---
   const addClubChannel = useCallback((clubId: string, data: Omit<ClubChannel, 'id' | 'sortOrder'>) => {
-    const id = nextId('chan')
+    // Simple per-club counter, same as club_addresses (#247 follow-up) —
+    // this id is never user-facing.
+    let id = ''
     let sortOrder = 0
     setClubs((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c
         const channels = c.channels ?? []
         sortOrder = channels.length
+        id = `chan-${clubId}-${channels.length + 1}`
         return { ...c, channels: [...channels, { ...data, id, sortOrder }] }
       })
     )

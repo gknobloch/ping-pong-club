@@ -1161,13 +1161,15 @@ app.post('/games/import', async (c) => {
   const skippedGroups: Array<{ groupId: string; reason: GamesGroupError }> = []
   let existingGames = 0, skippedMatches = 0
 
-  // Auto-created club ids are FFTT-aligned on the affiliation number, which
-  // doubles as the natural dedup key across groups in one import.
+  // Auto-created club ids ARE the affiliation number (#247 follow-up: id =
+  // affiliation_number project-wide, so a club can never end up duplicated
+  // under two ids), which doubles as the natural dedup key across groups in
+  // one import.
   const clubIdFor = (side: FfttMatchTeam): string | null => {
     if (!side.clubIdentifier) return null
     const existing = resolver.clubByAffiliation.get(side.clubIdentifier)
     if (existing) return existing
-    const id = `club-fftt-${side.clubIdentifier}`
+    const id = side.clubIdentifier
     const displayName = side.clubName || side.teamName.replace(/\s*\(?\d+\)?\s*$/, '')
     createdClubs.push({ id, affiliationNumber: side.clubIdentifier, displayName, isArchived: false, addresses: [], channels: [] })
     resolver.clubByAffiliation.set(side.clubIdentifier, id)
