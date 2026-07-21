@@ -1,9 +1,19 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppData } from '@/contexts/DataContext'
-import { fetchClubDetailXmlFromBrowser, parseClubDetailXml, type FfttClubDetail } from '@/lib/ffttClub'
+import { fetchClubDetailXmlFromBrowser, hasVenueInfo, parseClubDetailXml } from '@/lib/ffttClub'
 import { ModalShell } from '@/components/ModalShell'
 
 type SearchState = 'idle' | 'loading' | 'found' | 'not_found' | 'already_exists' | 'error'
+
+/** Editable draft of the parsed FFTT detail, pre-filled but adjustable before import. */
+interface ClubDraft {
+  displayName: string
+  venueLabel: string
+  street: string
+  postalCode: string
+  city: string
+}
 
 /**
  * FFTT club import dialog for the Clubs admin page (#247). A single club has
@@ -16,12 +26,21 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
 
   const [affiliationNumber, setAffiliationNumber] = useState('')
   const [state, setState] = useState<SearchState>('idle')
-  const [detail, setDetail] = useState<FfttClubDetail | null>(null)
+  const [draft, setDraft] = useState<ClubDraft | null>(null)
+  const [existingClub, setExistingClub] = useState<(typeof clubs)[number] | null>(null)
   const [imported, setImported] = useState(false)
+
+  const resetResult = () => {
+    setState('idle')
+    setDraft(null)
+    setExistingClub(null)
+    setImported(false)
+  }
 
   const handleSearch = async () => {
     setState('loading')
-    setDetail(null)
+    setDraft(null)
+    setExistingClub(null)
     const xml = await fetchClubDetailXmlFromBrowser(affiliationNumber)
     if (xml === null) {
       setState('error')
@@ -32,33 +51,44 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
       setState('not_found')
       return
     }
-    if (clubs.some((c) => c.affiliationNumber === parsed.affiliationNumber)) {
+    const existing = clubs.find((c) => c.affiliationNumber === parsed.affiliationNumber)
+    if (existing) {
+      setExistingClub(existing)
       setState('already_exists')
       return
     }
-    setDetail(parsed)
+    setDraft({
+      displayName: parsed.displayName,
+      venueLabel: parsed.venueLabel,
+      street: parsed.street,
+      postalCode: parsed.postalCode,
+      city: parsed.city,
+    })
     setState('found')
   }
 
   const handleImport = () => {
-    if (!detail) return
+    if (!draft) return
     addClub({
-      affiliationNumber: detail.affiliationNumber,
-      displayName: detail.displayName,
+      affiliationNumber,
+      displayName: draft.displayName,
       isArchived: false,
-      addresses: [{
-        id: `addr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        label: detail.venueLabel, street: detail.street,
-        postalCode: detail.postalCode, city: detail.city, isDefault: true,
-      }],
+      addresses: hasVenueInfo(draft)
+        ? [{
+            id: `addr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            label: draft.venueLabel || 'Salle', street: draft.street,
+            postalCode: draft.postalCode, city: draft.city, isDefault: true,
+          }]
+        : [],
       channels: [],
     })
     setImported(true)
-    setDetail(null)
+    setDraft(null)
   }
 
   const inputClass =
     'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20'
+  const fieldClass = 'rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20'
 
   return (
     <ModalShell
@@ -80,7 +110,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
                 id="import-club-number"
                 type="text"
                 value={affiliationNumber}
-                onChange={(e) => { setAffiliationNumber(e.target.value); setState('idle'); setDetail(null); setImported(false) }}
+                onChange={(e) => { setAffiliationNumber(e.target.value); resetResult() }}
                 className={`${inputClass} mt-0 flex-1`}
               />
               <button
@@ -100,23 +130,92 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
           {state === 'not_found' && (
             <p className="text-sm text-slate-600">Aucun club trouvé pour ce numéro d’affiliation.</p>
           )}
-          {state === 'already_exists' && (
-            <p className="text-sm text-amber-700">Un club avec ce numéro d’affiliation existe déjà.</p>
-          )}
           {imported && (
             <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
               <p className="text-sm text-green-800">Club importé.</p>
             </div>
           )}
 
-          {detail && (
-            <div className="space-y-3">
+          {state === 'already_exists' && existingClub && (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-700">Un club avec ce numéro d’affiliation existe déjà :</p>
               <div className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                <p className="font-medium text-slate-800">{detail.displayName}</p>
+                <p className="font-medium text-slate-800">{existingClub.displayName}</p>
+                <p className="text-slate-500">N° {existingClub.affiliationNumber}</p>
                 <p className="text-slate-500">
-                  {detail.venueLabel} · {detail.street}, {detail.postalCode} {detail.city}
+                  {existingClub.addresses?.length
+                    ? existingClub.addresses.map((a) => `${a.label} · ${a.street}, ${a.postalCode} ${a.city}`).join(' / ')
+                    : 'Aucun lieu de jeu enregistré.'}
                 </p>
               </div>
+              <Link
+                to={`/clubs/${existingClub.affiliationNumber}`}
+                onClick={onClose}
+                className="text-sm font-medium text-accent-600 hover:text-accent-800"
+              >
+                Modifier ce club
+              </Link>
+            </div>
+          )}
+
+          {draft && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-500">Vérifiez et corrigez si besoin avant d’importer :</p>
+              <div className="grid grid-cols-1 gap-3">
+                <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                  Nom du club
+                  <input
+                    type="text"
+                    value={draft.displayName}
+                    onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
+                    className={fieldClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                  Lieu de jeu
+                  <input
+                    type="text"
+                    value={draft.venueLabel}
+                    onChange={(e) => setDraft({ ...draft, venueLabel: e.target.value })}
+                    placeholder="Salle"
+                    className={fieldClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                  Adresse
+                  <input
+                    type="text"
+                    value={draft.street}
+                    onChange={(e) => setDraft({ ...draft, street: e.target.value })}
+                    className={fieldClass}
+                  />
+                </label>
+                <div className="flex gap-3">
+                  <label className="flex w-28 flex-col gap-1 text-sm font-medium text-slate-700">
+                    Code postal
+                    <input
+                      type="text"
+                      value={draft.postalCode}
+                      onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-slate-700">
+                    Ville
+                    <input
+                      type="text"
+                      value={draft.city}
+                      onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                      className={fieldClass}
+                    />
+                  </label>
+                </div>
+              </div>
+              {!hasVenueInfo(draft) && (
+                <p className="text-xs text-slate-400">
+                  Aucun lieu de jeu renseigné par la FFTT pour ce club — il sera importé sans adresse.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleImport}

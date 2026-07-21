@@ -27,8 +27,36 @@ function text(node: ParentNode, tag: string): string {
 }
 
 /**
+ * FFTT club/city names come back in ALL CAPS. Title-case each word so it
+ * reads normally ("BERGHEIM" → "Bergheim"), except short all-caps tokens
+ * (<=4 letters) which are club-type abbreviations ("TT", "PPA", "CSS",
+ * "CPPC") and must stay as-is. Hyphenated words are title-cased segment by
+ * segment ("SAINT-LOUIS" → "Saint-Louis").
+ */
+export function normalizeFfttName(raw: string): string {
+  return raw
+    .split(' ')
+    .map((word) =>
+      word
+        .split('-')
+        .map((seg) =>
+          seg.length <= 4 ? seg : seg.charAt(0).toLocaleUpperCase('fr-FR') + seg.slice(1).toLocaleLowerCase('fr-FR'),
+        )
+        .join('-'),
+    )
+    .join(' ')
+}
+
+/** Whether a club detail carries any usable game-venue information at all. */
+export function hasVenueInfo(d: Pick<FfttClubDetail, 'street' | 'postalCode' | 'city'>): boolean {
+  return Boolean(d.street || d.postalCode || d.city)
+}
+
+/**
  * Parse an xml_club_detail.php response. Returns null when the XML is
- * malformed or carries no `<club>` (unknown affiliation number).
+ * malformed or carries no `<club>` (unknown affiliation number). `venueLabel`
+ * is returned raw (possibly empty) — callers decide whether to default it
+ * ("Salle") or skip the address entirely when there's no venue info at all.
  */
 export function parseClubDetailXml(xml: string): FfttClubDetail | null {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
@@ -37,8 +65,8 @@ export function parseClubDetailXml(xml: string): FfttClubDetail | null {
   if (!club) return null
 
   const affiliationNumber = text(club, 'numero')
-  const displayName = text(club, 'nom')
-  if (!affiliationNumber || !displayName) return null
+  const rawName = text(club, 'nom')
+  if (!affiliationNumber || !rawName) return null
 
   const street = [text(club, 'adressesalle1'), text(club, 'adressesalle2'), text(club, 'adressesalle3')]
     .filter(Boolean)
@@ -46,11 +74,11 @@ export function parseClubDetailXml(xml: string): FfttClubDetail | null {
 
   return {
     affiliationNumber,
-    displayName,
-    venueLabel: text(club, 'nomsalle') || 'Salle',
+    displayName: normalizeFfttName(rawName),
+    venueLabel: text(club, 'nomsalle'),
     street,
     postalCode: text(club, 'codepsalle'),
-    city: text(club, 'villesalle'),
+    city: normalizeFfttName(text(club, 'villesalle')),
   }
 }
 
