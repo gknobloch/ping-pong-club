@@ -7,17 +7,17 @@ import { fetchClubDetailXmlFromBrowser, hasVenueInfo, parseClubDetailXml } from 
 type SyncState = 'idle' | 'loading' | 'done' | 'not_found' | 'error'
 
 export function ClubDetailPage() {
-  const { affiliationNumber } = useParams<{ affiliationNumber: string }>()
+  const { id: clubId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { clubs, teams, players, archiveClub, updateClub, deleteClub, addClubAddress, updateClubAddress } = useAppData()
   const club =
-    affiliationNumber != null
-      ? clubs.find((c) => c.affiliationNumber === affiliationNumber) ?? null
+    clubId != null
+      ? clubs.find((c) => c.id === clubId) ?? null
       : null
 
   const [syncState, setSyncState] = useState<SyncState>('idle')
 
-  if (!affiliationNumber || !club) {
+  if (!clubId || !club) {
     return (
       <div className="space-y-6">
         <p className="text-slate-600">Club introuvable.</p>
@@ -51,7 +51,7 @@ export function ClubDetailPage() {
 
   const handleSync = async () => {
     setSyncState('loading')
-    const xml = await fetchClubDetailXmlFromBrowser(club.affiliationNumber)
+    const xml = await fetchClubDetailXmlFromBrowser(club.id)
     if (xml === null) {
       setSyncState('error')
       return
@@ -92,9 +92,9 @@ export function ClubDetailPage() {
       <ClubDetailView
         club={club}
         canEdit={!club.isArchived}
-        canEditAffiliationNumber
-        onClubSaved={({ affiliationNumber: newNum }) =>
-          navigate(`/clubs/${encodeURIComponent(newNum)}`, { replace: true })
+        canEditId
+        onClubSaved={({ id: newId }) =>
+          navigate(`/clubs/${encodeURIComponent(newId)}`, { replace: true })
         }
         idPrefix="admin-club"
       />
@@ -102,7 +102,7 @@ export function ClubDetailPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-sm font-medium text-slate-800">Synchronisation FFTT</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Récupère à nouveau le nom et le lieu de jeu de ce club depuis la FFTT (n° {club.affiliationNumber}).
+          Récupère à nouveau le nom et le lieu de jeu de ce club depuis la FFTT (n° {club.id}).
         </p>
         <button
           type="button"

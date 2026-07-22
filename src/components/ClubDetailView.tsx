@@ -72,10 +72,10 @@ async function fileToDownscaledBase64(
 export interface ClubDetailViewProps {
   club: Club
   canEdit: boolean
-  /** When true, N° affiliation can be edited (reserved for global admin). Default false. */
-  canEditAffiliationNumber?: boolean
-  /** Called after saving club (e.g. to navigate to new URL if affiliation number changed). */
-  onClubSaved?: (patch: { affiliationNumber: string; displayName: string }) => void
+  /** When true, the id (N° affiliation) can be edited (reserved for global admin). Default false. */
+  canEditId?: boolean
+  /** Called after saving club (e.g. to navigate to new URL if the id changed). */
+  onClubSaved?: (patch: { id: string; displayName: string }) => void
   /** Prefix for input ids to avoid duplicates when multiple instances exist. */
   idPrefix?: string
 }
@@ -83,16 +83,17 @@ export interface ClubDetailViewProps {
 export function ClubDetailView({
   club,
   canEdit,
-  canEditAffiliationNumber = false,
+  canEditId = false,
   onClubSaved,
   idPrefix = 'club-detail',
 }: ClubDetailViewProps) {
   const {
-    updateClub, addClubAddress, updateClubAddress, deleteClubAddress,
+    renameClub, addClubAddress, updateClubAddress, deleteClubAddress,
     setClubLogo, removeClubLogo,
     addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
   } = useAppData()
-  const [form, setForm] = useState({ affiliationNumber: club.affiliationNumber, displayName: club.displayName })
+  const [form, setForm] = useState({ id: club.id, displayName: club.displayName })
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [addressForm, setAddressForm] = useClubAddressFormState()
   const [addressFields, setAddressFields] = useState(emptyAddressForm)
   const [channelForm, setChannelForm] = useState<{ mode: 'add' } | { mode: 'edit'; channel: ClubChannel } | null>(null)
@@ -100,15 +101,25 @@ export function ClubDetailView({
   const logoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setForm({
-      affiliationNumber: club.affiliationNumber,
-      displayName: club.displayName,
-    })
-  }, [club.id, club.affiliationNumber, club.displayName])
+    setForm({ id: club.id, displayName: club.displayName })
+    setSaveError(null)
+  }, [club.id, club.displayName])
 
-  const handleSaveClub = () => {
-    updateClub(club.id, form)
-    onClubSaved?.(form)
+  // Renaming a club's id is a live primary-key rename (#252 follow-up), unlike
+  // every other mutation in this view — it must await the backend's conflict
+  // check before the new id can be navigated to or reflected locally.
+  const handleSaveClub = async () => {
+    setSaveError(null)
+    const result = await renameClub(club.id, form.id, form.displayName)
+    if (result === 'id_taken') {
+      setSaveError('Ce numéro est déjà utilisé par un autre club.')
+      return
+    }
+    if (result === 'error') {
+      setSaveError("Une erreur est survenue lors de l'enregistrement.")
+      return
+    }
+    onClubSaved?.({ id: form.id.trim(), displayName: form.displayName })
   }
 
   const openAddAddress = () => {
@@ -225,21 +236,21 @@ export function ClubDetailView({
         <div className="mt-4 space-y-4">
           <div>
             <label
-              htmlFor={`${idPrefix}-affiliationNumber`}
+              htmlFor={`${idPrefix}-id`}
               className="block text-sm font-medium text-slate-700"
             >
               N° affiliation
             </label>
             <input
-              id={`${idPrefix}-affiliationNumber`}
+              id={`${idPrefix}-id`}
               type="text"
-              value={form.affiliationNumber}
+              value={form.id}
               onChange={(e) =>
                 canEdit &&
-                canEditAffiliationNumber &&
-                setForm((f) => ({ ...f, affiliationNumber: e.target.value }))
+                canEditId &&
+                setForm((f) => ({ ...f, id: e.target.value }))
               }
-              readOnly={!canEdit || !canEditAffiliationNumber}
+              readOnly={!canEdit || !canEditId}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:bg-slate-50 disabled:text-slate-600"
             />
           </div>
@@ -261,7 +272,8 @@ export function ClubDetailView({
           </div>
         </div>
         {canEdit && (
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex items-center justify-end gap-3">
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
             <button
               type="button"
               onClick={handleSaveClub}
