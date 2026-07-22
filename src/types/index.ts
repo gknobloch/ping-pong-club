@@ -25,8 +25,13 @@ export interface ClubChannel {
 }
 
 export interface Club {
+  /**
+   * The FFTT affiliation number when known (#247 follow-up: no separate
+   * column/field for it — id IS the affiliation number). A club with no
+   * known number gets a synthetic placeholder id instead: "99" followed by
+   * 6 digits, a shape no real FFTT number can have.
+   */
   id: string
-  affiliationNumber: string
   displayName: string
   isArchived: boolean
   addresses: Address[]

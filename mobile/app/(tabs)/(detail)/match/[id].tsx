@@ -319,7 +319,7 @@ export default function MatchDetailScreen() {
           <MatchSheet
             matchup={isHome ? `${teamName} – ${opponentName}` : `${opponentName} – ${teamName}`}
             clubName={club?.displayName ?? ''}
-            affiliationNumber={club?.affiliationNumber ?? ''}
+            affiliationNumber={club?.id ?? ''}
             players={sheetPlayers}
             onClose={() => setShowSheet(false)}
           />

@@ -51,7 +51,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
       setState('not_found')
       return
     }
-    const existing = clubs.find((c) => c.affiliationNumber === parsed.affiliationNumber)
+    const existing = clubs.find((c) => c.id === parsed.affiliationNumber)
     if (existing) {
       setExistingClub(existing)
       setState('already_exists')
@@ -76,7 +76,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
   const handleImport = () => {
     if (!draft) return
     addClub({
-      affiliationNumber,
+      id: affiliationNumber,
       displayName: draft.displayName,
       isArchived: false,
       addresses: hasVenueInfo(draft)
@@ -152,7 +152,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
                     <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600">Archivé</span>
                   )}
                 </p>
-                <p className="text-slate-500">N° {existingClub.affiliationNumber}</p>
+                <p className="text-slate-500">N° {existingClub.id}</p>
                 <p className="text-slate-500">
                   {existingClub.addresses?.length
                     ? existingClub.addresses.map((a) => `${a.label} · ${a.street}, ${a.postalCode} ${a.city}`).join(' / ')
@@ -161,7 +161,7 @@ export function ImportClubModal({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex items-center gap-4">
                 <Link
-                  to={`/clubs/${existingClub.affiliationNumber}`}
+                  to={`/clubs/${existingClub.id}`}
                   onClick={onClose}
                   className="text-sm font-medium text-accent-600 hover:text-accent-800"
                 >

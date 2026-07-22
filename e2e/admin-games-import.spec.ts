@@ -19,7 +19,7 @@ const previewOneGroup = {
 
 const importResult = {
   createdClubs: [
-    { id: 'club-fftt-06570024', affiliationNumber: '06570024', displayName: 'THIONVILLE TT', isArchived: false, addresses: [], channels: [] },
+    { id: 'club-fftt-06570024', displayName: 'THIONVILLE TT', isArchived: false, addresses: [], channels: [] },
   ],
   createdTeams: [
     {

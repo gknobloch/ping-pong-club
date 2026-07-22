@@ -68,7 +68,7 @@ export function MyClubPage() {
           )
         }
       >
-        <p className="text-slate-500">N° {currentClub.affiliationNumber}</p>
+        <p className="text-slate-500">N° {currentClub.id}</p>
       </IdentityCard>
 
       {/* Addresses */}
