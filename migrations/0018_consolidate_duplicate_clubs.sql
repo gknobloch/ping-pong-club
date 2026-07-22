@@ -33,55 +33,84 @@
 -- possibly-edited address details.
 
 -- === Simple renames (single row, no duplicate) ===
+--
+-- club_logos.club_id REFERENCES clubs(id) with no ON UPDATE CASCADE, so a
+-- bare `UPDATE clubs SET id = new WHERE id = old` is rejected by D1's FK
+-- enforcement the moment a logo row exists for that club (production enforces
+-- this; `wrangler d1 execute --local` does not, which is why this shipped
+-- broken the first time). Every rename below therefore inserts the new row
+-- first, repoints every dependent (including club_logos) onto it, then
+-- deletes the old row — the same safe order already used for merge groups.
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06680120', display_name, is_archived FROM clubs WHERE id = 'club-1784620922570-3vcxw'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06680120');
 UPDATE club_addresses SET club_id = '06680120' WHERE club_id = 'club-1784620922570-3vcxw';
 UPDATE club_channels SET club_id = '06680120' WHERE club_id = 'club-1784620922570-3vcxw';
 UPDATE club_logos SET club_id = '06680120' WHERE club_id = 'club-1784620922570-3vcxw' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06680120');
 UPDATE teams SET club_id = '06680120' WHERE club_id = 'club-1784620922570-3vcxw';
 UPDATE users SET club_id = '06680120' WHERE club_id = 'club-1784620922570-3vcxw';
-UPDATE clubs SET id = '06680120' WHERE id = 'club-1784620922570-3vcxw';
+DELETE FROM clubs WHERE id = 'club-1784620922570-3vcxw';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06880123', display_name, is_archived FROM clubs WHERE id = 'club-etival'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06880123');
 UPDATE club_addresses SET club_id = '06880123' WHERE club_id = 'club-etival';
 UPDATE club_channels SET club_id = '06880123' WHERE club_id = 'club-etival';
 UPDATE club_logos SET club_id = '06880123' WHERE club_id = 'club-etival' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06880123');
 UPDATE teams SET club_id = '06880123' WHERE club_id = 'club-etival';
 UPDATE users SET club_id = '06880123' WHERE club_id = 'club-etival';
-UPDATE clubs SET id = '06880123' WHERE id = 'club-etival';
+DELETE FROM clubs WHERE id = 'club-etival';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '08921458', display_name, is_archived FROM clubs WHERE id = 'club-1784700386126-kfpu5'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '08921458');
 UPDATE club_addresses SET club_id = '08921458' WHERE club_id = 'club-1784700386126-kfpu5';
 UPDATE club_channels SET club_id = '08921458' WHERE club_id = 'club-1784700386126-kfpu5';
 UPDATE club_logos SET club_id = '08921458' WHERE club_id = 'club-1784700386126-kfpu5' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '08921458');
 UPDATE teams SET club_id = '08921458' WHERE club_id = 'club-1784700386126-kfpu5';
 UPDATE users SET club_id = '08921458' WHERE club_id = 'club-1784700386126-kfpu5';
-UPDATE clubs SET id = '08921458' WHERE id = 'club-1784700386126-kfpu5';
+DELETE FROM clubs WHERE id = 'club-1784700386126-kfpu5';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06680020', display_name, is_archived FROM clubs WHERE id = 'club-1784614355608-ezt6w'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06680020');
 UPDATE club_addresses SET club_id = '06680020' WHERE club_id = 'club-1784614355608-ezt6w';
 UPDATE club_channels SET club_id = '06680020' WHERE club_id = 'club-1784614355608-ezt6w';
 UPDATE club_logos SET club_id = '06680020' WHERE club_id = 'club-1784614355608-ezt6w' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06680020');
 UPDATE teams SET club_id = '06680020' WHERE club_id = 'club-1784614355608-ezt6w';
 UPDATE users SET club_id = '06680020' WHERE club_id = 'club-1784614355608-ezt6w';
-UPDATE clubs SET id = '06680020' WHERE id = 'club-1784614355608-ezt6w';
+DELETE FROM clubs WHERE id = 'club-1784614355608-ezt6w';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06670045', display_name, is_archived FROM clubs WHERE id = 'club-rc-strasbourg'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06670045');
 UPDATE club_addresses SET club_id = '06670045' WHERE club_id = 'club-rc-strasbourg';
 UPDATE club_channels SET club_id = '06670045' WHERE club_id = 'club-rc-strasbourg';
 UPDATE club_logos SET club_id = '06670045' WHERE club_id = 'club-rc-strasbourg' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06670045');
 UPDATE teams SET club_id = '06670045' WHERE club_id = 'club-rc-strasbourg';
 UPDATE users SET club_id = '06670045' WHERE club_id = 'club-rc-strasbourg';
-UPDATE clubs SET id = '06670045' WHERE id = 'club-rc-strasbourg';
+DELETE FROM clubs WHERE id = 'club-rc-strasbourg';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06680011', display_name, is_archived FROM clubs WHERE id = 'club-1'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06680011');
 UPDATE club_addresses SET club_id = '06680011' WHERE club_id = 'club-1';
 UPDATE club_channels SET club_id = '06680011' WHERE club_id = 'club-1';
 UPDATE club_logos SET club_id = '06680011' WHERE club_id = 'club-1' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06680011');
 UPDATE teams SET club_id = '06680011' WHERE club_id = 'club-1';
 UPDATE users SET club_id = '06680011' WHERE club_id = 'club-1';
-UPDATE clubs SET id = '06680011' WHERE id = 'club-1';
+DELETE FROM clubs WHERE id = 'club-1';
 
+INSERT INTO clubs (id, display_name, is_archived)
+  SELECT '06880064', display_name, is_archived FROM clubs WHERE id = 'club-ballons'
+  AND NOT EXISTS (SELECT 1 FROM clubs WHERE id = '06880064');
 UPDATE club_addresses SET club_id = '06880064' WHERE club_id = 'club-ballons';
 UPDATE club_channels SET club_id = '06880064' WHERE club_id = 'club-ballons';
 UPDATE club_logos SET club_id = '06880064' WHERE club_id = 'club-ballons' AND NOT EXISTS (SELECT 1 FROM club_logos WHERE club_id = '06880064');
 UPDATE teams SET club_id = '06880064' WHERE club_id = 'club-ballons';
 UPDATE users SET club_id = '06880064' WHERE club_id = 'club-ballons';
-UPDATE clubs SET id = '06880064' WHERE id = 'club-ballons';
+DELETE FROM clubs WHERE id = 'club-ballons';
 
 -- 06670183 (FCJ Bootzheim) is already correct — no action needed.
 
