@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportGroupsModal } from '@/components/ImportGroupsModal'
+import { ImportGamesModal } from '@/components/ImportGamesModal'
 import { PageHeader } from '@/components/PageHeader'
 import { PrimaryButton, SecondaryButton } from '@/components/Button'
 import { PhaseSwitchButton } from '@/components/icons'
@@ -80,6 +81,7 @@ export function GroupsPage() {
   const [editing, setEditing] = useState<Group | null>(null)
   const [creating, setCreating] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [importGamesFor, setImportGamesFor] = useState<Group | null>(null)
   const [form, setForm] = useState({ divisionId: '', number: 1 })
   const [showArchived, setShowArchived] = useState(false)
 
@@ -274,6 +276,15 @@ export function GroupsPage() {
                         Modifier
                       </button>
                     )}
+                    {!group.isArchived && isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setImportGamesFor(group)}
+                        className="text-sm font-medium text-accent-600 hover:text-accent-800"
+                      >
+                        Importer les matchs
+                      </button>
+                    )}
                     {!group.isArchived && (
                       <button
                         type="button"
@@ -312,6 +323,14 @@ export function GroupsPage() {
           onClose={() => setImportOpen(false)}
           divisionId={division.id}
           divisionName={division.displayName}
+        />
+      )}
+
+      {importGamesFor && (
+        <ImportGamesModal
+          onClose={() => setImportGamesFor(null)}
+          groupIds={[importGamesFor.id]}
+          context={`${division?.displayName ?? ''} · Groupe ${importGamesFor.number} — calendrier de cette poule`}
         />
       )}
 

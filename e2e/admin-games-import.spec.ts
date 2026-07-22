@@ -77,6 +77,31 @@ test.describe('General admin — Games FFTT import', () => {
     expect(importBody).toEqual({ groupIds: ['group-1'], pools: [] })
   })
 
+  test('imports one group’s calendar from /groupes (#245)', async ({ page }) => {
+    await page.route(PREVIEW, (route) => route.fulfill({ json: previewOneGroup }))
+    let importBody: { groupIds: string[] } | undefined
+    await page.route(IMPORT, (route) => {
+      importBody = route.request().postDataJSON()
+      return route.fulfill({ json: importResult })
+    })
+
+    await page.goto('/groupes')
+    await page.getByLabel('Division').selectOption({ label: 'GE1' })
+
+    const row = page.locator('tr').filter({ hasText: 'PPA Rixheim 1' })
+    await row.getByRole('button', { name: 'Importer les matchs' }).click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(page.getByRole('heading', { name: 'Importer les matchs FFTT' })).toBeVisible()
+    await expect(dialog.getByText(/GE1 · Groupe 1 — calendrier de cette poule/)).toBeVisible()
+    await expect(dialog.getByText(/7 journées · 12 nouveaux matchs · 16 déjà présents · 3 adversaires à créer/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Importer 12 matchs' }).click()
+    await expect(page.getByText('1 match importé, 1 journée créée.')).toBeVisible()
+
+    expect(importBody).toEqual({ groupIds: ['group-1'], pools: [] })
+  })
+
   test('imports the whole phase from /journees, flagging unimportable groups', async ({ page }) => {
     let previewedGroupIds: string[] = []
     await page.route(PREVIEW, (route) => {
@@ -127,5 +152,8 @@ test.describe('Player — Games FFTT import', () => {
     await expect(page.getByRole('button', { name: 'Importer les matchs' })).toHaveCount(0)
     await page.goto('/journees')
     await expect(page.getByRole('button', { name: 'Importer les matchs FFTT' })).toHaveCount(0)
+    await page.goto('/groupes')
+    await page.getByLabel('Division').selectOption({ label: 'GE1' })
+    await expect(page.getByRole('button', { name: 'Importer les matchs' })).toHaveCount(0)
   })
 })
