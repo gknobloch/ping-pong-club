@@ -20,7 +20,7 @@ export default function AdminClubsScreen() {
           return (
             <View style={styles.card}>
               <Text style={styles.name}>{club.displayName}</Text>
-              <Text style={styles.affiliation}>N° {club.id}</Text>
+              <Text style={styles.affiliation}>N° {club.affiliationNumber}</Text>
               {defaultAddr && (
                 <Text style={styles.address}>
                   {defaultAddr.street}, {defaultAddr.postalCode} {defaultAddr.city}

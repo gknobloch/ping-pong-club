@@ -72,12 +72,6 @@ function nextId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-// "99" + 6 digits: a shape no real FFTT affiliation number can have, so a
-// club with no known number gets a placeholder id that still reads like one.
-function syntheticClubId(): string {
-  return `99${String(Date.now()).slice(-6)}`
-}
-
 /** Response of GET /api/seasons/fftt-current. */
 export interface FfttCurrentSeason {
   id: string
@@ -295,11 +289,7 @@ interface DataContextValue extends Omit<DataState, 'users'> {
   updateTeam: (id: string, patch: Partial<Team>) => void
   archiveTeam: (id: string) => void
   deleteTeam: (id: string) => void
-  addClub: (data: Omit<Club, 'id'> & { id?: string }) => Club
-  /** Renames a club's id (its affiliation number), cascading the FK across
-   *  addresses/channels/logo/teams/users. Awaited: it must check for a
-   *  conflicting id before committing, unlike this context's other mutations. */
-  renameClub: (oldId: string, newId: string, displayName: string) => Promise<'ok' | 'id_taken' | 'error'>
+  addClub: (data: Omit<Club, 'id'>) => Club
   /** Returns null when the display name is not a valid season name (YYYY/YYYY+1). */
   addSeason: (data: Omit<Season, 'id'>) => Season | null
   addPhase: (data: Omit<Phase, 'id'>) => Phase
@@ -583,7 +573,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       const [season, data] = await Promise.all([
         fetchFfttCurrentSeasonFromBrowser(),
         ffttGraphqlFromBrowser<{ poolOpponents?: { edges?: Array<{ node?: FfttPoolOpponentNode }> } }>(
-          poolOpponentsQuery(club.id),
+          poolOpponentsQuery(club.affiliationNumber),
         ),
       ])
       if (!season || data === null) return null
@@ -927,36 +917,13 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
     if (persist) api(`/clubs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
   }, [persist])
 
-  const addClub = useCallback((data: Omit<Club, 'id'> & { id?: string }) => {
-    // The caller passes the FFTT affiliation number as `id` when known (the
-    // PRIMARY KEY then blocks a club from ever existing twice under two ids).
-    // A club with no known number yet falls back to a synthetic placeholder.
-    const id = data.id?.trim() || syntheticClubId()
+  const addClub = useCallback((data: Omit<Club, 'id'>) => {
+    const id = nextId('club')
     const club: Club = { ...data, id }
     setClubs((prev) => [...prev, club])
     if (persist) api('/clubs', { method: 'POST', body: JSON.stringify(club) })
     return club
   }, [persist])
-
-  const renameClub = useCallback(async (
-    oldId: string, newId: string, displayName: string,
-  ): Promise<'ok' | 'id_taken' | 'error'> => {
-    const trimmedId = newId.trim()
-    if (!trimmedId) return 'error'
-    if (trimmedId !== oldId && clubs.some((c) => c.id === trimmedId)) return 'id_taken'
-    if (persist) {
-      const r = await api(`/clubs/${oldId}`, { method: 'PATCH', body: JSON.stringify({ newId: trimmedId, displayName }) })
-      if (!r) return 'error'
-      if (r.status === 409) return 'id_taken'
-      if (!r.ok) return 'error'
-    }
-    setClubs((prev) => prev.map((c) => (c.id === oldId ? { ...c, id: trimmedId, displayName } : c)))
-    if (trimmedId !== oldId) {
-      setTeams((prev) => prev.map((t) => (t.clubId === oldId ? { ...t, clubId: trimmedId } : t)))
-      setPlayers((prev) => prev.map((p) => (p.clubId === oldId ? { ...p, clubId: trimmedId } : p)))
-    }
-    return 'ok'
-  }, [persist, clubs])
 
   const archiveClub = useCallback((id: string) => {
     setClubs((prev) => prev.map((c) => (c.id === id ? { ...c, isArchived: true } : c)))
@@ -971,15 +938,12 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
   }, [persist])
 
   const addClubAddress = useCallback((clubId: string, data: Omit<Address, 'id'>) => {
-    // A simple per-club counter reads better than nextId()'s timestamp+random
-    // (#247 follow-up); this id is never user-facing, only a React key and a
-    // PATCH/DELETE URL segment, so per-club uniqueness is all that matters.
-    let address: Address = { ...data, id: '' }
+    const id = nextId('addr')
+    const address: Address = { ...data, id }
     setClubs((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c
         const addresses = c.addresses ?? []
-        address = { ...data, id: `addr-${clubId}-${addresses.length + 1}` }
         const newAddresses = data.isDefault
           ? [...addresses.map((a) => ({ ...a, isDefault: false })), address]
           : addresses.length === 0
@@ -1037,16 +1001,13 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
 
   // --- Club communication channels (#135) ---
   const addClubChannel = useCallback((clubId: string, data: Omit<ClubChannel, 'id' | 'sortOrder'>) => {
-    // Simple per-club counter, same as club_addresses (#247 follow-up) —
-    // this id is never user-facing.
-    let id = ''
+    const id = nextId('chan')
     let sortOrder = 0
     setClubs((prev) =>
       prev.map((c) => {
         if (c.id !== clubId) return c
         const channels = c.channels ?? []
         sortOrder = channels.length
-        id = `chan-${clubId}-${channels.length + 1}`
         return { ...c, channels: [...channels, { ...data, id, sortOrder }] }
       })
     )
@@ -1461,7 +1422,6 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       archiveTeam,
       deleteTeam,
       addClub,
-      renameClub,
       addSeason,
       addPhase,
       addDivision,
@@ -1493,7 +1453,7 @@ export function DataProvider({ children, initialData }: DataProviderProps) {
       setClubLogo, removeClubLogo, addClubChannel, updateClubChannel, deleteClubChannel, reorderClubChannels,
       updateSeason, archiveSeason, deleteSeason, checkFfttSeason, importFfttSeason,
       fetchOrganizations, fetchDivisionsPreview, importFfttDivisions, fetchTeamsPreview, importFfttTeams, fetchGamesPreview, importFfttGames, fetchGroupsPreview, importFfttGroups, updatePhase, archivePhase, deletePhase, updateGroup, archiveGroup, deleteGroup, updateTeam, archiveTeam, deleteTeam,
-      addClub, renameClub, addSeason, addPhase, addDivision, addGroup, addTeam,
+      addClub, addSeason, addPhase, addDivision, addGroup, addTeam,
       moveDivisionUp, moveDivisionDown,
       updatePlayer, addPlayer, setAvatar, removeAvatar,
       updateMatchDay, addMatchDay, updateGame, addGame,

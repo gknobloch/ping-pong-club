@@ -114,7 +114,7 @@ app.get('/data', async (c) => {
       ...(r.parent_id ? { parentId: r.parent_id } : {}),
     })),
     clubs: clubsR.results.map(r => ({
-      id: r.id, displayName: r.display_name,
+      id: r.id, affiliationNumber: r.affiliation_number, displayName: r.display_name,
       isArchived: bool(r.is_archived),
       addresses: addrByClub.get(r.id as string) ?? [],
       channels: channelsByClub.get(r.id as string) ?? [],
@@ -586,7 +586,7 @@ function parseSeasonPayload(raw: unknown): { id: string; displayName: string } |
 // Shared context for the teams preview and import: the club plus the
 // validated client-fetched FFTT payload (current season + engaged teams).
 async function teamsImportContext(db: Env['Bindings']['DB'], clubId: string, seasonRaw: unknown, teamsRaw: unknown) {
-  const club = await db.prepare('SELECT id, display_name FROM clubs WHERE id = ?')
+  const club = await db.prepare('SELECT id, affiliation_number, display_name FROM clubs WHERE id = ?')
     .bind(clubId).first()
   if (!club) return { error: 'club_not_found' as const }
   const season = parseSeasonPayload(seasonRaw)
@@ -1020,20 +1020,17 @@ async function gamesImportContext(db: Env['Bindings']['DB'], groupIds: string[],
 function makeTeamResolver(
   clubRows: Array<Record<string, unknown>>, teamRows: Array<Record<string, unknown>>,
 ) {
-  // Club id IS the FFTT affiliation number (when known) since #247/#252, so
-  // matching an FFTT side's club identifier against a local club is just a
-  // membership check now — no separate lookup column needed.
-  const clubIds = new Set(clubRows.map((c) => c.id as string))
+  const clubByAffiliation = new Map(clubRows.map((c) => [c.affiliation_number as string, c.id as string]))
   const teamByIdPhase = new Map(teamRows.map((t) => [`${t.id}|${t.phase_id}`, t.id as string]))
   const teamByClubNumberPhase = new Map(teamRows.map((t) => [`${t.club_id}|${t.number}|${t.phase_id}`, t.id as string]))
   const teamIds = new Set(teamRows.map((t) => t.id as string))
   return {
-    clubIds,
+    clubByAffiliation,
     teamIds,
     resolve(side: FfttMatchTeam, phaseId: string): string | null {
       const byId = teamByIdPhase.get(`${side.teamId}|${phaseId}`)
       if (byId) return byId
-      const clubId = side.clubIdentifier && clubIds.has(side.clubIdentifier) ? side.clubIdentifier : undefined
+      const clubId = side.clubIdentifier ? clubByAffiliation.get(side.clubIdentifier) : undefined
       if (clubId && side.teamNumber !== null) {
         return teamByClubNumberPhase.get(`${clubId}|${side.teamNumber}|${phaseId}`) ?? null
       }
@@ -1062,7 +1059,7 @@ app.post('/fftt/games-preview', async (c) => {
   const ctxs = await gamesImportContext(db, groupIds, b.pools)
 
   const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
-    db.prepare('SELECT id FROM clubs').all(),
+    db.prepare('SELECT id, affiliation_number FROM clubs').all(),
     db.prepare('SELECT id, club_id, phase_id, number FROM teams').all(),
     db.prepare('SELECT id, group_id, number FROM match_days').all(),
     db.prepare('SELECT id FROM games').all(),
@@ -1100,7 +1097,7 @@ app.post('/fftt/games-preview', async (c) => {
         if (resolver.resolve(side, ctx.phaseId!)) continue
         groupNewTeams.add(`${side.clubIdentifier}|${side.teamName}`)
         newTeamKeys.add(`${side.clubIdentifier}|${side.teamName}|${ctx.phaseId}`)
-        if (side.clubIdentifier && !resolver.clubIds.has(side.clubIdentifier)) {
+        if (side.clubIdentifier && !resolver.clubByAffiliation.has(side.clubIdentifier)) {
           newClubIdentifiers.add(side.clubIdentifier)
         }
       }
@@ -1135,7 +1132,7 @@ app.post('/games/import', async (c) => {
   const ctxs = await gamesImportContext(db, groupIds, b.pools)
 
   const [clubRows, teamRows, mdRows, gameRows] = await Promise.all([
-    db.prepare('SELECT id FROM clubs').all(),
+    db.prepare('SELECT id, affiliation_number FROM clubs').all(),
     db.prepare('SELECT id, club_id, phase_id, number FROM teams').all(),
     db.prepare('SELECT id, group_id, number, date FROM match_days').all(),
     db.prepare('SELECT id, match_day_id, home_team_id, away_team_id FROM games').all(),
@@ -1164,17 +1161,16 @@ app.post('/games/import', async (c) => {
   const skippedGroups: Array<{ groupId: string; reason: GamesGroupError }> = []
   let existingGames = 0, skippedMatches = 0
 
-  // Auto-created club ids ARE the affiliation number (#247 follow-up: id =
-  // affiliation_number project-wide, so a club can never end up duplicated
-  // under two ids), which doubles as the natural dedup key across groups in
-  // one import.
+  // Auto-created club ids are FFTT-aligned on the affiliation number, which
+  // doubles as the natural dedup key across groups in one import.
   const clubIdFor = (side: FfttMatchTeam): string | null => {
     if (!side.clubIdentifier) return null
-    if (resolver.clubIds.has(side.clubIdentifier)) return side.clubIdentifier
-    const id = side.clubIdentifier
+    const existing = resolver.clubByAffiliation.get(side.clubIdentifier)
+    if (existing) return existing
+    const id = `club-fftt-${side.clubIdentifier}`
     const displayName = side.clubName || side.teamName.replace(/\s*\(?\d+\)?\s*$/, '')
-    createdClubs.push({ id, displayName, isArchived: false, addresses: [], channels: [] })
-    resolver.clubIds.add(id)
+    createdClubs.push({ id, affiliationNumber: side.clubIdentifier, displayName, isArchived: false, addresses: [], channels: [] })
+    resolver.clubByAffiliation.set(side.clubIdentifier, id)
     return id
   }
 
@@ -1251,8 +1247,8 @@ app.post('/games/import', async (c) => {
 
   const stmts = [
     ...createdClubs.map((cl) =>
-      db.prepare('INSERT INTO clubs (id, display_name, is_archived) VALUES (?, ?, 0)')
-        .bind(cl.id, cl.displayName)),
+      db.prepare('INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES (?, ?, ?, 0)')
+        .bind(cl.id, cl.affiliationNumber, cl.displayName)),
     ...createdTeams.map((t) =>
       db.prepare(
         `INSERT INTO teams (id, club_id, phase_id, number, division_id, group_id, game_location_id, default_day, default_time, captain_id, player_ids, is_archived)
@@ -1489,8 +1485,8 @@ app.post('/divisions/:id/move', async (c) => {
 app.post('/clubs', async (c) => {
   const d = await c.req.json()
   await c.env.DB.prepare(
-    'INSERT INTO clubs (id, display_name, is_archived) VALUES (?, ?, ?)'
-  ).bind(d.id, d.displayName, d.isArchived ? 1 : 0).run()
+    'INSERT INTO clubs (id, affiliation_number, display_name, is_archived) VALUES (?, ?, ?, ?)'
+  ).bind(d.id, d.affiliationNumber, d.displayName, d.isArchived ? 1 : 0).run()
   // Insert addresses
   if (d.addresses?.length) {
     const stmts = d.addresses.map((a: Record<string, unknown>) =>
@@ -1512,34 +1508,15 @@ app.post('/clubs', async (c) => {
   return c.json({ ok: true })
 })
 
-// A club's id IS its affiliation number (#252) — editing the "N° affiliation"
-// field is therefore a live primary-key rename, not a plain field patch. When
-// `newId` is present and differs from the URL id, every dependent table is
-// repointed first (so the join key they hold stays valid throughout), then
-// clubs.id itself is renamed, before any other field patches are applied.
 app.patch('/clubs/:id', async (c) => {
-  const db = c.env.DB
   const id = c.req.param('id')
   const p = await c.req.json()
-  let currentId = id
-  if (typeof p.newId === 'string' && p.newId !== id) {
-    const conflict = await db.prepare('SELECT 1 FROM clubs WHERE id = ?').bind(p.newId).first()
-    if (conflict) return c.json({ error: 'id_taken' }, 409)
-    await db.batch([
-      db.prepare('UPDATE club_addresses SET club_id = ? WHERE club_id = ?').bind(p.newId, id),
-      db.prepare('UPDATE club_channels SET club_id = ? WHERE club_id = ?').bind(p.newId, id),
-      db.prepare('UPDATE club_logos SET club_id = ? WHERE club_id = ?').bind(p.newId, id),
-      db.prepare('UPDATE teams SET club_id = ? WHERE club_id = ?').bind(p.newId, id),
-      db.prepare('UPDATE users SET club_id = ? WHERE club_id = ?').bind(p.newId, id),
-      db.prepare('UPDATE clubs SET id = ? WHERE id = ?').bind(p.newId, id),
-    ])
-    currentId = p.newId
-  }
   const s: string[] = [], v: unknown[] = []
+  if ('affiliationNumber' in p) { s.push('affiliation_number = ?'); v.push(p.affiliationNumber) }
   if ('displayName' in p) { s.push('display_name = ?'); v.push(p.displayName) }
   if ('isArchived' in p) { s.push('is_archived = ?'); v.push(p.isArchived ? 1 : 0) }
-  if (s.length) { v.push(currentId); await db.prepare(`UPDATE clubs SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
-  return c.json({ ok: true, id: currentId })
+  if (s.length) { v.push(id); await c.env.DB.prepare(`UPDATE clubs SET ${s.join(', ')} WHERE id = ?`).bind(...v).run() }
+  return c.json({ ok: true })
 })
 
 // Only ever called on a club the admin has confirmed has no teams/players

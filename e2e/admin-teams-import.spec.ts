@@ -41,11 +41,11 @@ async function mockFfttGraphql(page: Page) {
   })
 }
 
-// Matches the mock data: 06680011 (PPA Rixheim) already has teams 1..8 in
+// Matches the mock data: club-1 (PPA Rixheim) already has teams 1..8 in
 // phase-1 (2025/2026 Phase 1, active); divisions div-1..div-7 exist locally;
-// 06680011's addresses are addr-1 (Gymnase principal, default) and addr-2 (Salle annexe).
+// club-1 addresses are addr-1 (Gymnase principal, default) and addr-2 (Salle annexe).
 const preview = {
-  club: { id: '06680011', displayName: 'PPA Rixheim' },
+  club: { id: 'club-1', displayName: 'PPA Rixheim' },
   season: { id: '26', displayName: '2025/2026', exists: true },
   teams: [
     {
@@ -77,11 +77,11 @@ const importResult = {
   ],
   createdTeams: [
     {
-      id: '9110', clubId: '06680011', phaseId: 'phase-1', number: 10, divisionId: 'div-7', groupId: '1500001',
+      id: '9110', clubId: 'club-1', phaseId: 'phase-1', number: 10, divisionId: 'div-7', groupId: '1500001',
       gameLocationId: 'addr-2', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: '', playerIds: [], isArchived: false,
     },
     {
-      id: '9111', clubId: '06680011', phaseId: 'phase-1', number: 11, divisionId: '234700', groupId: '1500002',
+      id: '9111', clubId: 'club-1', phaseId: 'phase-1', number: 11, divisionId: '234700', groupId: '1500002',
       gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00', captainId: '', playerIds: [], isArchived: false,
     },
   ],
@@ -108,7 +108,7 @@ test.describe('General admin — Teams FFTT import', () => {
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
     await expect(page.getByRole('heading', { name: 'Importer les équipes FFTT' })).toBeVisible()
 
-    await page.getByLabel('Club', { exact: true }).selectOption('06680011')
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
 
     // Simplified naming ("Club Nom"), not the raw FFTT label. Scoped to the
@@ -141,7 +141,7 @@ test.describe('General admin — Teams FFTT import', () => {
 
     await page.goto('/equipes')
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
-    await page.getByLabel('Club', { exact: true }).selectOption('06680011')
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
 
     // Bulk defaults, applied to every row via "Appliquer à tous".
@@ -161,7 +161,7 @@ test.describe('General admin — Teams FFTT import', () => {
     // The body also carries the browser-fetched FFTT payload (season + teams)
     // that the server validates before persisting anything.
     expect(importBody).toMatchObject({
-      clubId: '06680011',
+      clubId: 'club-1',
       teams: [
         { id: '9110', gameLocationId: 'addr-2', defaultDay: 'Jeudi', defaultTime: '20h00' },
         { id: '9111', gameLocationId: 'addr-1', defaultDay: 'Jeudi', defaultTime: '20h00' },
@@ -185,7 +185,7 @@ test.describe('General admin — Teams FFTT import', () => {
 
     await page.goto('/equipes')
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
-    await page.getByLabel('Club', { exact: true }).selectOption('06680011')
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
 
     await page.getByLabel('Importer PPA Rixheim 10').uncheck()
@@ -202,7 +202,7 @@ test.describe('General admin — Teams FFTT import', () => {
 
     await page.goto('/equipes')
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
-    await page.getByLabel('Club', { exact: true }).selectOption('06680011')
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
     await expect(page.getByText(/Impossible de contacter l’API FFTT/)).toBeVisible()
   })
@@ -220,7 +220,7 @@ test.describe('General admin — Teams FFTT import', () => {
 
     await page.goto('/equipes')
     await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
-    await page.getByLabel('Club', { exact: true }).selectOption('06680011')
+    await page.getByLabel('Club', { exact: true }).selectOption('club-1')
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
 
     await expect(page.getByText(/La saison 2026\/2027 n’existe pas encore/)).toBeVisible()
@@ -239,7 +239,7 @@ test.describe('Club admin — Teams FFTT import', () => {
 
     const clubSelect = page.getByLabel('Club', { exact: true })
     await expect(clubSelect).toBeDisabled()
-    await expect(clubSelect).toHaveValue('06680011')
+    await expect(clubSelect).toHaveValue('club-1')
 
     await page.getByRole('button', { name: 'Rechercher les équipes' }).click()
     await expect(page.getByText('PPA Rixheim 10', { exact: true })).toBeVisible()

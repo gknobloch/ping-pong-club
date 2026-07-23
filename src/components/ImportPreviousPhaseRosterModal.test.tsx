@@ -6,6 +6,7 @@ import { ImportPreviousPhaseRosterModal } from './ImportPreviousPhaseRosterModal
 
 const club: Club = {
   id: 'club-1',
+  affiliationNumber: '06680011',
   displayName: 'PPA Rixheim',
   isArchived: false,
   addresses: [],

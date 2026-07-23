@@ -213,7 +213,7 @@ export function ImportTeamsModal({ onClose, lockedClubId }: { onClose: () => voi
               >
                 {!lockedClubId && <option value="">Choisir un club…</option>}
                 {selectableClubs.map((c) => (
-                  <option key={c.id} value={c.id}>{c.displayName} ({c.id})</option>
+                  <option key={c.id} value={c.id}>{c.displayName} ({c.affiliationNumber})</option>
                 ))}
               </select>
             </div>
