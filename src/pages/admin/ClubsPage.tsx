@@ -13,19 +13,19 @@ export function ClubsPage() {
   const [creating, setCreating] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  const [form, setForm] = useState({ id: '', displayName: '' })
+  const [form, setForm] = useState({ affiliationNumber: '', displayName: '' })
 
   const activeClubs = clubs.filter((c) => !c.isArchived)
   const archivedClubs = clubs.filter((c) => c.isArchived)
   const visibleClubs = showArchived ? clubs : activeClubs
 
   const openEdit = (club: Club) => {
-    navigate(`/clubs/${club.id}`)
+    navigate(`/clubs/${club.affiliationNumber}`)
   }
 
   const openCreate = () => {
     setCreating(true)
-    setForm({ id: '', displayName: '' })
+    setForm({ affiliationNumber: '', displayName: '' })
   }
 
   const handleSave = () => {
@@ -105,7 +105,7 @@ export function ClubsPage() {
             {visibleClubs.map((club) => (
               <tr key={club.id} className={`hover:bg-slate-50/50 ${club.isArchived ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 text-sm text-slate-900 font-mono">
-                  {club.id}
+                  {club.affiliationNumber}
                 </td>
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">
                   {club.displayName}
@@ -174,17 +174,16 @@ export function ClubsPage() {
             <div className="mt-4 space-y-4">
               <div>
                 <label
-                  htmlFor="create-club-id"
+                  htmlFor="create-affiliationNumber"
                   className="block text-sm font-medium text-slate-700"
                 >
                   N° affiliation
                 </label>
                 <input
-                  id="create-club-id"
+                  id="create-affiliationNumber"
                   type="text"
-                  value={form.id}
-                  onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
-                  placeholder="Laisser vide si inconnu"
+                  value={form.affiliationNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, affiliationNumber: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
