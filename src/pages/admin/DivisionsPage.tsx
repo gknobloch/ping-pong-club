@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { Division } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Division, Organization } from '@/types'
 import { useAppData } from '@/contexts/DataContext'
 import { ModalShell } from '@/components/ModalShell'
 import { ImportDivisionsModal } from '@/components/ImportDivisionsModal'
@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { PrimaryButton, SecondaryButton } from '@/components/Button'
 import { PhaseSwitchButton } from '@/components/icons'
 import { canMoveDivisionDown, canMoveDivisionUp } from '@/lib/ffttDivisions'
+import { ffttPhaseIdForName } from '@/lib/ffttPhases'
+import { groupOrganizationsByType } from '@/lib/ffttOrganizations'
 
 export function DivisionsPage() {
   const {
@@ -18,6 +20,8 @@ export function DivisionsPage() {
     moveDivisionDown,
     archiveDivision,
     deleteDivision,
+    fetchOrganizations,
+    fetchDivisionsPreview,
   } = useAppData()
 
   // Phase switcher — defaults to the active phase, chronological order (#235).
@@ -30,6 +34,40 @@ export function DivisionsPage() {
   const filterPhase = orderedPhases.find((p) => p.id === filterPhaseId) ?? activePhase ?? orderedPhases[orderedPhases.length - 1]
   const phaseIndex = orderedPhases.findIndex((p) => p.id === filterPhase?.id)
 
+  // Organization — optional filter narrowing the division list to one FFTT
+  // championship, same mechanism as /groupes (#237). Best-effort: it never
+  // blocks browsing when the FFTT lookup is slow or fails, it just stops
+  // narrowing.
+  const [orgs, setOrgs] = useState<Organization[] | null>(null)
+  const [organizationId, setOrganizationId] = useState('')
+  const [orgDivisionIds, setOrgDivisionIds] = useState<Set<string> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchOrganizations().then((list) => { if (!cancelled && list) setOrgs(list) })
+    return () => { cancelled = true }
+  }, [fetchOrganizations])
+
+  useEffect(() => {
+    const ffttPhaseId = filterPhase ? ffttPhaseIdForName(filterPhase.name) : null
+    if (!organizationId || !filterPhase || !ffttPhaseId) {
+      setOrgDivisionIds(null)
+      return
+    }
+    let cancelled = false
+    fetchDivisionsPreview(organizationId, filterPhase.seasonId, Number(ffttPhaseId)).then((result) => {
+      if (cancelled) return
+      setOrgDivisionIds(
+        result && result !== 'no_contest'
+          ? new Set(result.divisions.filter((d) => d.exists).map((d) => d.id))
+          : new Set(),
+      )
+    })
+    return () => { cancelled = true }
+  }, [organizationId, filterPhase, fetchDivisionsPreview])
+
+  const orgGroups = useMemo(() => groupOrganizationsByType(orgs), [orgs])
+
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<Division | null>(null)
   const [creating, setCreating] = useState(false)
@@ -39,9 +77,10 @@ export function DivisionsPage() {
   const activeDivisions = useMemo(() => allDivisions.filter((d) => !d.isArchived), [allDivisions])
   const archivedDivisions = useMemo(() => allDivisions.filter((d) => d.isArchived), [allDivisions])
   const visibleDivisions = showArchived ? allDivisions : activeDivisions
-  const divisions = filterPhase
+  const divisions = (filterPhase
     ? visibleDivisions.filter((d) => d.phaseId === filterPhase.id)
     : visibleDivisions
+  ).filter((d) => !orgDivisionIds || orgDivisionIds.has(d.id))
 
   const divisionsByPhase = divisions
     .slice()
@@ -159,6 +198,26 @@ export function DivisionsPage() {
           />
         </div>
       )}
+      <div>
+        <label htmlFor="divisions-org" className="block text-sm font-medium text-slate-700">
+          Organisation <span className="font-normal text-slate-400">(filtre optionnel)</span>
+        </label>
+        <select
+          id="divisions-org"
+          value={organizationId}
+          onChange={(e) => setOrganizationId(e.target.value)}
+          className="mt-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20"
+        >
+          <option value="">Toutes</option>
+          {orgGroups.map((g) => (
+            <optgroup key={g.type} label={g.label}>
+              {g.organizations.map((o) => (
+                <option key={o.id} value={o.id}>{o.name} ({o.identifier})</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
       {archivedDivisions.length > 0 && (
         <label className="flex items-center gap-2">
           <input

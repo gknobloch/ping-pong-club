@@ -107,3 +107,37 @@ test.describe('General admin — Divisions FFTT import', () => {
     await expect(page.getByText(/La phase « Phase 2 » n’existe pas encore/)).toBeVisible()
   })
 })
+
+test.describe('General admin — Divisions organization filter', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, 'admin')
+  })
+
+  // Matches the mock data: div-1..div-7 (GE1..GE7) all exist in phase-1.
+  const localPreview = {
+    contest: { id: '18368', name: 'FED_Championnat de France par Equipes Masculin' },
+    phaseExists: true,
+    divisions: [
+      { id: 'div-1', identifier: 'GE1P1', name: 'GE1', rank: 1, playersPerGame: 4, exists: true },
+      { id: 'div-2', identifier: 'GE2P1', name: 'GE2', rank: 2, playersPerGame: 4, exists: true },
+      { id: 'div-3', identifier: 'GE3P1', name: 'GE3', rank: 3, playersPerGame: 4, exists: true },
+    ],
+  }
+
+  test('narrows the division list to the selected organization', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: localPreview }))
+
+    await page.goto('/divisions')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toBeVisible()
+
+    await page.getByLabel('Organisation', { exact: false }).selectOption('14')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE3', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toHaveCount(0)
+
+    await page.getByLabel('Organisation', { exact: false }).selectOption('')
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toBeVisible()
+  })
+})
