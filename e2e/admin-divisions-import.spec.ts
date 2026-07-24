@@ -67,6 +67,11 @@ test.describe('General admin — Divisions FFTT import', () => {
     await expect(page.getByText('2 divisions importées.')).toBeVisible()
 
     await page.getByRole('button', { name: 'Fermer' }).click()
+    // A successful import sets the page filter to the org just imported
+    // (#259) — this mock's preview response is static and doesn't reflect
+    // the newly-created divisions as existing, so reset to "Toutes" to see
+    // them (a real FFTT response would already show them as existing here).
+    await page.getByLabel('Organisation', { exact: false }).selectOption('')
     await expect(page.getByRole('cell', { name: 'GE Elite P1' })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'GE 7 Phase 1' })).toBeVisible()
   })
@@ -105,5 +110,70 @@ test.describe('General admin — Divisions FFTT import', () => {
     await page.getByLabel('Phase', { exact: true }).selectOption('2')
     await page.getByRole('button', { name: 'Rechercher les divisions' }).click()
     await expect(page.getByText(/La phase « Phase 2 » n’existe pas encore/)).toBeVisible()
+  })
+})
+
+test.describe('General admin — Divisions organization filter', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, 'admin')
+  })
+
+  // Matches the mock data: div-1..div-7 (GE1..GE7) all exist in phase-1.
+  const localPreview = {
+    contest: { id: '18368', name: 'FED_Championnat de France par Equipes Masculin' },
+    phaseExists: true,
+    divisions: [
+      { id: 'div-1', identifier: 'GE1P1', name: 'GE1', rank: 1, playersPerGame: 4, exists: true },
+      { id: 'div-2', identifier: 'GE2P1', name: 'GE2', rank: 2, playersPerGame: 4, exists: true },
+      { id: 'div-3', identifier: 'GE3P1', name: 'GE3', rank: 3, playersPerGame: 4, exists: true },
+    ],
+  }
+
+  test('narrows the division list to the selected organization', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: localPreview }))
+
+    await page.goto('/divisions')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toBeVisible()
+
+    await page.getByLabel('Organisation', { exact: false }).selectOption('14')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE3', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toHaveCount(0)
+
+    await page.getByLabel('Organisation', { exact: false }).selectOption('')
+    await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toBeVisible()
+  })
+
+  test('preselects the import dialog’s organization from the page filter (#259)', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: localPreview }))
+
+    await page.goto('/divisions')
+    await page.getByLabel('Organisation', { exact: false }).selectOption('14')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
+    await expect(page.getByLabel('Organisation', { exact: true })).toHaveValue('14')
+  })
+
+  test('sets the page filter to the imported organization after a successful import (#259)', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: preview }))
+    await page.route(IMPORT, (route) => route.fulfill({ json: importResult }))
+
+    await page.goto('/divisions')
+    // No page-level filter selected yet.
+    await expect(page.getByLabel('Organisation', { exact: false })).toHaveValue('')
+
+    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
+    await page.getByLabel('Organisation', { exact: true }).selectOption('14')
+    await page.getByRole('button', { name: 'Rechercher les divisions' }).click()
+    await page.getByRole('button', { name: 'Importer 2 divisions' }).click()
+    await expect(page.getByText('2 divisions importées.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Fermer' }).click()
+    await expect(page.getByLabel('Organisation', { exact: false })).toHaveValue('14')
   })
 })
