@@ -67,6 +67,11 @@ test.describe('General admin — Divisions FFTT import', () => {
     await expect(page.getByText('2 divisions importées.')).toBeVisible()
 
     await page.getByRole('button', { name: 'Fermer' }).click()
+    // A successful import sets the page filter to the org just imported
+    // (#259) — this mock's preview response is static and doesn't reflect
+    // the newly-created divisions as existing, so reset to "Toutes" to see
+    // them (a real FFTT response would already show them as existing here).
+    await page.getByLabel('Organisation', { exact: false }).selectOption('')
     await expect(page.getByRole('cell', { name: 'GE Elite P1' })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'GE 7 Phase 1' })).toBeVisible()
   })
@@ -139,5 +144,36 @@ test.describe('General admin — Divisions organization filter', () => {
 
     await page.getByLabel('Organisation', { exact: false }).selectOption('')
     await expect(page.getByRole('cell', { name: 'GE7', exact: true })).toBeVisible()
+  })
+
+  test('preselects the import dialog’s organization from the page filter (#259)', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: localPreview }))
+
+    await page.goto('/divisions')
+    await page.getByLabel('Organisation', { exact: false }).selectOption('14')
+    await expect(page.getByRole('cell', { name: 'GE1', exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
+    await expect(page.getByLabel('Organisation', { exact: true })).toHaveValue('14')
+  })
+
+  test('sets the page filter to the imported organization after a successful import (#259)', async ({ page }) => {
+    await page.route(ORGS, (route) => route.fulfill({ json: { organizations } }))
+    await page.route(PREVIEW, (route) => route.fulfill({ json: preview }))
+    await page.route(IMPORT, (route) => route.fulfill({ json: importResult }))
+
+    await page.goto('/divisions')
+    // No page-level filter selected yet.
+    await expect(page.getByLabel('Organisation', { exact: false })).toHaveValue('')
+
+    await page.getByRole('button', { name: 'Importer depuis la FFTT' }).click()
+    await page.getByLabel('Organisation', { exact: true }).selectOption('14')
+    await page.getByRole('button', { name: 'Rechercher les divisions' }).click()
+    await page.getByRole('button', { name: 'Importer 2 divisions' }).click()
+    await expect(page.getByText('2 divisions importées.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Fermer' }).click()
+    await expect(page.getByLabel('Organisation', { exact: false })).toHaveValue('14')
   })
 })

@@ -181,7 +181,13 @@ export function DivisionsPage() {
           </>
         }
       />
-      {importOpen && <ImportDivisionsModal onClose={() => setImportOpen(false)} />}
+      {importOpen && (
+        <ImportDivisionsModal
+          onClose={() => setImportOpen(false)}
+          defaultOrganizationId={organizationId}
+          onImported={setOrganizationId}
+        />
+      )}
       {/* Phase switcher (#235) */}
       {filterPhase && (
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm">

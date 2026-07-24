@@ -8,7 +8,16 @@ import { ModalShell } from '@/components/ModalShell'
 type PreviewState = 'idle' | 'loading' | 'done' | 'no_contest' | 'error'
 
 /** FFTT divisions import dialog for the Divisions admin page (#219). */
-export function ImportDivisionsModal({ onClose }: { onClose: () => void }) {
+export function ImportDivisionsModal({
+  onClose, defaultOrganizationId = '', onImported,
+}: {
+  onClose: () => void
+  /** Preselects the organization from the page's own filter (#259), if any. */
+  defaultOrganizationId?: string
+  /** Called after a successful import with the organization used, so the
+   *  page's filter can be set to match what was just imported (#259). */
+  onImported?: (organizationId: string) => void
+}) {
   const { seasons, fetchOrganizations, fetchDivisionsPreview, importFfttDivisions } = useAppData()
 
   const [orgs, setOrgs] = useState<Organization[] | null>(null)
@@ -16,7 +25,7 @@ export function ImportDivisionsModal({ onClose }: { onClose: () => void }) {
   const [refreshing, setRefreshing] = useState(false)
 
   const selectableSeasons = seasons.filter((s) => s.status !== 'archived')
-  const [organizationId, setOrganizationId] = useState('')
+  const [organizationId, setOrganizationId] = useState(defaultOrganizationId)
   const [seasonId, setSeasonId] = useState(
     seasons.find((s) => s.status === 'active')?.id ?? selectableSeasons[0]?.id ?? '',
   )
@@ -80,6 +89,7 @@ export function ImportDivisionsModal({ onClose }: { onClose: () => void }) {
       setImportedCount(result.created.length)
       setPreview(null)
       setPreviewState('idle')
+      onImported?.(organizationId)
     } else {
       setImportError(true)
     }
